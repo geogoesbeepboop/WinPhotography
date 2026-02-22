@@ -1,0 +1,44 @@
+import { BookingStatus, EventType } from '../enums';
+import { User } from './user.types';
+
+export interface Booking {
+  id: string;
+  clientId: string;
+  client?: User;
+  inquiryId: string | null;
+  eventType: EventType;
+  eventDate: string;
+  eventEndDate: string | null;
+  eventLocation: string;
+  packageName: string;
+  packagePrice: number;
+  depositAmount: number;
+  status: BookingStatus;
+  contractUrl: string | null;
+  contractSignedAt: string | null;
+  adminNotes: string | null;
+  clientNotes: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateBookingDto {
+  clientId: string;
+  inquiryId?: string;
+  eventType: EventType;
+  eventDate: string;
+  eventEndDate?: string;
+  eventLocation: string;
+  packageName: string;
+  packagePrice: number;
+  depositAmount: number;
+}
+
+export interface UpdateBookingDto {
+  eventDate?: string;
+  eventEndDate?: string;
+  eventLocation?: string;
+  status?: BookingStatus;
+  adminNotes?: string;
+  clientNotes?: string;
+}

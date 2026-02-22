@@ -1,0 +1,58 @@
+import {
+  IsString,
+  IsEmail,
+  IsEnum,
+  IsOptional,
+  MinLength,
+  MaxLength,
+  IsInt,
+  Min,
+} from 'class-validator';
+import { EventType } from '@winphotography/shared';
+
+export class CreateInquiryDto {
+  @IsString()
+  @MinLength(2)
+  @MaxLength(255)
+  contactName: string;
+
+  @IsEmail()
+  contactEmail: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(50)
+  contactPhone?: string;
+
+  @IsEnum(EventType)
+  eventType: EventType;
+
+  @IsOptional()
+  @IsString()
+  eventDate?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  eventLocation?: string;
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  guestCount?: number;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  packageInterest?: string;
+
+  @IsString()
+  @MinLength(10)
+  @MaxLength(5000)
+  message: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(255)
+  howFoundUs?: string;
+}

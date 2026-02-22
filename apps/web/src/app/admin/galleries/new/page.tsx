@@ -1,0 +1,108 @@
+"use client";
+
+import { useState, Suspense } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useSearchParams } from "next/navigation";
+import { motion } from "motion/react";
+import { ArrowLeft, Save } from "lucide-react";
+import { mockBookings } from "@/lib/mock-data/admin-data";
+
+function AdminGalleryNewContent() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const preselectedBooking = searchParams.get("booking") || "";
+
+  const [form, setForm] = useState({
+    bookingId: preselectedBooking,
+    title: "",
+    notes: "",
+  });
+
+  const availableBookings = mockBookings.filter((b) => b.status === "completed" || b.status === "confirmed");
+
+  const selectedBooking = availableBookings.find((b) => b.id === form.bookingId);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    // Mock save — navigate to gallery detail
+    router.push("/admin/galleries");
+  };
+
+  return (
+    <div>
+      <Link href="/admin/galleries" className="inline-flex items-center gap-2 text-brand-main/40 hover:text-brand-main transition-colors mb-6" style={{ fontSize: "0.8rem" }}>
+        <ArrowLeft className="w-4 h-4" /> Back to Galleries
+      </Link>
+
+      <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }}>
+        <h1 className="font-serif text-brand-main mb-1" style={{ fontSize: "1.8rem" }}>Create Gallery</h1>
+        <p className="text-brand-main/50 mb-8" style={{ fontSize: "0.9rem" }}>Set up a new photo gallery for a client booking.</p>
+
+        <form onSubmit={handleSubmit} className="max-w-2xl">
+          <div className="bg-white border border-brand-main/8 p-6 space-y-5">
+            <div>
+              <label className="block text-brand-main mb-1.5 tracking-[0.05em]" style={{ fontSize: "0.75rem" }}>Linked Booking *</label>
+              <select
+                value={form.bookingId}
+                onChange={(e) => {
+                  const bk = availableBookings.find((b) => b.id === e.target.value);
+                  setForm({ ...form, bookingId: e.target.value, title: bk ? `${bk.type} - ${bk.clientName}` : "" });
+                }}
+                className="w-full px-4 py-3 bg-brand-secondary border border-brand-main/10 text-brand-main focus:outline-none focus:border-brand-tertiary transition-colors"
+                style={{ fontSize: "0.9rem" }}
+                required
+              >
+                <option value="">Select a booking...</option>
+                {availableBookings.map((bk) => (
+                  <option key={bk.id} value={bk.id}>{bk.clientName} — {bk.type} ({bk.date})</option>
+                ))}
+              </select>
+            </div>
+
+            {selectedBooking && (
+              <div className="p-4 bg-brand-secondary/50 border border-brand-main/6">
+                <p className="text-brand-main" style={{ fontSize: "0.85rem" }}>{selectedBooking.clientName}</p>
+                <p className="text-brand-main/40" style={{ fontSize: "0.75rem" }}>{selectedBooking.type} · {selectedBooking.date} · {selectedBooking.location}</p>
+              </div>
+            )}
+
+            <div>
+              <label className="block text-brand-main mb-1.5 tracking-[0.05em]" style={{ fontSize: "0.75rem" }}>Gallery Title *</label>
+              <input type="text" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })}
+                placeholder="e.g. Wedding Day, Engagement Session"
+                className="w-full px-4 py-3 bg-brand-secondary border border-brand-main/10 text-brand-main focus:outline-none focus:border-brand-tertiary transition-colors" style={{ fontSize: "0.9rem" }}
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-brand-main mb-1.5 tracking-[0.05em]" style={{ fontSize: "0.75rem" }}>Notes (optional)</label>
+              <textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })}
+                placeholder="Any notes about this gallery..."
+                rows={3}
+                className="w-full px-4 py-3 bg-brand-secondary border border-brand-main/10 text-brand-main focus:outline-none focus:border-brand-tertiary transition-colors resize-none" style={{ fontSize: "0.85rem" }}
+              />
+            </div>
+
+            <div className="flex items-center gap-3 pt-2">
+              <button type="submit"
+                className="inline-flex items-center gap-2 px-6 py-3 bg-brand-main text-brand-secondary hover:bg-brand-main-light transition-colors tracking-[0.1em] uppercase" style={{ fontSize: "0.65rem" }}>
+                <Save className="w-3.5 h-3.5" /> Create Gallery
+              </button>
+              <Link href="/admin/galleries" className="text-brand-main/40 hover:text-brand-main transition-colors" style={{ fontSize: "0.8rem" }}>Cancel</Link>
+            </div>
+          </div>
+        </form>
+      </motion.div>
+    </div>
+  );
+}
+
+export default function AdminGalleryNew() {
+  return (
+    <Suspense>
+      <AdminGalleryNewContent />
+    </Suspense>
+  );
+}
