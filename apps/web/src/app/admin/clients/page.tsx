@@ -3,18 +3,54 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { Search, Users, Mail, Phone, Calendar, DollarSign, CalendarCheck, X } from "lucide-react";
-import { mockClients, mockBookings, type Client } from "@/lib/mock-data/admin-data";
+import { useClients } from "@/services/clients";
+import { useBookings } from "@/services/bookings";
 
 export default function AdminClients() {
-  const [search, setSearch] = useState("");
-  const [selectedClient, setSelectedClient] = useState<Client | null>(null);
+  const { data: clients = [], isLoading: clientsLoading } = useClients();
+  const { data: bookings = [] } = useBookings();
 
-  const filtered = mockClients.filter((c) => {
-    if (search && !c.name.toLowerCase().includes(search.toLowerCase()) && !c.email.toLowerCase().includes(search.toLowerCase())) return false;
+  const [search, setSearch] = useState("");
+  const [selectedClient, setSelectedClient] = useState<any | null>(null);
+
+  const filtered = (clients as any[]).filter((c) => {
+    const name = c.name || c.fullName || "";
+    const email = c.email || "";
+    if (search && !name.toLowerCase().includes(search.toLowerCase()) && !email.toLowerCase().includes(search.toLowerCase())) return false;
     return true;
   });
 
-  const clientBookings = selectedClient ? mockBookings.filter((b) => b.clientId === selectedClient.id) : [];
+  const clientBookings = selectedClient ? (bookings as any[]).filter((b) => b.clientId === selectedClient.id) : [];
+
+  if (clientsLoading) {
+    return (
+      <div>
+        <div className="mb-6">
+          <div className="h-8 w-32 bg-brand-main/10 animate-pulse mb-1" />
+          <div className="h-4 w-56 bg-brand-main/5 animate-pulse" />
+        </div>
+        <div className="h-10 w-64 bg-brand-main/5 animate-pulse mb-6" />
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {[1, 2, 3, 4, 5, 6].map((i) => (
+            <div key={i} className="bg-white border border-brand-main/8 p-5">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-10 h-10 rounded-full bg-brand-main/5 animate-pulse" />
+                <div>
+                  <div className="h-4 w-28 bg-brand-main/10 animate-pulse mb-1" />
+                  <div className="h-3 w-36 bg-brand-main/5 animate-pulse" />
+                </div>
+              </div>
+              <div className="grid grid-cols-3 gap-2 pt-3 border-t border-brand-main/6">
+                {[1, 2, 3].map((j) => (
+                  <div key={j} className="h-8 bg-brand-main/5 animate-pulse" />
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div>
@@ -32,36 +68,43 @@ export default function AdminClients() {
 
       {/* Client List */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {filtered.map((client, i) => (
-          <motion.div key={client.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}>
-            <button onClick={() => setSelectedClient(client)}
-              className="w-full text-left bg-white border border-brand-main/8 p-5 hover:border-brand-tertiary/30 transition-colors">
-              <div className="flex items-center gap-3 mb-3">
-                <div className="w-10 h-10 rounded-full bg-brand-tertiary/10 flex items-center justify-center text-brand-tertiary" style={{ fontSize: "0.8rem" }}>
-                  {client.name.split(" ").map((n) => n[0]).join("").slice(0, 2)}
+        {filtered.map((client: any, i: number) => {
+          const clientName = client.name || client.fullName || "Unknown";
+          const bookingCount = client.bookingCount ?? 0;
+          const totalSpent = client.totalSpent ?? 0;
+          const status = client.status ?? (client.isActive ? "active" : "past");
+
+          return (
+            <motion.div key={client.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}>
+              <button onClick={() => setSelectedClient(client)}
+                className="w-full text-left bg-white border border-brand-main/8 p-5 hover:border-brand-tertiary/30 transition-colors">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="w-10 h-10 rounded-full bg-brand-tertiary/10 flex items-center justify-center text-brand-tertiary" style={{ fontSize: "0.8rem" }}>
+                    {clientName.split(" ").map((n: string) => n[0]).join("").slice(0, 2)}
+                  </div>
+                  <div>
+                    <h3 className="text-brand-main" style={{ fontSize: "0.95rem" }}>{clientName}</h3>
+                    <p className="text-brand-main/40" style={{ fontSize: "0.75rem" }}>{client.email}</p>
+                  </div>
                 </div>
-                <div>
-                  <h3 className="text-brand-main" style={{ fontSize: "0.95rem" }}>{client.name}</h3>
-                  <p className="text-brand-main/40" style={{ fontSize: "0.75rem" }}>{client.email}</p>
+                <div className="grid grid-cols-3 gap-2 pt-3 border-t border-brand-main/6">
+                  <div>
+                    <p className="text-brand-main/70" style={{ fontSize: "0.9rem" }}>{bookingCount}</p>
+                    <p className="text-brand-main/30" style={{ fontSize: "0.6rem" }}>Bookings</p>
+                  </div>
+                  <div>
+                    <p className="text-brand-main/70" style={{ fontSize: "0.9rem" }}>${totalSpent.toLocaleString()}</p>
+                    <p className="text-brand-main/30" style={{ fontSize: "0.6rem" }}>Spent</p>
+                  </div>
+                  <div>
+                    <p className="text-brand-main/70" style={{ fontSize: "0.9rem" }}>{status === "active" ? "Active" : "Past"}</p>
+                    <p className="text-brand-main/30" style={{ fontSize: "0.6rem" }}>Status</p>
+                  </div>
                 </div>
-              </div>
-              <div className="grid grid-cols-3 gap-2 pt-3 border-t border-brand-main/6">
-                <div>
-                  <p className="text-brand-main/70" style={{ fontSize: "0.9rem" }}>{client.bookingCount}</p>
-                  <p className="text-brand-main/30" style={{ fontSize: "0.6rem" }}>Bookings</p>
-                </div>
-                <div>
-                  <p className="text-brand-main/70" style={{ fontSize: "0.9rem" }}>${client.totalSpent.toLocaleString()}</p>
-                  <p className="text-brand-main/30" style={{ fontSize: "0.6rem" }}>Spent</p>
-                </div>
-                <div>
-                  <p className="text-brand-main/70" style={{ fontSize: "0.9rem" }}>{client.status === "active" ? "Active" : "Past"}</p>
-                  <p className="text-brand-main/30" style={{ fontSize: "0.6rem" }}>Status</p>
-                </div>
-              </div>
-            </button>
-          </motion.div>
-        ))}
+              </button>
+            </motion.div>
+          );
+        })}
       </div>
 
       {filtered.length === 0 && (
@@ -73,90 +116,98 @@ export default function AdminClients() {
 
       {/* Client Detail Slide-over */}
       <AnimatePresence>
-        {selectedClient && (
-          <>
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-              className="fixed inset-0 bg-black/40 z-40" onClick={() => setSelectedClient(null)} />
-            <motion.div
-              initial={{ x: "100%" }} animate={{ x: 0 }} exit={{ x: "100%" }}
-              transition={{ type: "spring", damping: 25, stiffness: 200 }}
-              className="fixed top-0 right-0 bottom-0 w-full max-w-md bg-white z-50 overflow-y-auto shadow-xl"
-            >
-              <div className="sticky top-0 bg-brand-main text-brand-secondary px-6 py-4 flex items-center justify-between z-10">
-                <h2 className="font-serif" style={{ fontSize: "1.1rem" }}>Client Details</h2>
-                <button onClick={() => setSelectedClient(null)} className="p-1 text-brand-secondary/50 hover:text-brand-secondary">
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
+        {selectedClient && (() => {
+          const clientName = selectedClient.name || selectedClient.fullName || "Unknown";
+          const bookingCount = selectedClient.bookingCount ?? 0;
+          const totalSpent = selectedClient.totalSpent ?? 0;
+          const status = selectedClient.status ?? (selectedClient.isActive ? "active" : "past");
+          const joinedAt = selectedClient.joinedAt || selectedClient.createdAt || "N/A";
 
-              <div className="p-6 space-y-6">
-                {/* Profile */}
-                <div className="text-center">
-                  <div className="w-16 h-16 rounded-full bg-brand-tertiary/10 flex items-center justify-center text-brand-tertiary mx-auto mb-3" style={{ fontSize: "1.2rem" }}>
-                    {selectedClient.name.split(" ").map((n) => n[0]).join("").slice(0, 2)}
-                  </div>
-                  <h3 className="font-serif text-brand-main" style={{ fontSize: "1.3rem" }}>{selectedClient.name}</h3>
-                  <p className="text-brand-main/40" style={{ fontSize: "0.8rem" }}>Client since {selectedClient.joinedAt}</p>
+          return (
+            <>
+              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                className="fixed inset-0 bg-black/40 z-40" onClick={() => setSelectedClient(null)} />
+              <motion.div
+                initial={{ x: "100%" }} animate={{ x: 0 }} exit={{ x: "100%" }}
+                transition={{ type: "spring", damping: 25, stiffness: 200 }}
+                className="fixed top-0 right-0 bottom-0 w-full max-w-md bg-white z-50 overflow-y-auto shadow-xl"
+              >
+                <div className="sticky top-0 bg-brand-main text-brand-secondary px-6 py-4 flex items-center justify-between z-10">
+                  <h2 className="font-serif" style={{ fontSize: "1.1rem" }}>Client Details</h2>
+                  <button onClick={() => setSelectedClient(null)} className="p-1 text-brand-secondary/50 hover:text-brand-secondary">
+                    <X className="w-5 h-5" />
+                  </button>
                 </div>
 
-                {/* Contact */}
-                <div className="bg-brand-secondary/50 p-4 space-y-2">
-                  <a href={`mailto:${selectedClient.email}`} className="flex items-center gap-2 text-brand-main/70 hover:text-brand-tertiary transition-colors" style={{ fontSize: "0.85rem" }}>
-                    <Mail className="w-4 h-4 text-brand-main/30" /> {selectedClient.email}
-                  </a>
-                  <a href={`tel:${selectedClient.phone}`} className="flex items-center gap-2 text-brand-main/70 hover:text-brand-tertiary transition-colors" style={{ fontSize: "0.85rem" }}>
-                    <Phone className="w-4 h-4 text-brand-main/30" /> {selectedClient.phone}
-                  </a>
-                </div>
+                <div className="p-6 space-y-6">
+                  {/* Profile */}
+                  <div className="text-center">
+                    <div className="w-16 h-16 rounded-full bg-brand-tertiary/10 flex items-center justify-center text-brand-tertiary mx-auto mb-3" style={{ fontSize: "1.2rem" }}>
+                      {clientName.split(" ").map((n: string) => n[0]).join("").slice(0, 2)}
+                    </div>
+                    <h3 className="font-serif text-brand-main" style={{ fontSize: "1.3rem" }}>{clientName}</h3>
+                    <p className="text-brand-main/40" style={{ fontSize: "0.8rem" }}>Client since {joinedAt}</p>
+                  </div>
 
-                {/* Stats */}
-                <div className="grid grid-cols-3 gap-3">
-                  <div className="bg-brand-secondary/50 p-3 text-center">
-                    <p className="font-serif text-brand-main" style={{ fontSize: "1.2rem" }}>{selectedClient.bookingCount}</p>
-                    <p className="text-brand-main/40" style={{ fontSize: "0.65rem" }}>Bookings</p>
+                  {/* Contact */}
+                  <div className="bg-brand-secondary/50 p-4 space-y-2">
+                    <a href={`mailto:${selectedClient.email}`} className="flex items-center gap-2 text-brand-main/70 hover:text-brand-tertiary transition-colors" style={{ fontSize: "0.85rem" }}>
+                      <Mail className="w-4 h-4 text-brand-main/30" /> {selectedClient.email}
+                    </a>
+                    <a href={`tel:${selectedClient.phone}`} className="flex items-center gap-2 text-brand-main/70 hover:text-brand-tertiary transition-colors" style={{ fontSize: "0.85rem" }}>
+                      <Phone className="w-4 h-4 text-brand-main/30" /> {selectedClient.phone || "N/A"}
+                    </a>
                   </div>
-                  <div className="bg-brand-secondary/50 p-3 text-center">
-                    <p className="font-serif text-brand-main" style={{ fontSize: "1.2rem" }}>${selectedClient.totalSpent.toLocaleString()}</p>
-                    <p className="text-brand-main/40" style={{ fontSize: "0.65rem" }}>Total Spent</p>
-                  </div>
-                  <div className="bg-brand-secondary/50 p-3 text-center">
-                    <p className="font-serif text-brand-main" style={{ fontSize: "1.2rem" }}>{selectedClient.status === "active" ? "Active" : "Past"}</p>
-                    <p className="text-brand-main/40" style={{ fontSize: "0.65rem" }}>Status</p>
-                  </div>
-                </div>
 
-                {/* Bookings */}
-                <div>
-                  <p className="tracking-[0.1em] uppercase text-brand-main/40 mb-3" style={{ fontSize: "0.65rem" }}>Booking History</p>
-                  <div className="space-y-3">
-                    {clientBookings.map((bk) => (
-                      <div key={bk.id} className="bg-brand-secondary/50 p-4">
-                        <p className="text-brand-main mb-1" style={{ fontSize: "0.85rem" }}>{bk.type}</p>
-                        <div className="flex items-center gap-3 text-brand-main/40" style={{ fontSize: "0.75rem" }}>
-                          <span className="flex items-center gap-1"><Calendar className="w-3 h-3" />{bk.date}</span>
-                          <span className="flex items-center gap-1"><DollarSign className="w-3 h-3" />${bk.totalAmount.toLocaleString()}</span>
+                  {/* Stats */}
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className="bg-brand-secondary/50 p-3 text-center">
+                      <p className="font-serif text-brand-main" style={{ fontSize: "1.2rem" }}>{bookingCount}</p>
+                      <p className="text-brand-main/40" style={{ fontSize: "0.65rem" }}>Bookings</p>
+                    </div>
+                    <div className="bg-brand-secondary/50 p-3 text-center">
+                      <p className="font-serif text-brand-main" style={{ fontSize: "1.2rem" }}>${totalSpent.toLocaleString()}</p>
+                      <p className="text-brand-main/40" style={{ fontSize: "0.65rem" }}>Total Spent</p>
+                    </div>
+                    <div className="bg-brand-secondary/50 p-3 text-center">
+                      <p className="font-serif text-brand-main" style={{ fontSize: "1.2rem" }}>{status === "active" ? "Active" : "Past"}</p>
+                      <p className="text-brand-main/40" style={{ fontSize: "0.65rem" }}>Status</p>
+                    </div>
+                  </div>
+
+                  {/* Bookings */}
+                  <div>
+                    <p className="tracking-[0.1em] uppercase text-brand-main/40 mb-3" style={{ fontSize: "0.65rem" }}>Booking History</p>
+                    <div className="space-y-3">
+                      {clientBookings.map((bk: any) => (
+                        <div key={bk.id} className="bg-brand-secondary/50 p-4">
+                          <p className="text-brand-main mb-1" style={{ fontSize: "0.85rem" }}>{bk.type || bk.category || ""}</p>
+                          <div className="flex items-center gap-3 text-brand-main/40" style={{ fontSize: "0.75rem" }}>
+                            <span className="flex items-center gap-1"><Calendar className="w-3 h-3" />{bk.date}</span>
+                            <span className="flex items-center gap-1"><DollarSign className="w-3 h-3" />${(bk.totalAmount ?? 0).toLocaleString()}</span>
+                          </div>
                         </div>
-                      </div>
-                    ))}
-                    {clientBookings.length === 0 && (
-                      <p className="text-brand-main/30 text-center py-4" style={{ fontSize: "0.8rem" }}>No bookings found.</p>
-                    )}
+                      ))}
+                      {clientBookings.length === 0 && (
+                        <p className="text-brand-main/30 text-center py-4" style={{ fontSize: "0.8rem" }}>No bookings found.</p>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Quick Actions */}
+                  <div className="space-y-2 pt-4 border-t border-brand-main/8">
+                    <button className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-brand-main text-brand-secondary hover:bg-brand-main-light transition-colors tracking-[0.1em] uppercase" style={{ fontSize: "0.65rem" }}>
+                      <Mail className="w-3.5 h-3.5" /> Send Email
+                    </button>
+                    <button className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 border border-brand-main/15 text-brand-main/60 hover:text-brand-main hover:border-brand-main/30 transition-colors" style={{ fontSize: "0.7rem" }}>
+                      <CalendarCheck className="w-3.5 h-3.5" /> Create New Booking
+                    </button>
                   </div>
                 </div>
-
-                {/* Quick Actions */}
-                <div className="space-y-2 pt-4 border-t border-brand-main/8">
-                  <button className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-brand-main text-brand-secondary hover:bg-brand-main-light transition-colors tracking-[0.1em] uppercase" style={{ fontSize: "0.65rem" }}>
-                    <Mail className="w-3.5 h-3.5" /> Send Email
-                  </button>
-                  <button className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 border border-brand-main/15 text-brand-main/60 hover:text-brand-main hover:border-brand-main/30 transition-colors" style={{ fontSize: "0.7rem" }}>
-                    <CalendarCheck className="w-3.5 h-3.5" /> Create New Booking
-                  </button>
-                </div>
-              </div>
-            </motion.div>
-          </>
-        )}
+              </motion.div>
+            </>
+          );
+        })()}
       </AnimatePresence>
     </div>
   );

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { motion, AnimatePresence } from "motion/react";
@@ -18,7 +18,29 @@ import {
   Check,
   Loader2,
 } from "lucide-react";
+import { format } from "date-fns";
 import { ImageWithFallback } from "@/components/shared/image-with-fallback";
+import { useGallery } from "@/services/galleries";
+
+interface ApiPhoto {
+  id: string;
+  filename: string;
+  r2Key?: string;
+  r2ThumbnailKey?: string;
+  isFavorite?: boolean;
+  url?: string;
+}
+
+interface ApiGallery {
+  id: string;
+  title: string;
+  status: string;
+  publishedAt?: string | null;
+  createdAt: string;
+  photoCount?: number;
+  photos?: ApiPhoto[];
+  estimatedDelivery?: string;
+}
 
 const mockGalleries: Record<
   string,
@@ -82,10 +104,51 @@ const mockGalleries: Record<
   },
 };
 
+function mapGalleryStatus(status: string): "ready" | "editing" {
+  if (status === "published") return "ready";
+  return "editing";
+}
+
 export default function PortalGallery() {
   const { galleryId } = useParams();
   const id = galleryId as string;
-  const gallery = mockGalleries[id || ""];
+
+  // Try fetching from API
+  const { data: apiGallery, isLoading, isError } = useGallery(id);
+
+  // Determine the gallery data: API first, then mock fallback
+  const gallery = useMemo(() => {
+    if (apiGallery && (apiGallery as ApiGallery).id) {
+      const g = apiGallery as ApiGallery;
+      const status = mapGalleryStatus(g.status);
+      const photos = (g.photos || []).map((p: ApiPhoto) => ({
+        id: p.id,
+        url: p.url || p.r2Key || "",
+        favorite: p.isFavorite || false,
+        filename: p.filename,
+      }));
+
+      // If published but no photos available yet (R2 not set up), show editing state
+      const effectiveStatus = status === "ready" && photos.length === 0 ? "editing" : status;
+
+      return {
+        title: g.title,
+        date: g.publishedAt
+          ? format(new Date(g.publishedAt), "MMMM d, yyyy")
+          : format(new Date(g.createdAt), "MMMM d, yyyy"),
+        status: effectiveStatus,
+        estimatedDelivery: g.estimatedDelivery,
+        photos,
+      };
+    }
+
+    // Fall back to mock data
+    if (!isLoading) {
+      return mockGalleries[id || ""] || null;
+    }
+    return null;
+  }, [apiGallery, isLoading, id]);
+
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const [filter, setFilter] = useState<"all" | "favorites">("all");
   const [favorites, setFavorites] = useState<Set<string>>(
@@ -95,6 +158,15 @@ export default function PortalGallery() {
   const [downloadingAll, setDownloadingAll] = useState(false);
   const [downloadProgress, setDownloadProgress] = useState(0);
   const [downloadingPhoto, setDownloadingPhoto] = useState<string | null>(null);
+
+  // Show loading state
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-24">
+        <Loader2 className="w-6 h-6 animate-spin text-brand-tertiary" />
+      </div>
+    );
+  }
 
   if (!gallery) {
     return (
@@ -127,13 +199,12 @@ export default function PortalGallery() {
     });
   };
 
-  const handleShare = useCallback(() => {
+  const handleShare = () => {
     const shareUrl = `${window.location.origin}/portal/galleries/${id}`;
     navigator.clipboard.writeText(shareUrl).then(() => {
       setShareToast(true);
       setTimeout(() => setShareToast(false), 2500);
     }).catch(() => {
-      // Fallback for older browsers
       const input = document.createElement("input");
       input.value = shareUrl;
       document.body.appendChild(input);
@@ -143,9 +214,9 @@ export default function PortalGallery() {
       setShareToast(true);
       setTimeout(() => setShareToast(false), 2500);
     });
-  }, [id]);
+  };
 
-  const handleDownloadPhoto = useCallback(async (photo: { url: string; filename: string; id: string }) => {
+  const handleDownloadPhoto = async (photo: { url: string; filename: string; id: string }) => {
     setDownloadingPhoto(photo.id);
     try {
       const response = await fetch(photo.url);
@@ -159,13 +230,12 @@ export default function PortalGallery() {
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
     } catch {
-      // Fallback: open in new tab
       window.open(photo.url, "_blank");
     }
     setTimeout(() => setDownloadingPhoto(null), 500);
-  }, []);
+  };
 
-  const handleDownloadAll = useCallback(async () => {
+  const handleDownloadAll = async () => {
     setDownloadingAll(true);
     setDownloadProgress(0);
     const total = gallery.photos.length;
@@ -186,14 +256,13 @@ export default function PortalGallery() {
         // skip failed downloads
       }
       setDownloadProgress(Math.round(((i + 1) / total) * 100));
-      // Brief delay between downloads to avoid browser blocking
       await new Promise((r) => setTimeout(r, 400));
     }
     setTimeout(() => {
       setDownloadingAll(false);
       setDownloadProgress(0);
     }, 1000);
-  }, [gallery.photos]);
+  };
 
   return (
     <div>
@@ -313,10 +382,12 @@ export default function PortalGallery() {
             I&apos;m carefully editing and curating your photos. You&apos;ll receive an
             email notification as soon as your gallery is ready to view.
           </p>
-          <div className="inline-flex items-center gap-2 px-4 py-2 bg-brand-warm text-brand-main/60" style={{ fontSize: "0.8rem" }}>
-            <Clock className="w-4 h-4 text-brand-tertiary" />
-            Estimated delivery: {gallery.estimatedDelivery}
-          </div>
+          {gallery.estimatedDelivery && (
+            <div className="inline-flex items-center gap-2 px-4 py-2 bg-brand-warm text-brand-main/60" style={{ fontSize: "0.8rem" }}>
+              <Clock className="w-4 h-4 text-brand-tertiary" />
+              Estimated delivery: {gallery.estimatedDelivery}
+            </div>
+          )}
         </motion.div>
       ) : (
         <>

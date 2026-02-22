@@ -26,24 +26,27 @@ Professional wedding/event photography website with client portal, admin dashboa
 
 ## Current Status Summary
 
-**All 35 frontend UI routes are built.** Supabase is connected — auth login/logout works, database schema is deployed (10 tables), and the inquiry form submits to the real API. Portal/admin pages still display mock gallery/booking data (not wired to API yet).
+**All 35 frontend UI routes are built.** All backend CRUD services implemented. All 13 admin pages wired to real API via TanStack Query with mock/API data source toggle. Email notifications integrated via Resend.
 
 | Area | Status |
 |------|--------|
 | Monorepo + tooling | Done |
 | Next.js app with 35 routes | Done |
-| NestJS API with 10 modules | Done (inquiries CRUD wired, others stubbed) |
+| NestJS API with 10 modules | Done (all CRUD services implemented) |
 | Shared types/enums/validation | Done |
 | UI component library (50+ shadcn/ui) | Done |
 | Database schema (10 tables) | Done (deployed to Supabase) |
 | Supabase auth integration | Done (login, logout, session, middleware, guards) |
 | Inquiry form → DB | Done (public POST endpoint wired) |
 | Admin auth protection | Done (role-based redirect in layout + middleware) |
+| Admin pages → API | Done (all 13 pages wired via TanStack Query) |
+| Mock/API data source toggle | Done (admin sidebar toggle, persisted in localStorage) |
 | Portal user display | Done (reads from Supabase auth, no more mock "Sara") |
 | Test accounts | Done (admin + client seeded) |
+| Email (Resend) | Done (5 client emails + admin notifications, wired into services) |
+| Caching strategy | Done (stale times, optimistic updates, cross-query invalidation) |
 | Stripe payments | Not started (service scaffolded, not wired) |
 | Cloudflare R2 storage | Not started (service scaffolded, not wired) |
-| Email (Resend) | Not started (service scaffolded, not wired) |
 | Deployment (Vercel + Railway) | Not started |
 
 ---
@@ -114,7 +117,7 @@ Inquiry submitted → Admin reviews in dashboard → Admin converts to booking �
 - [ ] Wire testimonials to GET /api/v1/testimonials (currently hardcoded)
 - [ ] SEO (metadata, Open Graph, sitemap, robots.txt)
 
-### Phase 3: Admin Dashboard — UI COMPLETE, NEEDS BACKEND WIRING
+### Phase 3: Admin Dashboard — WIRED TO API
 
 - [x] Admin layout + sidebar navigation
 - [x] Dashboard overview (stats cards, recent inquiries)
@@ -125,8 +128,12 @@ Inquiry submitted → Admin reviews in dashboard → Admin converts to booking �
 - [x] Payment management (list with status filters)
 - [x] Client management (list with search)
 - [x] Admin role-based auth protection
-- [ ] Wire inquiry list to real API (GET /api/v1/inquiries)
-- [ ] Wire all other admin pages to real API endpoints
+- [x] Backend CRUD services (inquiries, bookings, galleries, portfolio, payments, users)
+- [x] TanStack Query service hooks for all API endpoints
+- [x] Wire all 13 admin pages to real API via TanStack Query
+- [x] Mock/API data source toggle (admin sidebar, localStorage-persisted)
+- [x] Optimistic updates for inquiry/booking status changes
+- [x] Cross-query invalidation (payment→booking, gallery→booking, booking→inquiry)
 - [ ] Inquiry → booking conversion flow (backend)
 - [ ] Photo uploader component (drag-and-drop, R2 presigned URLs)
 - [ ] Image processing pipeline (Sharp + BullMQ thumbnails)
@@ -137,7 +144,7 @@ Inquiry submitted → Admin reviews in dashboard → Admin converts to booking �
 - [ ] Webhook handler with signature verification
 - [ ] Deposit + final payment flows
 - [x] Payment success/cancelled pages (UI done)
-- [ ] Email notifications for payment events
+- [x] Email notifications for payment events (Resend integrated)
 - [ ] Refund capability
 - [ ] End-to-end testing with Stripe test mode
 
@@ -151,12 +158,12 @@ Inquiry submitted → Admin reviews in dashboard → Admin converts to booking �
 - [ ] Wire gallery view to real photo data + signed R2 URLs
 - [ ] Single/batch photo downloads
 - [ ] Wire bookings to real payment data
-- [ ] Gallery publish → email notification → client access flow
+- [x] Gallery publish → email notification → client access flow (Resend)
 - [ ] Profile update → Supabase user metadata update
 
-### Phase 6: Email & Polish — NOT STARTED
+### Phase 6: Email & Polish — EMAILS DONE
 
-- [ ] Email templates (inquiry, booking, gallery, payment, invite)
+- [x] Email templates (inquiry confirmation, booking confirmed, gallery ready, payment receipt, client invite, admin notifications)
 - [ ] Rate limiting, CORS hardening
 - [ ] Error monitoring (Sentry)
 - [ ] Analytics (Vercel Analytics or Plausible)
@@ -187,11 +194,12 @@ Inquiry submitted → Admin reviews in dashboard → Admin converts to booking �
 
 ## Next Steps (Priority Order)
 
-1. **Wire admin inquiry list** — show real inquiries from DB in admin dashboard
-2. **Set up R2 bucket** — configure for portfolio images + gallery photos
-3. **Wire portfolio + pricing pages** — fetch real data from API
-4. **Set up Railway** — deploy NestJS backend
-5. **Set up Vercel** — deploy Next.js frontend
-6. **Create Stripe account** — get test API keys, implement checkout flow
-7. **Set up Resend** — transactional email templates
-8. **Wire remaining admin/portal pages** — bookings, galleries, payments
+1. **Set up R2 bucket** — configure for portfolio images + gallery photos
+2. **Photo uploader component** — drag-and-drop, R2 presigned URLs, progress tracking
+3. **Wire portfolio + pricing public pages** — fetch real data from API
+4. **Wire portal pages to real API** — galleries, bookings, payments
+5. **Profile update** — Supabase user metadata update from portal settings
+6. **Inquiry → booking conversion flow** — backend logic to create booking from inquiry
+7. **Set up Railway** — deploy NestJS backend
+8. **Set up Vercel** — deploy Next.js frontend
+9. **Create Stripe account** — get test API keys, implement checkout flow

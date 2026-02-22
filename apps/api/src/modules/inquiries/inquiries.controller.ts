@@ -56,8 +56,8 @@ export class InquiriesController {
   @Post(':id/convert')
   @UseGuards(SupabaseAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
-  async convertToBooking(@Param('id') id: string) {
-    return this.inquiriesService.convertToBooking(id);
+  async convertToBooking(@Param('id') id: string, @Body() body: any) {
+    return this.inquiriesService.convertToBooking(id, body);
   }
 
   @Delete(':id')

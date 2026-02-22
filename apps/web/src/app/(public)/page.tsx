@@ -1,9 +1,12 @@
 "use client";
 
+import { useMemo } from "react";
 import Link from "next/link";
 import { motion } from "motion/react";
 import { ArrowRight, Star, Heart, Sparkles } from "lucide-react";
 import { ImageWithFallback } from "@/components/shared/image-with-fallback";
+import { useFeaturedTestimonials } from "@/services/testimonials";
+import { usePortfolio } from "@/services/portfolio";
 
 const heroImage =
   "https://images.unsplash.com/photo-1578251133581-bf5e671b97fd?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxjb3VwbGUlMjBlbG9wZW1lbnQlMjBtb3VudGFpbiUyMGdvbGRlbiUyMGhvdXJ8ZW58MXx8fHwxNzcxNzIxNjEwfDA&ixlib=rb-4.1.0&q=80&w=1080";
@@ -75,6 +78,33 @@ const testimonials = [
 ];
 
 export default function HomePage() {
+  const { data: apiTestimonials } = useFeaturedTestimonials();
+  const { data: apiPortfolio } = usePortfolio();
+
+  const displayTestimonials = useMemo(() => {
+    if (apiTestimonials?.length > 0) {
+      return apiTestimonials.map((t: any) => ({
+        quote: t.content,
+        name: t.clientName,
+        event: t.eventType,
+      }));
+    }
+    return testimonials; // fallback to hardcoded
+  }, [apiTestimonials]);
+
+  const displayFeaturedWork = useMemo(() => {
+    const apiFeatured = apiPortfolio?.filter((p: any) => p.isFeatured);
+    if (apiFeatured?.length > 0) {
+      return apiFeatured.slice(0, 3).map((item: any) => ({
+        title: item.title,
+        category: item.category,
+        image: item.coverImageKey || '',
+        slug: item.slug,
+      }));
+    }
+    return featuredWork; // fallback to hardcoded
+  }, [apiPortfolio]);
+
   return (
     <div>
       {/* Hero Section */}
@@ -233,7 +263,7 @@ export default function HomePage() {
             </Link>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {featuredWork.map((work, i) => (
+            {displayFeaturedWork.map((work: any, i: number) => (
               <motion.div
                 key={work.slug}
                 initial={{ opacity: 0, y: 30 }}
@@ -313,7 +343,7 @@ export default function HomePage() {
             </h2>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {testimonials.map((t, i) => (
+            {displayTestimonials.map((t: any, i: number) => (
               <motion.div
                 key={t.name}
                 initial={{ opacity: 0, y: 30 }}

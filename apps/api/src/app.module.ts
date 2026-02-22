@@ -11,6 +11,8 @@ import { BookingsModule } from './modules/bookings/bookings.module';
 import { GalleriesModule } from './modules/galleries/galleries.module';
 import { PortfolioModule } from './modules/portfolio/portfolio.module';
 import { PaymentsModule } from './modules/payments/payments.module';
+import { PackagesModule } from './modules/packages/packages.module';
+import { TestimonialsModule } from './modules/testimonials/testimonials.module';
 import { StorageModule } from './modules/storage/storage.module';
 import { EmailModule } from './modules/email/email.module';
 import configuration from './config/configuration';
@@ -52,6 +54,8 @@ import configuration from './config/configuration';
     GalleriesModule,
     PortfolioModule,
     PaymentsModule,
+    PackagesModule,
+    TestimonialsModule,
     StorageModule,
     EmailModule,
   ],

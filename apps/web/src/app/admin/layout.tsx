@@ -21,6 +21,7 @@ import {
   X,
   ChevronRight,
 } from "lucide-react";
+import { DataSourceToggle } from "@/components/admin/data-source-toggle";
 
 const navSections = [
   {
@@ -51,11 +52,25 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const pathname = usePathname();
   const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const { userRole, isLoading } = useAuthStore();
 
   useEffect(() => {
     setSidebarOpen(false);
     window.scrollTo(0, 0);
   }, [pathname]);
+
+  // Redirect non-admins to portal
+  useEffect(() => {
+    if (!isLoading && userRole && userRole !== "admin") {
+      router.push("/portal");
+    }
+  }, [userRole, isLoading, router]);
+
+  const handleSignOut = async () => {
+    const supabase = createBrowserClient();
+    await supabase.auth.signOut();
+    router.push("/auth/login");
+  };
 
   const isActive = (path: string, exact?: boolean) => {
     if (exact) return pathname === path;
@@ -103,9 +118,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           ))}
         </nav>
 
-        <div className="px-3 py-4 border-t border-brand-secondary/10">
+        <div className="px-3 py-4 border-t border-brand-secondary/10 space-y-1">
+          <DataSourceToggle />
           <button
-            onClick={() => router.push("/auth/login")}
+            onClick={handleSignOut}
             className="flex items-center gap-3 px-3 py-2.5 w-full text-brand-secondary/40 hover:text-brand-secondary transition-colors rounded"
             style={{ fontSize: "0.8rem" }}
           >

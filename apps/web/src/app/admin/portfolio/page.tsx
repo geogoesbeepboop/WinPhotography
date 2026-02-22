@@ -4,28 +4,65 @@ import { useState } from "react";
 import Link from "next/link";
 import { motion } from "motion/react";
 import { PlusCircle, Eye, EyeOff, Star, Image, Trash2 } from "lucide-react";
-import { mockPortfolio } from "@/lib/mock-data/admin-data";
+import { useAdminPortfolio, useUpdatePortfolioItem, useDeletePortfolioItem } from "@/services/portfolio";
 import { ImageWithFallback } from "@/components/shared/image-with-fallback";
 
 export default function AdminPortfolio() {
-  const [items, setItems] = useState(mockPortfolio);
+  const { data: portfolioData = [], isLoading } = useAdminPortfolio();
+  const updateItem = useUpdatePortfolioItem();
+  const deleteItem = useDeletePortfolioItem();
 
-  const togglePublish = (id: string) => {
-    setItems((prev) => prev.map((p) => p.id === id ? { ...p, published: !p.published } : p));
+  const [activeCategory, setActiveCategory] = useState("All");
+
+  const items = portfolioData as any[];
+
+  const togglePublish = (item: any) => {
+    const isPublished = item.published ?? item.isPublished ?? false;
+    updateItem.mutate({ id: item.id, isPublished: !isPublished, published: !isPublished });
   };
 
-  const toggleFeatured = (id: string) => {
-    setItems((prev) => prev.map((p) => p.id === id ? { ...p, featured: !p.featured } : p));
+  const toggleFeatured = (item: any) => {
+    const isFeatured = item.featured ?? item.isFeatured ?? false;
+    updateItem.mutate({ id: item.id, isFeatured: !isFeatured, featured: !isFeatured });
   };
 
   const removeItem = (id: string) => {
-    setItems((prev) => prev.filter((p) => p.id !== id));
+    deleteItem.mutate(id);
   };
 
-  const categories = ["All", ...Array.from(new Set(items.map((p) => p.category)))];
-  const [activeCategory, setActiveCategory] = useState("All");
+  const categories = ["All", ...Array.from(new Set(items.map((p: any) => p.category)))];
 
-  const filtered = activeCategory === "All" ? items : items.filter((p) => p.category === activeCategory);
+  const filtered = activeCategory === "All" ? items : items.filter((p: any) => p.category === activeCategory);
+
+  if (isLoading) {
+    return (
+      <div>
+        <div className="flex flex-wrap items-start justify-between gap-4 mb-6">
+          <div>
+            <div className="h-8 w-36 bg-brand-main/10 animate-pulse mb-1" />
+            <div className="h-4 w-64 bg-brand-main/5 animate-pulse" />
+          </div>
+          <div className="h-10 w-40 bg-brand-main/10 animate-pulse" />
+        </div>
+        <div className="flex items-center gap-2 mb-6">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="h-8 w-20 bg-brand-main/5 animate-pulse" />
+          ))}
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="bg-white border border-brand-main/8 overflow-hidden">
+              <div className="h-48 bg-brand-main/5 animate-pulse" />
+              <div className="p-4">
+                <div className="h-5 w-36 bg-brand-main/10 animate-pulse mb-2" />
+                <div className="h-3 w-24 bg-brand-main/5 animate-pulse" />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div>
@@ -53,45 +90,52 @@ export default function AdminPortfolio() {
 
       {/* Portfolio Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-        {filtered.map((item, i) => (
-          <motion.div key={item.id} initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}
-            className="bg-white border border-brand-main/8 overflow-hidden">
-            <div className="relative h-48 overflow-hidden">
-              <ImageWithFallback src={item.coverImage} alt={item.title} className="w-full h-full object-cover" />
-              <div className="absolute top-3 right-3 flex items-center gap-2">
-                {item.featured && (
-                  <span className="px-2 py-0.5 bg-brand-tertiary text-white" style={{ fontSize: "0.55rem" }}>Featured</span>
-                )}
-                {item.published ? (
-                  <span className="px-2 py-0.5 bg-green-500 text-white" style={{ fontSize: "0.55rem" }}>Live</span>
-                ) : (
-                  <span className="px-2 py-0.5 bg-gray-500 text-white" style={{ fontSize: "0.55rem" }}>Draft</span>
-                )}
+        {filtered.map((item: any, i: number) => {
+          const isPublished = item.published ?? item.isPublished ?? false;
+          const isFeatured = item.featured ?? item.isFeatured ?? false;
+          const coverImage = item.coverImage || item.coverImageKey || "";
+          const imageCount = item.imageCount ?? item.photos?.length ?? 0;
+
+          return (
+            <motion.div key={item.id} initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}
+              className="bg-white border border-brand-main/8 overflow-hidden">
+              <div className="relative h-48 overflow-hidden">
+                <ImageWithFallback src={coverImage} alt={item.title} className="w-full h-full object-cover" />
+                <div className="absolute top-3 right-3 flex items-center gap-2">
+                  {isFeatured && (
+                    <span className="px-2 py-0.5 bg-brand-tertiary text-white" style={{ fontSize: "0.55rem" }}>Featured</span>
+                  )}
+                  {isPublished ? (
+                    <span className="px-2 py-0.5 bg-green-500 text-white" style={{ fontSize: "0.55rem" }}>Live</span>
+                  ) : (
+                    <span className="px-2 py-0.5 bg-gray-500 text-white" style={{ fontSize: "0.55rem" }}>Draft</span>
+                  )}
+                </div>
               </div>
-            </div>
-            <div className="p-4">
-              <h3 className="font-serif text-brand-main mb-0.5" style={{ fontSize: "1rem" }}>{item.title}</h3>
-              <p className="text-brand-main/40 mb-3" style={{ fontSize: "0.75rem" }}>{item.category} · {item.imageCount} images</p>
-              <div className="flex items-center gap-2">
-                <button onClick={() => togglePublish(item.id)}
-                  className={`inline-flex items-center gap-1 px-2.5 py-1.5 transition-colors ${item.published ? "text-amber-600 hover:bg-amber-50" : "text-green-600 hover:bg-green-50"}`}
-                  style={{ fontSize: "0.65rem" }}>
-                  {item.published ? <><EyeOff className="w-3 h-3" /> Unpublish</> : <><Eye className="w-3 h-3" /> Publish</>}
-                </button>
-                <button onClick={() => toggleFeatured(item.id)}
-                  className={`inline-flex items-center gap-1 px-2.5 py-1.5 transition-colors ${item.featured ? "text-brand-tertiary" : "text-brand-main/30 hover:text-brand-tertiary"}`}
-                  style={{ fontSize: "0.65rem" }}>
-                  <Star className={`w-3 h-3 ${item.featured ? "fill-current" : ""}`} /> {item.featured ? "Featured" : "Feature"}
-                </button>
-                <button onClick={() => removeItem(item.id)}
-                  className="inline-flex items-center gap-1 px-2.5 py-1.5 text-red-400 hover:text-red-600 transition-colors ml-auto"
-                  style={{ fontSize: "0.65rem" }}>
-                  <Trash2 className="w-3 h-3" />
-                </button>
+              <div className="p-4">
+                <h3 className="font-serif text-brand-main mb-0.5" style={{ fontSize: "1rem" }}>{item.title}</h3>
+                <p className="text-brand-main/40 mb-3" style={{ fontSize: "0.75rem" }}>{item.category} · {imageCount} images</p>
+                <div className="flex items-center gap-2">
+                  <button onClick={() => togglePublish(item)}
+                    className={`inline-flex items-center gap-1 px-2.5 py-1.5 transition-colors ${isPublished ? "text-amber-600 hover:bg-amber-50" : "text-green-600 hover:bg-green-50"}`}
+                    style={{ fontSize: "0.65rem" }}>
+                    {isPublished ? <><EyeOff className="w-3 h-3" /> Unpublish</> : <><Eye className="w-3 h-3" /> Publish</>}
+                  </button>
+                  <button onClick={() => toggleFeatured(item)}
+                    className={`inline-flex items-center gap-1 px-2.5 py-1.5 transition-colors ${isFeatured ? "text-brand-tertiary" : "text-brand-main/30 hover:text-brand-tertiary"}`}
+                    style={{ fontSize: "0.65rem" }}>
+                    <Star className={`w-3 h-3 ${isFeatured ? "fill-current" : ""}`} /> {isFeatured ? "Featured" : "Feature"}
+                  </button>
+                  <button onClick={() => removeItem(item.id)}
+                    className="inline-flex items-center gap-1 px-2.5 py-1.5 text-red-400 hover:text-red-600 transition-colors ml-auto"
+                    style={{ fontSize: "0.65rem" }}>
+                    <Trash2 className="w-3 h-3" />
+                  </button>
+                </div>
               </div>
-            </div>
-          </motion.div>
-        ))}
+            </motion.div>
+          );
+        })}
       </div>
 
       {filtered.length === 0 && (

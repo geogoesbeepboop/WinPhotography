@@ -2,13 +2,16 @@
 
 import { useState, useEffect } from "react";
 import { motion } from "motion/react";
-import { User, Mail, Phone, Lock, Save, Loader2, CheckCircle2 } from "lucide-react";
+import { User, Mail, Phone, Lock, Save, Loader2, CheckCircle2, AlertCircle } from "lucide-react";
 import { useAuthStore } from "@/stores/auth-store";
+import { createBrowserClient } from "@/lib/supabase/client";
 
 export default function PortalSettings() {
-  const { supabaseUser } = useAuthStore();
+  const { supabaseUser, setSupabaseUser } = useAuthStore();
   const [saving, setSaving] = useState(false);
+  const [savingPassword, setSavingPassword] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const fullName = (supabaseUser?.user_metadata?.full_name as string) || "";
   const nameParts = fullName.split(" ");
@@ -40,25 +43,67 @@ export default function PortalSettings() {
     confirm: "",
   });
 
-  const handleSaveProfile = (e: React.FormEvent) => {
+  const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
-    setTimeout(() => {
-      setSaving(false);
+    setError(null);
+    try {
+      const supabase = createBrowserClient();
+      const { data, error: updateError } = await supabase.auth.updateUser({
+        data: {
+          full_name: `${profile.firstName} ${profile.lastName}`.trim(),
+          phone: profile.phone,
+        },
+      });
+      if (updateError) throw updateError;
+
+      // Update auth store with refreshed user
+      if (data.user) {
+        setSupabaseUser(data.user);
+      }
+
       setSaved(true);
       setTimeout(() => setSaved(false), 2500);
-    }, 1000);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Failed to save profile. Please try again.";
+      setError(message);
+      setTimeout(() => setError(null), 5000);
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const handleChangePassword = (e: React.FormEvent) => {
+  const handleChangePassword = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSaving(true);
-    setTimeout(() => {
-      setSaving(false);
+    if (passwordForm.newPassword !== passwordForm.confirm) {
+      setError("New passwords do not match.");
+      setTimeout(() => setError(null), 5000);
+      return;
+    }
+    if (passwordForm.newPassword.length < 8) {
+      setError("New password must be at least 8 characters.");
+      setTimeout(() => setError(null), 5000);
+      return;
+    }
+    setSavingPassword(true);
+    setError(null);
+    try {
+      const supabase = createBrowserClient();
+      const { error: updateError } = await supabase.auth.updateUser({
+        password: passwordForm.newPassword,
+      });
+      if (updateError) throw updateError;
+
       setPasswordForm({ current: "", newPassword: "", confirm: "" });
       setSaved(true);
       setTimeout(() => setSaved(false), 2500);
-    }, 1000);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Failed to update password. Please try again.";
+      setError(message);
+      setTimeout(() => setError(null), 5000);
+    } finally {
+      setSavingPassword(false);
+    }
   };
 
   return (
@@ -90,6 +135,20 @@ export default function PortalSettings() {
         >
           <CheckCircle2 className="w-4 h-4" />
           Changes saved successfully.
+        </motion.div>
+      )}
+
+      {/* Error toast */}
+      {error && (
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -10 }}
+          className="mb-6 p-4 bg-red-50 border border-red-200 text-red-700 flex items-center gap-2"
+          style={{ fontSize: "0.85rem" }}
+        >
+          <AlertCircle className="w-4 h-4" />
+          {error}
         </motion.div>
       )}
 
@@ -158,12 +217,13 @@ export default function PortalSettings() {
                 <input
                   type="email"
                   value={profile.email}
-                  onChange={(e) =>
-                    setProfile({ ...profile, email: e.target.value })
-                  }
-                  className="w-full px-4 py-3 bg-brand-secondary border border-brand-main/10 text-brand-main focus:outline-none focus:border-brand-tertiary transition-colors"
+                  disabled
+                  className="w-full px-4 py-3 bg-brand-secondary border border-brand-main/10 text-brand-main/50 focus:outline-none cursor-not-allowed"
                   style={{ fontSize: "0.9rem" }}
                 />
+                <p className="text-brand-main/30 mt-1" style={{ fontSize: "0.7rem" }}>
+                  Email changes require verification. Contact support to update your email.
+                </p>
               </div>
               <div>
                 <label
@@ -283,11 +343,11 @@ export default function PortalSettings() {
               </div>
               <button
                 type="submit"
-                disabled={saving}
+                disabled={savingPassword}
                 className="inline-flex items-center gap-2 px-6 py-3 bg-brand-main text-brand-secondary hover:bg-brand-main-light transition-all duration-300 disabled:opacity-50 tracking-[0.1em] uppercase mt-2"
                 style={{ fontSize: "0.7rem" }}
               >
-                {saving ? (
+                {savingPassword ? (
                   <Loader2 className="w-4 h-4 animate-spin" />
                 ) : (
                   <Lock className="w-4 h-4" />

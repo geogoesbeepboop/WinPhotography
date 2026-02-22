@@ -5,6 +5,7 @@ import Link from "next/link";
 import { motion, AnimatePresence } from "motion/react";
 import { Check, ArrowRight } from "lucide-react";
 import { ImageWithFallback } from "@/components/shared/image-with-fallback";
+import { usePackages } from "@/services/packages";
 
 type Category = {
   id: string;
@@ -356,6 +357,10 @@ const addOns = [
 export default function PricingPage() {
   const [activeCategory, setActiveCategory] = useState("elopements");
   const currentCategory = categories.find((c) => c.id === activeCategory)!;
+
+  // Fetch packages from API — currently unused while hardcoded data is primary
+  // TODO: When packages are managed via admin, transform API data to match Category[] structure
+  const { data: _apiPackages } = usePackages();
 
   return (
     <div>

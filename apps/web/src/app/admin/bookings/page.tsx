@@ -4,24 +4,30 @@ import { useState } from "react";
 import Link from "next/link";
 import { motion } from "motion/react";
 import { Search, CalendarCheck, Clock, MapPin, DollarSign } from "lucide-react";
-import { mockBookings, bookingStatusConfig } from "@/lib/mock-data/admin-data";
+import { bookingStatusConfig } from "@/lib/mock-data/admin-data";
+import { useBookings } from "@/services/bookings";
 
 export default function AdminBookings() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [search, setSearch] = useState("");
+  const { data: bookings, isLoading } = useBookings();
 
-  const filtered = mockBookings.filter((b) => {
+  const allBookings = bookings ?? [];
+
+  const filtered = allBookings.filter((b: any) => {
     if (statusFilter !== "all" && b.status !== statusFilter) return false;
-    if (search && !b.clientName.toLowerCase().includes(search.toLowerCase()) && !b.type.toLowerCase().includes(search.toLowerCase())) return false;
+    const name = (b.clientName || b.client?.fullName || "").toLowerCase();
+    const type = (b.type || b.eventType || "").toLowerCase();
+    if (search && !name.includes(search.toLowerCase()) && !type.includes(search.toLowerCase())) return false;
     return true;
   });
 
   const counts = {
-    all: mockBookings.length,
-    pending: mockBookings.filter((b) => b.status === "pending").length,
-    confirmed: mockBookings.filter((b) => b.status === "confirmed").length,
-    completed: mockBookings.filter((b) => b.status === "completed").length,
-    cancelled: mockBookings.filter((b) => b.status === "cancelled").length,
+    all: allBookings.length,
+    pending: allBookings.filter((b: any) => b.status === "pending").length,
+    confirmed: allBookings.filter((b: any) => b.status === "confirmed").length,
+    completed: allBookings.filter((b: any) => b.status === "completed").length,
+    cancelled: allBookings.filter((b: any) => b.status === "cancelled").length,
   };
 
   return (
@@ -51,45 +57,74 @@ export default function AdminBookings() {
         </div>
       </div>
 
+      {/* Loading State */}
+      {isLoading && (
+        <div className="space-y-3">
+          {[...Array(4)].map((_, i) => (
+            <div key={i} className="bg-white border border-brand-main/8 p-5 animate-pulse">
+              <div className="flex items-start justify-between gap-3 mb-3">
+                <div className="flex-1">
+                  <div className="h-4 bg-brand-main/10 rounded w-40 mb-2" />
+                  <div className="h-3 bg-brand-main/8 rounded w-56 mb-2" />
+                  <div className="h-3 bg-brand-main/6 rounded w-72" />
+                </div>
+                <div className="text-right">
+                  <div className="h-5 bg-brand-main/10 rounded w-20 mb-1" />
+                  <div className="h-3 bg-brand-main/6 rounded w-16 ml-auto" />
+                </div>
+              </div>
+              <div className="w-full h-1.5 bg-brand-main/8 rounded-full" />
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* Booking List */}
-      <div className="space-y-3">
-        {filtered.map((bk, i) => {
-          const cfg = bookingStatusConfig[bk.status];
-          const progress = Math.round((bk.paidAmount / bk.totalAmount) * 100);
-          return (
-            <motion.div key={bk.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.04 }}>
-              <Link href={`/admin/bookings/${bk.id}`} className="block bg-white border border-brand-main/8 p-5 hover:border-brand-tertiary/30 transition-colors">
-                <div className="flex flex-wrap items-start justify-between gap-3 mb-3">
-                  <div>
-                    <div className="flex items-center gap-3 mb-1">
-                      <h3 className="text-brand-main" style={{ fontSize: "1rem" }}>{bk.clientName}</h3>
-                      <span className={`px-2.5 py-0.5 ${cfg.color}`} style={{ fontSize: "0.6rem" }}>{cfg.label}</span>
+      {!isLoading && (
+        <div className="space-y-3">
+          {filtered.map((bk: any, i: number) => {
+            const cfg = bookingStatusConfig[bk.status];
+            const total = bk.totalAmount ?? bk.packagePrice ?? 0;
+            const paid = bk.paidAmount ?? bk.depositAmount ?? 0;
+            const progress = total > 0 ? Math.round((paid / total) * 100) : 0;
+            const clientName = bk.clientName || bk.client?.fullName || "Unknown";
+            const bookingType = bk.type || bk.eventType || bk.packageName || "";
+            const bookingDate = bk.date || bk.eventDate || "";
+            return (
+              <motion.div key={bk.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.04 }}>
+                <Link href={`/admin/bookings/${bk.id}`} className="block bg-white border border-brand-main/8 p-5 hover:border-brand-tertiary/30 transition-colors">
+                  <div className="flex flex-wrap items-start justify-between gap-3 mb-3">
+                    <div>
+                      <div className="flex items-center gap-3 mb-1">
+                        <h3 className="text-brand-main" style={{ fontSize: "1rem" }}>{clientName}</h3>
+                        {cfg && <span className={`px-2.5 py-0.5 ${cfg.color}`} style={{ fontSize: "0.6rem" }}>{cfg.label}</span>}
+                      </div>
+                      <p className="text-brand-main/60" style={{ fontSize: "0.85rem" }}>{bookingType}</p>
+                      <div className="flex flex-wrap items-center gap-3 text-brand-main/40 mt-1" style={{ fontSize: "0.75rem" }}>
+                        <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{bookingDate}{bk.time ? ` at ${bk.time}` : ""}</span>
+                        {bk.location && <span className="flex items-center gap-1"><MapPin className="w-3 h-3" />{bk.location}</span>}
+                      </div>
                     </div>
-                    <p className="text-brand-main/60" style={{ fontSize: "0.85rem" }}>{bk.type}</p>
-                    <div className="flex flex-wrap items-center gap-3 text-brand-main/40 mt-1" style={{ fontSize: "0.75rem" }}>
-                      <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{bk.date} at {bk.time}</span>
-                      <span className="flex items-center gap-1"><MapPin className="w-3 h-3" />{bk.location}</span>
+                    <div className="text-right">
+                      <p className="font-serif text-brand-main" style={{ fontSize: "1.2rem" }}>${total.toLocaleString()}</p>
+                      <p className="text-brand-main/40" style={{ fontSize: "0.7rem" }}>${paid.toLocaleString()} paid</p>
                     </div>
                   </div>
-                  <div className="text-right">
-                    <p className="font-serif text-brand-main" style={{ fontSize: "1.2rem" }}>${bk.totalAmount.toLocaleString()}</p>
-                    <p className="text-brand-main/40" style={{ fontSize: "0.7rem" }}>${bk.paidAmount.toLocaleString()} paid</p>
+                  <div className="w-full h-1.5 bg-brand-main/8 rounded-full overflow-hidden">
+                    <div className={`h-full rounded-full ${progress === 100 ? "bg-green-500" : "bg-brand-tertiary"}`} style={{ width: `${progress}%` }} />
                   </div>
-                </div>
-                <div className="w-full h-1.5 bg-brand-main/8 rounded-full overflow-hidden">
-                  <div className={`h-full rounded-full ${progress === 100 ? "bg-green-500" : "bg-brand-tertiary"}`} style={{ width: `${progress}%` }} />
-                </div>
-              </Link>
-            </motion.div>
-          );
-        })}
-        {filtered.length === 0 && (
-          <div className="text-center py-16">
-            <CalendarCheck className="w-8 h-8 text-brand-main/15 mx-auto mb-3" />
-            <p className="text-brand-main/40" style={{ fontSize: "0.9rem" }}>No bookings match your filters.</p>
-          </div>
-        )}
-      </div>
+                </Link>
+              </motion.div>
+            );
+          })}
+          {filtered.length === 0 && (
+            <div className="text-center py-16">
+              <CalendarCheck className="w-8 h-8 text-brand-main/15 mx-auto mb-3" />
+              <p className="text-brand-main/40" style={{ fontSize: "0.9rem" }}>No bookings match your filters.</p>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

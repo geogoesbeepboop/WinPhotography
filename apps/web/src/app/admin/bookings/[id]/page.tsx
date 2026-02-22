@@ -1,17 +1,75 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { motion } from "motion/react";
 import { ArrowLeft, Calendar, Clock, MapPin, Mail, Phone, CreditCard, FileText, Send, CheckCircle2, DollarSign, PlusCircle, User } from "lucide-react";
-import { mockBookings, bookingStatusConfig, paymentStatusConfig } from "@/lib/mock-data/admin-data";
+import { bookingStatusConfig, paymentStatusConfig } from "@/lib/mock-data/admin-data";
+import { useBooking, useUpdateBooking } from "@/services/bookings";
 
 export default function AdminBookingDetail() {
   const { id } = useParams();
-  const booking = mockBookings.find((b) => b.id === id);
-  const [status, setStatus] = useState(booking?.status || "pending");
-  const [notes, setNotes] = useState(booking?.notes || "");
+  const { data: booking, isLoading } = useBooking(id as string);
+  const updateBooking = useUpdateBooking();
+  const [status, setStatus] = useState("pending");
+  const [notes, setNotes] = useState("");
+
+  useEffect(() => {
+    if (booking) {
+      setStatus(booking.status || "pending");
+      setNotes(booking.notes || "");
+    }
+  }, [booking]);
+
+  const handleStatusChange = (newStatus: string) => {
+    setStatus(newStatus);
+    updateBooking.mutate({ id: id as string, status: newStatus });
+  };
+
+  if (isLoading) {
+    return (
+      <div>
+        <div className="h-4 bg-brand-main/10 rounded w-32 mb-6 animate-pulse" />
+        <div className="animate-pulse">
+          <div className="flex flex-wrap items-start justify-between gap-4 mb-6">
+            <div>
+              <div className="h-7 bg-brand-main/10 rounded w-64 mb-2" />
+              <div className="h-4 bg-brand-main/8 rounded w-48" />
+            </div>
+            <div className="h-9 bg-brand-main/8 rounded w-32" />
+          </div>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="lg:col-span-2 space-y-6">
+              <div className="bg-white border border-brand-main/8 p-6">
+                <div className="h-5 bg-brand-main/10 rounded w-36 mb-4" />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="h-4 bg-brand-main/8 rounded w-32" />
+                  <div className="h-4 bg-brand-main/8 rounded w-24" />
+                  <div className="h-4 bg-brand-main/8 rounded w-48 sm:col-span-2" />
+                </div>
+              </div>
+              <div className="bg-white border border-brand-main/8 p-6">
+                <div className="h-5 bg-brand-main/10 rounded w-28 mb-4" />
+                <div className="space-y-3">
+                  {[...Array(3)].map((_, i) => (
+                    <div key={i} className="h-14 bg-brand-main/6 rounded" />
+                  ))}
+                </div>
+              </div>
+            </div>
+            <div className="space-y-5">
+              <div className="bg-white border border-brand-main/8 p-5">
+                <div className="h-3 bg-brand-main/8 rounded w-16 mb-3" />
+                <div className="h-4 bg-brand-main/10 rounded w-32 mb-2" />
+                <div className="h-4 bg-brand-main/8 rounded w-40" />
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (!booking) {
     return (
@@ -23,7 +81,14 @@ export default function AdminBookingDetail() {
   }
 
   const cfg = bookingStatusConfig[status];
-  const progress = Math.round((booking.paidAmount / booking.totalAmount) * 100);
+  const totalAmount = booking.totalAmount ?? booking.packagePrice ?? 0;
+  const paidAmount = booking.paidAmount ?? booking.depositAmount ?? 0;
+  const progress = totalAmount > 0 ? Math.round((paidAmount / totalAmount) * 100) : 0;
+  const clientName = booking.clientName || booking.client?.fullName || "Unknown";
+  const clientEmail = booking.clientEmail || booking.client?.email || "";
+  const bookingType = booking.type || booking.eventType || booking.packageName || "";
+  const bookingDate = booking.date || booking.eventDate || "";
+  const payments = booking.payments || [];
 
   return (
     <div>
@@ -35,12 +100,12 @@ export default function AdminBookingDetail() {
         <div className="flex flex-wrap items-start justify-between gap-4 mb-6">
           <div>
             <div className="flex items-center gap-3 mb-1">
-              <h1 className="font-serif text-brand-main" style={{ fontSize: "1.8rem" }}>{booking.type}</h1>
-              <span className={`px-3 py-1 ${cfg.color}`} style={{ fontSize: "0.6rem" }}>{cfg.label}</span>
+              <h1 className="font-serif text-brand-main" style={{ fontSize: "1.8rem" }}>{bookingType}</h1>
+              {cfg && <span className={`px-3 py-1 ${cfg.color}`} style={{ fontSize: "0.6rem" }}>{cfg.label}</span>}
             </div>
-            <p className="text-brand-main/50" style={{ fontSize: "0.85rem" }}>{booking.clientName} · Created {booking.createdAt}</p>
+            <p className="text-brand-main/50" style={{ fontSize: "0.85rem" }}>{clientName} · Created {booking.createdAt}</p>
           </div>
-          <select value={status} onChange={(e) => setStatus(e.target.value as typeof status)}
+          <select value={status} onChange={(e) => handleStatusChange(e.target.value)}
             className="px-3 py-2 bg-white border border-brand-main/10 text-brand-main focus:outline-none focus:border-brand-tertiary" style={{ fontSize: "0.8rem" }}>
             <option value="pending">Pending</option>
             <option value="confirmed">Confirmed</option>
@@ -56,14 +121,18 @@ export default function AdminBookingDetail() {
               <h2 className="font-serif text-brand-main mb-4" style={{ fontSize: "1.1rem" }}>Session Details</h2>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="flex items-center gap-3 text-brand-main/70" style={{ fontSize: "0.85rem" }}>
-                  <Calendar className="w-4 h-4 text-brand-tertiary shrink-0" /> {booking.date}
+                  <Calendar className="w-4 h-4 text-brand-tertiary shrink-0" /> {bookingDate}
                 </div>
-                <div className="flex items-center gap-3 text-brand-main/70" style={{ fontSize: "0.85rem" }}>
-                  <Clock className="w-4 h-4 text-brand-tertiary shrink-0" /> {booking.time}
-                </div>
-                <div className="flex items-center gap-3 text-brand-main/70 sm:col-span-2" style={{ fontSize: "0.85rem" }}>
-                  <MapPin className="w-4 h-4 text-brand-tertiary shrink-0" /> {booking.location}
-                </div>
+                {booking.time && (
+                  <div className="flex items-center gap-3 text-brand-main/70" style={{ fontSize: "0.85rem" }}>
+                    <Clock className="w-4 h-4 text-brand-tertiary shrink-0" /> {booking.time}
+                  </div>
+                )}
+                {booking.location && (
+                  <div className="flex items-center gap-3 text-brand-main/70 sm:col-span-2" style={{ fontSize: "0.85rem" }}>
+                    <MapPin className="w-4 h-4 text-brand-tertiary shrink-0" /> {booking.location}
+                  </div>
+                )}
               </div>
             </div>
 
@@ -72,7 +141,7 @@ export default function AdminBookingDetail() {
               <div className="flex items-center justify-between mb-4">
                 <h2 className="font-serif text-brand-main" style={{ fontSize: "1.1rem" }}>Payments</h2>
                 <div className="text-right">
-                  <p className="font-serif text-brand-main" style={{ fontSize: "1.3rem" }}>${booking.totalAmount.toLocaleString()}</p>
+                  <p className="font-serif text-brand-main" style={{ fontSize: "1.3rem" }}>${totalAmount.toLocaleString()}</p>
                   <p className="text-brand-main/40" style={{ fontSize: "0.7rem" }}>Total</p>
                 </div>
               </div>
@@ -80,7 +149,7 @@ export default function AdminBookingDetail() {
               <div className="mb-4">
                 <div className="flex items-center justify-between mb-1.5">
                   <span className="text-brand-main/50" style={{ fontSize: "0.75rem" }}>Payment Progress</span>
-                  <span className="text-brand-main/70" style={{ fontSize: "0.75rem" }}>${booking.paidAmount.toLocaleString()} / ${booking.totalAmount.toLocaleString()}</span>
+                  <span className="text-brand-main/70" style={{ fontSize: "0.75rem" }}>${paidAmount.toLocaleString()} / ${totalAmount.toLocaleString()}</span>
                 </div>
                 <div className="w-full h-2 bg-brand-main/8 rounded-full overflow-hidden">
                   <div className={`h-full rounded-full ${progress === 100 ? "bg-green-500" : "bg-brand-tertiary"}`} style={{ width: `${progress}%` }} />
@@ -88,22 +157,22 @@ export default function AdminBookingDetail() {
               </div>
 
               <div className="space-y-3 mb-5">
-                {booking.payments.map((pay) => {
+                {payments.map((pay: any) => {
                   const payCfg = paymentStatusConfig[pay.status];
                   return (
                     <div key={pay.id} className="flex items-center justify-between p-3 bg-brand-secondary/50">
                       <div className="flex items-center gap-3">
                         <CreditCard className="w-4 h-4 text-brand-main/30" />
                         <div>
-                          <p className="text-brand-main" style={{ fontSize: "0.85rem" }}>{pay.label}</p>
+                          <p className="text-brand-main" style={{ fontSize: "0.85rem" }}>{pay.label || pay.paymentType || "Payment"}</p>
                           <p className="text-brand-main/40" style={{ fontSize: "0.7rem" }}>
-                            {pay.status === "paid" ? `Paid ${pay.date}` : `Due ${pay.dueDate}`}
+                            {pay.status === "paid" ? `Paid ${pay.date || pay.paidAt || ""}` : `Due ${pay.dueDate || ""}`}
                           </p>
                         </div>
                       </div>
                       <div className="text-right flex items-center gap-3">
                         <p className="text-brand-main" style={{ fontSize: "0.9rem" }}>${pay.amount.toLocaleString()}</p>
-                        <span className={`px-2 py-0.5 ${payCfg.color}`} style={{ fontSize: "0.6rem" }}>{payCfg.label}</span>
+                        {payCfg && <span className={`px-2 py-0.5 ${payCfg.color}`} style={{ fontSize: "0.6rem" }}>{payCfg.label}</span>}
                       </div>
                     </div>
                   );
@@ -135,11 +204,13 @@ export default function AdminBookingDetail() {
               <p className="tracking-[0.1em] uppercase text-brand-main/40 mb-3" style={{ fontSize: "0.65rem" }}>Client</p>
               <div className="space-y-3">
                 <div className="flex items-center gap-2 text-brand-main" style={{ fontSize: "0.85rem" }}>
-                  <User className="w-4 h-4 text-brand-main/30" /> {booking.clientName}
+                  <User className="w-4 h-4 text-brand-main/30" /> {clientName}
                 </div>
-                <a href={`mailto:${booking.clientEmail}`} className="flex items-center gap-2 text-brand-main/70 hover:text-brand-tertiary transition-colors" style={{ fontSize: "0.85rem" }}>
-                  <Mail className="w-4 h-4 text-brand-main/30" /> {booking.clientEmail}
-                </a>
+                {clientEmail && (
+                  <a href={`mailto:${clientEmail}`} className="flex items-center gap-2 text-brand-main/70 hover:text-brand-tertiary transition-colors" style={{ fontSize: "0.85rem" }}>
+                    <Mail className="w-4 h-4 text-brand-main/30" /> {clientEmail}
+                  </a>
+                )}
               </div>
             </div>
 

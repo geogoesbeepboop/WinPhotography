@@ -10,11 +10,42 @@ import {
   ArrowRight,
   CreditCard,
   CheckCircle2,
+  Loader2,
 } from "lucide-react";
+import { format, isFuture } from "date-fns";
 import { ImageWithFallback } from "@/components/shared/image-with-fallback";
 import { useAuthStore } from "@/stores/auth-store";
+import { useMyBookings, useMyGalleries } from "@/services/portal";
 
-const mockGalleries = [
+interface ApiGallery {
+  id: string;
+  title: string;
+  status: string;
+  publishedAt: string | null;
+  photoCount: number;
+  booking?: { id: string };
+  createdAt: string;
+  coverImage?: string;
+}
+
+interface ApiPayment {
+  amount: number;
+  status: string;
+}
+
+interface ApiBooking {
+  id: string;
+  eventType: string;
+  packageName: string;
+  packagePrice: number;
+  depositAmount: number;
+  status: string;
+  eventDate: string;
+  payments?: ApiPayment[];
+  client?: { id: string };
+}
+
+const fallbackGalleries = [
   {
     id: "g1",
     title: "Engagement Session",
@@ -35,7 +66,7 @@ const mockGalleries = [
   },
 ];
 
-const mockBookings = [
+const fallbackBookings = [
   {
     id: "b1",
     type: "Wedding - Signature",
@@ -53,6 +84,17 @@ const mockBookings = [
     totalAmount: 2200,
   },
 ];
+
+function mapGalleryStatus(status: string): "ready" | "editing" {
+  if (status === "published") return "ready";
+  return "editing";
+}
+
+function mapBookingStatus(status: string): "confirmed" | "completed" | "editing" {
+  if (status === "completed" || status === "delivered") return "completed";
+  if (status === "editing") return "editing";
+  return "confirmed";
+}
 
 const statusConfig = {
   ready: {
@@ -81,6 +123,57 @@ export default function PortalDashboard() {
   const { supabaseUser } = useAuthStore();
   const firstName = ((supabaseUser?.user_metadata?.full_name as string) || supabaseUser?.email?.split("@")[0] || "there").split(" ")[0];
 
+  const { data: apiGalleries, isLoading: galleriesLoading } = useMyGalleries();
+  const { data: apiBookings, isLoading: bookingsLoading } = useMyBookings();
+
+  const isLoading = galleriesLoading || bookingsLoading;
+
+  // Map API galleries to display format, fall back to mock data
+  const galleries = (apiGalleries && (apiGalleries as ApiGallery[]).length > 0)
+    ? (apiGalleries as ApiGallery[]).map((g) => ({
+        id: g.id,
+        title: g.title,
+        date: g.publishedAt
+          ? format(new Date(g.publishedAt), "MMMM d, yyyy")
+          : format(new Date(g.createdAt), "MMMM d, yyyy"),
+        coverImage: g.coverImage || "",
+        photoCount: g.photoCount || 0,
+        status: mapGalleryStatus(g.status),
+      }))
+    : fallbackGalleries;
+
+  // Map API bookings to display format, fall back to mock data
+  const bookings = (apiBookings && (apiBookings as ApiBooking[]).length > 0)
+    ? (apiBookings as ApiBooking[]).map((b) => {
+        const paidAmount = (b.payments || [])
+          .filter((p) => p.status === "succeeded")
+          .reduce((sum, p) => sum + p.amount, 0);
+        return {
+          id: b.id,
+          type: b.packageName,
+          date: format(new Date(b.eventDate), "MMMM d, yyyy"),
+          status: mapBookingStatus(b.status) as keyof typeof statusConfig,
+          paidAmount,
+          totalAmount: b.packagePrice,
+        };
+      })
+    : fallbackBookings;
+
+  // Compute stats from real data
+  const activeGalleries = galleries.length;
+  const upcomingSessions = (apiBookings && (apiBookings as ApiBooking[]).length > 0)
+    ? (apiBookings as ApiBooking[]).filter(
+        (b) => b.status === "confirmed" && isFuture(new Date(b.eventDate))
+      ).length
+    : 1;
+  const photosAvailable = galleries
+    .filter((g) => g.status === "ready")
+    .reduce((sum, g) => sum + g.photoCount, 0);
+  const paymentDue = bookings.reduce(
+    (sum, b) => sum + Math.max(0, b.totalAmount - b.paidAmount),
+    0
+  );
+
   return (
     <div>
       {/* Welcome */}
@@ -101,55 +194,61 @@ export default function PortalDashboard() {
       </motion.div>
 
       {/* Quick Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-10">
-        {[
-          {
-            label: "Active Galleries",
-            value: "2",
-            icon: Image,
-            color: "text-brand-tertiary",
-          },
-          {
-            label: "Upcoming Sessions",
-            value: "1",
-            icon: CalendarCheck,
-            color: "text-brand-main-light",
-          },
-          {
-            label: "Photos Available",
-            value: "142",
-            icon: Download,
-            color: "text-brand-tertiary",
-          },
-          {
-            label: "Payment Due",
-            value: "$4,760",
-            icon: CreditCard,
-            color: "text-brand-tertiary-dark",
-          },
-        ].map((stat, i) => (
-          <motion.div
-            key={stat.label}
-            initial={{ opacity: 0, y: 15 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 + i * 0.05 }}
-            className="bg-card p-5 border border-brand-main/8"
-          >
-            <stat.icon
-              className={`w-5 h-5 ${stat.color} mb-3`}
-            />
-            <p className="font-serif text-brand-main" style={{ fontSize: "1.5rem" }}>
-              {stat.value}
-            </p>
-            <p
-              className="text-brand-main/40 tracking-[0.05em]"
-              style={{ fontSize: "0.7rem" }}
+      {isLoading ? (
+        <div className="flex items-center justify-center py-8 mb-10">
+          <Loader2 className="w-6 h-6 animate-spin text-brand-tertiary" />
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-10">
+          {[
+            {
+              label: "Active Galleries",
+              value: String(activeGalleries),
+              icon: Image,
+              color: "text-brand-tertiary",
+            },
+            {
+              label: "Upcoming Sessions",
+              value: String(upcomingSessions),
+              icon: CalendarCheck,
+              color: "text-brand-main-light",
+            },
+            {
+              label: "Photos Available",
+              value: String(photosAvailable),
+              icon: Download,
+              color: "text-brand-tertiary",
+            },
+            {
+              label: "Payment Due",
+              value: `$${paymentDue.toLocaleString()}`,
+              icon: CreditCard,
+              color: "text-brand-tertiary-dark",
+            },
+          ].map((stat, i) => (
+            <motion.div
+              key={stat.label}
+              initial={{ opacity: 0, y: 15 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.1 + i * 0.05 }}
+              className="bg-card p-5 border border-brand-main/8"
             >
-              {stat.label}
-            </p>
-          </motion.div>
-        ))}
-      </div>
+              <stat.icon
+                className={`w-5 h-5 ${stat.color} mb-3`}
+              />
+              <p className="font-serif text-brand-main" style={{ fontSize: "1.5rem" }}>
+                {stat.value}
+              </p>
+              <p
+                className="text-brand-main/40 tracking-[0.05em]"
+                style={{ fontSize: "0.7rem" }}
+              >
+                {stat.label}
+              </p>
+            </motion.div>
+          ))}
+        </div>
+      )}
 
       {/* Galleries */}
       <motion.div
@@ -166,68 +265,81 @@ export default function PortalDashboard() {
             Your Galleries
           </h2>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-          {mockGalleries.map((gallery) => {
-            const config = statusConfig[gallery.status];
-            return (
-              <Link
-                key={gallery.id}
-                href={`/portal/galleries/${gallery.id}`}
-                className="group bg-card border border-brand-main/8 overflow-hidden hover:border-brand-tertiary/30 transition-colors"
-              >
-                <div className="relative h-48 overflow-hidden">
-                  <ImageWithFallback
-                    src={gallery.coverImage}
-                    alt={gallery.title}
-                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                  />
-                  <div className="absolute top-3 right-3">
-                    <span
-                      className={`inline-flex items-center gap-1.5 px-3 py-1 ${config.color}`}
-                      style={{ fontSize: "0.65rem" }}
-                    >
-                      <config.icon className="w-3 h-3" />
-                      {config.label}
-                    </span>
+        {galleriesLoading ? (
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="w-6 h-6 animate-spin text-brand-tertiary" />
+          </div>
+        ) : galleries.length === 0 ? (
+          <div className="bg-card border border-brand-main/8 p-12 text-center">
+            <Image className="w-8 h-8 text-brand-main/15 mx-auto mb-3" />
+            <p className="text-brand-main/40" style={{ fontSize: "0.9rem" }}>
+              No galleries yet. They will appear here once your photographer shares them.
+            </p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            {galleries.map((gallery) => {
+              const config = statusConfig[gallery.status];
+              return (
+                <Link
+                  key={gallery.id}
+                  href={`/portal/galleries/${gallery.id}`}
+                  className="group bg-card border border-brand-main/8 overflow-hidden hover:border-brand-tertiary/30 transition-colors"
+                >
+                  <div className="relative h-48 overflow-hidden">
+                    <ImageWithFallback
+                      src={gallery.coverImage}
+                      alt={gallery.title}
+                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                    />
+                    <div className="absolute top-3 right-3">
+                      <span
+                        className={`inline-flex items-center gap-1.5 px-3 py-1 ${config.color}`}
+                        style={{ fontSize: "0.65rem" }}
+                      >
+                        <config.icon className="w-3 h-3" />
+                        {config.label}
+                      </span>
+                    </div>
                   </div>
-                </div>
-                <div className="p-5">
-                  <h3
-                    className="font-serif text-brand-main mb-1"
-                    style={{ fontSize: "1.15rem" }}
-                  >
-                    {gallery.title}
-                  </h3>
-                  <p
-                    className="text-brand-main/40"
-                    style={{ fontSize: "0.8rem" }}
-                  >
-                    {gallery.date}
-                    {gallery.photoCount > 0 &&
-                      ` \u00b7 ${gallery.photoCount} photos`}
-                  </p>
-                  {gallery.status === "ready" && (
+                  <div className="p-5">
+                    <h3
+                      className="font-serif text-brand-main mb-1"
+                      style={{ fontSize: "1.15rem" }}
+                    >
+                      {gallery.title}
+                    </h3>
                     <p
-                      className="mt-3 text-brand-tertiary inline-flex items-center gap-1 group-hover:gap-2 transition-all"
+                      className="text-brand-main/40"
                       style={{ fontSize: "0.8rem" }}
                     >
-                      View Gallery
-                      <ArrowRight className="w-3.5 h-3.5" />
+                      {gallery.date}
+                      {gallery.photoCount > 0 &&
+                        ` \u00b7 ${gallery.photoCount} photos`}
                     </p>
-                  )}
-                  {gallery.status === "editing" && (
-                    <p
-                      className="mt-3 text-brand-main/40"
-                      style={{ fontSize: "0.8rem" }}
-                    >
-                      Estimated delivery: April 20, 2026
-                    </p>
-                  )}
-                </div>
-              </Link>
-            );
-          })}
-        </div>
+                    {gallery.status === "ready" && (
+                      <p
+                        className="mt-3 text-brand-tertiary inline-flex items-center gap-1 group-hover:gap-2 transition-all"
+                        style={{ fontSize: "0.8rem" }}
+                      >
+                        View Gallery
+                        <ArrowRight className="w-3.5 h-3.5" />
+                      </p>
+                    )}
+                    {gallery.status === "editing" && (
+                      <p
+                        className="mt-3 text-brand-main/40"
+                        style={{ fontSize: "0.8rem" }}
+                      >
+                        Photos are being edited
+                      </p>
+                    )}
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
+        )}
       </motion.div>
 
       {/* Bookings */}
@@ -251,67 +363,80 @@ export default function PortalDashboard() {
             View All <ArrowRight className="w-3.5 h-3.5" />
           </Link>
         </div>
-        <div className="space-y-3">
-          {mockBookings.map((booking) => {
-            const config = statusConfig[booking.status];
-            const progress = Math.round(
-              (booking.paidAmount / booking.totalAmount) * 100
-            );
-            return (
-              <div
-                key={booking.id}
-                className="bg-card border border-brand-main/8 p-5"
-              >
-                <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
+        {bookingsLoading ? (
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="w-6 h-6 animate-spin text-brand-tertiary" />
+          </div>
+        ) : bookings.length === 0 ? (
+          <div className="bg-card border border-brand-main/8 p-12 text-center">
+            <CalendarCheck className="w-8 h-8 text-brand-main/15 mx-auto mb-3" />
+            <p className="text-brand-main/40" style={{ fontSize: "0.9rem" }}>
+              No bookings yet.
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {bookings.map((booking) => {
+              const config = statusConfig[booking.status];
+              const progress = Math.round(
+                (booking.paidAmount / booking.totalAmount) * 100
+              );
+              return (
+                <div
+                  key={booking.id}
+                  className="bg-card border border-brand-main/8 p-5"
+                >
+                  <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
+                    <div>
+                      <h4
+                        className="font-serif text-brand-main mb-0.5"
+                        style={{ fontSize: "1.05rem" }}
+                      >
+                        {booking.type}
+                      </h4>
+                      <p
+                        className="text-brand-main/40"
+                        style={{ fontSize: "0.8rem" }}
+                      >
+                        {booking.date}
+                      </p>
+                    </div>
+                    <span
+                      className={`inline-flex items-center gap-1.5 px-3 py-1 ${config.color}`}
+                      style={{ fontSize: "0.65rem" }}
+                    >
+                      <config.icon className="w-3 h-3" />
+                      {config.label}
+                    </span>
+                  </div>
                   <div>
-                    <h4
-                      className="font-serif text-brand-main mb-0.5"
-                      style={{ fontSize: "1.05rem" }}
-                    >
-                      {booking.type}
-                    </h4>
-                    <p
-                      className="text-brand-main/40"
-                      style={{ fontSize: "0.8rem" }}
-                    >
-                      {booking.date}
-                    </p>
-                  </div>
-                  <span
-                    className={`inline-flex items-center gap-1.5 px-3 py-1 ${config.color}`}
-                    style={{ fontSize: "0.65rem" }}
-                  >
-                    <config.icon className="w-3 h-3" />
-                    {config.label}
-                  </span>
-                </div>
-                <div>
-                  <div className="flex items-center justify-between mb-1.5">
-                    <span
-                      className="text-brand-main/50"
-                      style={{ fontSize: "0.75rem" }}
-                    >
-                      Payment Progress
-                    </span>
-                    <span
-                      className="text-brand-main/70"
-                      style={{ fontSize: "0.75rem" }}
-                    >
-                      ${booking.paidAmount.toLocaleString()} / $
-                      {booking.totalAmount.toLocaleString()}
-                    </span>
-                  </div>
-                  <div className="w-full h-1.5 bg-brand-main/8 rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-brand-tertiary rounded-full transition-all duration-500"
-                      style={{ width: `${progress}%` }}
-                    />
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span
+                        className="text-brand-main/50"
+                        style={{ fontSize: "0.75rem" }}
+                      >
+                        Payment Progress
+                      </span>
+                      <span
+                        className="text-brand-main/70"
+                        style={{ fontSize: "0.75rem" }}
+                      >
+                        ${booking.paidAmount.toLocaleString()} / $
+                        {booking.totalAmount.toLocaleString()}
+                      </span>
+                    </div>
+                    <div className="w-full h-1.5 bg-brand-main/8 rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-brand-tertiary rounded-full transition-all duration-500"
+                        style={{ width: `${progress}%` }}
+                      />
+                    </div>
                   </div>
                 </div>
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
+        )}
       </motion.div>
     </div>
   );

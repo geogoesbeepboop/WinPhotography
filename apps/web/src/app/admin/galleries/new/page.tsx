@@ -6,12 +6,16 @@ import { useRouter } from "next/navigation";
 import { useSearchParams } from "next/navigation";
 import { motion } from "motion/react";
 import { ArrowLeft, Save } from "lucide-react";
-import { mockBookings } from "@/lib/mock-data/admin-data";
+import { useBookings } from "@/services/bookings";
+import { useCreateGallery } from "@/services/galleries";
 
 function AdminGalleryNewContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const preselectedBooking = searchParams.get("booking") || "";
+
+  const { data: bookings = [], isLoading: bookingsLoading } = useBookings();
+  const createGallery = useCreateGallery();
 
   const [form, setForm] = useState({
     bookingId: preselectedBooking,
@@ -19,15 +23,36 @@ function AdminGalleryNewContent() {
     notes: "",
   });
 
-  const availableBookings = mockBookings.filter((b) => b.status === "completed" || b.status === "confirmed");
+  const availableBookings = bookings.filter((b: any) => b.status === "completed" || b.status === "confirmed");
 
-  const selectedBooking = availableBookings.find((b) => b.id === form.bookingId);
+  const selectedBooking = availableBookings.find((b: any) => b.id === form.bookingId);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    // Mock save — navigate to gallery detail
-    router.push("/admin/galleries");
+    createGallery.mutate(
+      { bookingId: form.bookingId, title: form.title, notes: form.notes },
+      {
+        onSuccess: () => {
+          router.push("/admin/galleries");
+        },
+      }
+    );
   };
+
+  if (bookingsLoading) {
+    return (
+      <div>
+        <div className="h-4 w-32 bg-brand-main/10 animate-pulse mb-6" />
+        <div className="h-8 w-48 bg-brand-main/10 animate-pulse mb-2" />
+        <div className="h-4 w-72 bg-brand-main/5 animate-pulse mb-8" />
+        <div className="max-w-2xl bg-white border border-brand-main/8 p-6 space-y-5">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="h-12 bg-brand-main/5 animate-pulse" />
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div>
@@ -46,24 +71,26 @@ function AdminGalleryNewContent() {
               <select
                 value={form.bookingId}
                 onChange={(e) => {
-                  const bk = availableBookings.find((b) => b.id === e.target.value);
-                  setForm({ ...form, bookingId: e.target.value, title: bk ? `${bk.type} - ${bk.clientName}` : "" });
+                  const bk = availableBookings.find((b: any) => b.id === e.target.value);
+                  const clientName = bk ? (bk.clientName || bk.client?.fullName || "") : "";
+                  const bookingType = bk ? (bk.type || bk.category || "") : "";
+                  setForm({ ...form, bookingId: e.target.value, title: bk ? `${bookingType} - ${clientName}` : "" });
                 }}
                 className="w-full px-4 py-3 bg-brand-secondary border border-brand-main/10 text-brand-main focus:outline-none focus:border-brand-tertiary transition-colors"
                 style={{ fontSize: "0.9rem" }}
                 required
               >
                 <option value="">Select a booking...</option>
-                {availableBookings.map((bk) => (
-                  <option key={bk.id} value={bk.id}>{bk.clientName} — {bk.type} ({bk.date})</option>
+                {availableBookings.map((bk: any) => (
+                  <option key={bk.id} value={bk.id}>{bk.clientName || bk.client?.fullName || "Unknown"} — {bk.type || bk.category || ""} ({bk.date})</option>
                 ))}
               </select>
             </div>
 
             {selectedBooking && (
               <div className="p-4 bg-brand-secondary/50 border border-brand-main/6">
-                <p className="text-brand-main" style={{ fontSize: "0.85rem" }}>{selectedBooking.clientName}</p>
-                <p className="text-brand-main/40" style={{ fontSize: "0.75rem" }}>{selectedBooking.type} · {selectedBooking.date} · {selectedBooking.location}</p>
+                <p className="text-brand-main" style={{ fontSize: "0.85rem" }}>{selectedBooking.clientName || selectedBooking.client?.fullName || "Unknown"}</p>
+                <p className="text-brand-main/40" style={{ fontSize: "0.75rem" }}>{selectedBooking.type || selectedBooking.category || ""} · {selectedBooking.date} · {selectedBooking.location || ""}</p>
               </div>
             )}
 
@@ -87,8 +114,9 @@ function AdminGalleryNewContent() {
 
             <div className="flex items-center gap-3 pt-2">
               <button type="submit"
-                className="inline-flex items-center gap-2 px-6 py-3 bg-brand-main text-brand-secondary hover:bg-brand-main-light transition-colors tracking-[0.1em] uppercase" style={{ fontSize: "0.65rem" }}>
-                <Save className="w-3.5 h-3.5" /> Create Gallery
+                disabled={createGallery.isPending}
+                className="inline-flex items-center gap-2 px-6 py-3 bg-brand-main text-brand-secondary hover:bg-brand-main-light transition-colors tracking-[0.1em] uppercase disabled:opacity-50" style={{ fontSize: "0.65rem" }}>
+                <Save className="w-3.5 h-3.5" /> {createGallery.isPending ? "Creating..." : "Create Gallery"}
               </button>
               <Link href="/admin/galleries" className="text-brand-main/40 hover:text-brand-main transition-colors" style={{ fontSize: "0.8rem" }}>Cancel</Link>
             </div>

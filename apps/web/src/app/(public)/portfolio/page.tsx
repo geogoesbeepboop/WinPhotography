@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "motion/react";
 import { ImageWithFallback } from "@/components/shared/image-with-fallback";
+import { usePortfolio } from "@/services/portfolio";
 
-const categories = [
+const defaultCategories = [
   "All",
   "Weddings",
   "Elopements",
@@ -102,11 +103,34 @@ const portfolioItems = [
 
 export default function PortfolioPage() {
   const [activeCategory, setActiveCategory] = useState("All");
+  const { data: apiItems } = usePortfolio();
+
+  const items = useMemo(() => {
+    if (apiItems?.length > 0) {
+      return apiItems.map((item: any) => ({
+        slug: item.slug,
+        title: item.title,
+        category: item.category,
+        location: item.description?.split(',').pop()?.trim() || 'Pacific Northwest',
+        image: item.coverImageKey || item.photos?.[0]?.r2Key || '',
+        aspect: 'portrait' as const,
+      }));
+    }
+    return portfolioItems; // fallback to hardcoded
+  }, [apiItems]);
+
+  const categories = useMemo(() => {
+    if (apiItems?.length > 0) {
+      const uniqueCategories = [...new Set(apiItems.map((item: any) => item.category))].filter(Boolean) as string[];
+      return ["All", ...uniqueCategories];
+    }
+    return defaultCategories;
+  }, [apiItems]);
 
   const filteredItems =
     activeCategory === "All"
-      ? portfolioItems
-      : portfolioItems.filter((item) => item.category === activeCategory);
+      ? items
+      : items.filter((item: any) => item.category === activeCategory);
 
   return (
     <div>
@@ -171,7 +195,7 @@ export default function PortfolioPage() {
         <div className="max-w-7xl mx-auto px-6 lg:px-8">
           <div className="columns-1 sm:columns-2 lg:columns-3 gap-4 space-y-4">
             <AnimatePresence mode="popLayout">
-              {filteredItems.map((item) => (
+              {filteredItems.map((item: any) => (
                 <motion.div
                   key={item.slug}
                   layout

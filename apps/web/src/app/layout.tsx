@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import './globals.css';
 import { Providers } from '@/components/shared/providers';
 import { Toaster } from 'sonner';
+import { DataSourceFloat } from '@/components/shared/data-source-float';
 
 export const metadata: Metadata = {
   title: {
@@ -24,6 +25,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="min-h-screen antialiased">
         <Providers>{children}</Providers>
         <Toaster position="top-right" richColors />
+        <DataSourceFloat />
       </body>
     </html>
   );

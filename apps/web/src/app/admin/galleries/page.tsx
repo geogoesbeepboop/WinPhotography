@@ -3,9 +3,33 @@
 import Link from "next/link";
 import { motion } from "motion/react";
 import { Image, PlusCircle, Eye, EyeOff, Calendar, User } from "lucide-react";
-import { mockGalleries } from "@/lib/mock-data/admin-data";
+import { useGalleries } from "@/services/galleries";
 
 export default function AdminGalleries() {
+  const { data: galleries = [], isLoading } = useGalleries();
+
+  if (isLoading) {
+    return (
+      <div>
+        <div className="flex flex-wrap items-start justify-between gap-4 mb-6">
+          <div>
+            <div className="h-8 w-40 bg-brand-main/10 animate-pulse mb-1" />
+            <div className="h-4 w-64 bg-brand-main/5 animate-pulse" />
+          </div>
+          <div className="h-10 w-36 bg-brand-main/10 animate-pulse" />
+        </div>
+        <div className="space-y-3">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="bg-white border border-brand-main/8 p-5">
+              <div className="h-5 w-48 bg-brand-main/10 animate-pulse mb-2" />
+              <div className="h-3 w-72 bg-brand-main/5 animate-pulse" />
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div>
       <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} className="flex flex-wrap items-start justify-between gap-4 mb-6">
@@ -20,7 +44,7 @@ export default function AdminGalleries() {
       </motion.div>
 
       <div className="space-y-3">
-        {mockGalleries.map((gal, i) => (
+        {galleries.map((gal: any, i: number) => (
           <motion.div key={gal.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}>
             <Link href={`/admin/galleries/${gal.id}`} className="block bg-white border border-brand-main/8 p-5 hover:border-brand-tertiary/30 transition-colors">
               <div className="flex flex-wrap items-start justify-between gap-3">
@@ -34,8 +58,8 @@ export default function AdminGalleries() {
                     )}
                   </div>
                   <div className="flex flex-wrap items-center gap-3 text-brand-main/40" style={{ fontSize: "0.75rem" }}>
-                    <span className="flex items-center gap-1"><User className="w-3 h-3" />{gal.clientName}</span>
-                    <span className="flex items-center gap-1"><Image className="w-3 h-3" />{gal.photoCount} photos</span>
+                    <span className="flex items-center gap-1"><User className="w-3 h-3" />{gal.clientName || gal.client?.fullName || "Unknown"}</span>
+                    <span className="flex items-center gap-1"><Image className="w-3 h-3" />{gal.photoCount ?? 0} photos</span>
                     <span className="flex items-center gap-1"><Calendar className="w-3 h-3" />{gal.createdAt}</span>
                   </div>
                 </div>
@@ -47,7 +71,7 @@ export default function AdminGalleries() {
           </motion.div>
         ))}
 
-        {mockGalleries.length === 0 && (
+        {galleries.length === 0 && (
           <div className="text-center py-16">
             <Image className="w-8 h-8 text-brand-main/15 mx-auto mb-3" />
             <p className="text-brand-main/40" style={{ fontSize: "0.9rem" }}>No galleries yet.</p>

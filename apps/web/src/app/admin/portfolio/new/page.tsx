@@ -5,11 +5,14 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion } from "motion/react";
 import { ArrowLeft, Save, Upload } from "lucide-react";
+import { useCreatePortfolioItem } from "@/services/portfolio";
 
 const categories = ["Elopements", "Proposals", "Weddings", "Graduations", "Headshots", "Events"];
 
 export default function AdminPortfolioNew() {
   const router = useRouter();
+  const createPortfolioItem = useCreatePortfolioItem();
+
   const [form, setForm] = useState({
     title: "",
     category: "",
@@ -19,7 +22,20 @@ export default function AdminPortfolioNew() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    router.push("/admin/portfolio");
+    createPortfolioItem.mutate(
+      {
+        title: form.title,
+        category: form.category,
+        description: form.description,
+        isFeatured: form.featured,
+        featured: form.featured,
+      },
+      {
+        onSuccess: () => {
+          router.push("/admin/portfolio");
+        },
+      }
+    );
   };
 
   return (
@@ -76,8 +92,9 @@ export default function AdminPortfolioNew() {
 
           <div className="flex items-center gap-3">
             <button type="submit"
-              className="inline-flex items-center gap-2 px-6 py-3 bg-brand-main text-brand-secondary hover:bg-brand-main-light transition-colors tracking-[0.1em] uppercase" style={{ fontSize: "0.65rem" }}>
-              <Save className="w-3.5 h-3.5" /> Save Collection
+              disabled={createPortfolioItem.isPending}
+              className="inline-flex items-center gap-2 px-6 py-3 bg-brand-main text-brand-secondary hover:bg-brand-main-light transition-colors tracking-[0.1em] uppercase disabled:opacity-50" style={{ fontSize: "0.65rem" }}>
+              <Save className="w-3.5 h-3.5" /> {createPortfolioItem.isPending ? "Saving..." : "Save Collection"}
             </button>
             <Link href="/admin/portfolio" className="text-brand-main/40 hover:text-brand-main transition-colors" style={{ fontSize: "0.8rem" }}>Cancel</Link>
           </div>

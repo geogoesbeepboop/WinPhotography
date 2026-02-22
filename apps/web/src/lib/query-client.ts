@@ -5,7 +5,12 @@ export function makeQueryClient() {
     defaultOptions: {
       queries: {
         staleTime: 60 * 1000,
+        gcTime: 5 * 60 * 1000, // 5min garbage collection
         retry: 1,
+        refetchOnWindowFocus: true, // Re-fetch stale data when admin switches back to tab
+      },
+      mutations: {
+        retry: 0, // Don't auto-retry mutations
       },
     },
   });

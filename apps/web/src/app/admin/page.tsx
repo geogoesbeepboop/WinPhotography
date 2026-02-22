@@ -12,22 +12,59 @@ import {
   TrendingUp,
   Clock,
 } from "lucide-react";
-import { mockInquiries, mockBookings, mockPayments, mockClients, mockGalleries, inquiryStatusConfig, bookingStatusConfig } from "@/lib/mock-data/admin-data";
+import { inquiryStatusConfig, bookingStatusConfig } from "@/lib/mock-data/admin-data";
+import { useInquiries } from "@/services/inquiries";
+import { useBookings } from "@/services/bookings";
+import { usePayments } from "@/services/payments";
+import { useGalleries } from "@/services/galleries";
+import { useClients } from "@/services/clients";
 
 export default function AdminOverview() {
-  const totalRevenue = mockPayments.filter((p) => p.status === "paid").reduce((s, p) => s + p.amount, 0);
-  const pendingPayments = mockPayments.filter((p) => p.status === "pending" || p.status === "overdue").reduce((s, p) => s + p.amount, 0);
-  const newInquiries = mockInquiries.filter((i) => i.status === "new").length;
-  const confirmedBookings = mockBookings.filter((b) => b.status === "confirmed").length;
+  const { data: inquiriesData, isLoading: inquiriesLoading } = useInquiries();
+  const { data: bookingsData, isLoading: bookingsLoading } = useBookings();
+  const { data: paymentsData, isLoading: paymentsLoading } = usePayments();
+  const { data: galleriesData, isLoading: galleriesLoading } = useGalleries();
+  const { data: clientsData, isLoading: clientsLoading } = useClients();
+
+  const inquiries = inquiriesData ?? [];
+  const bookings = bookingsData ?? [];
+  const payments = paymentsData ?? [];
+  const galleries = galleriesData ?? [];
+  const clients = clientsData ?? [];
+
+  const isLoading = inquiriesLoading || bookingsLoading || paymentsLoading || galleriesLoading || clientsLoading;
+
+  const totalRevenue = payments.filter((p: any) => p.status === "paid").reduce((s: number, p: any) => s + p.amount, 0);
+  const pendingPayments = payments.filter((p: any) => p.status === "pending" || p.status === "overdue").reduce((s: number, p: any) => s + p.amount, 0);
+  const newInquiries = inquiries.filter((i: any) => i.status === "new").length;
+  const confirmedBookings = bookings.filter((b: any) => b.status === "confirmed").length;
 
   const stats = [
     { label: "Total Revenue", value: `$${totalRevenue.toLocaleString()}`, icon: DollarSign, color: "text-green-600", bg: "bg-green-50" },
     { label: "Pending Payments", value: `$${pendingPayments.toLocaleString()}`, icon: TrendingUp, color: "text-amber-600", bg: "bg-amber-50" },
     { label: "New Inquiries", value: String(newInquiries), icon: MessageSquare, color: "text-blue-600", bg: "bg-blue-50" },
     { label: "Active Bookings", value: String(confirmedBookings), icon: CalendarCheck, color: "text-brand-tertiary", bg: "bg-brand-tertiary/10" },
-    { label: "Galleries", value: String(mockGalleries.length), icon: Image, color: "text-purple-600", bg: "bg-purple-50" },
-    { label: "Total Clients", value: String(mockClients.length), icon: Users, color: "text-brand-main-light", bg: "bg-brand-main/5" },
+    { label: "Galleries", value: String(galleries.length), icon: Image, color: "text-purple-600", bg: "bg-purple-50" },
+    { label: "Total Clients", value: String(clients.length), icon: Users, color: "text-brand-main-light", bg: "bg-brand-main/5" },
   ];
+
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        <div className="h-16 bg-brand-main/5 rounded animate-pulse" />
+        <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div key={i} className="h-28 bg-brand-main/5 rounded animate-pulse" />
+          ))}
+        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="h-64 bg-brand-main/5 rounded animate-pulse" />
+          <div className="h-64 bg-brand-main/5 rounded animate-pulse" />
+          <div className="h-48 bg-brand-main/5 rounded animate-pulse lg:col-span-2" />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div>
@@ -66,15 +103,15 @@ export default function AdminOverview() {
               </Link>
             </div>
             <div className="divide-y divide-brand-main/6">
-              {mockInquiries.slice(0, 4).map((inq) => {
-                const cfg = inquiryStatusConfig[inq.status];
+              {inquiries.slice(0, 4).map((inq: any) => {
+                const cfg = inquiryStatusConfig[inq.status as keyof typeof inquiryStatusConfig];
                 return (
                   <Link key={inq.id} href={`/admin/inquiries/${inq.id}`} className="flex items-center justify-between p-4 hover:bg-card/50 transition-colors">
                     <div className="min-w-0">
-                      <p className="text-brand-main truncate" style={{ fontSize: "0.85rem" }}>{inq.name}</p>
-                      <p className="text-brand-main/40 truncate" style={{ fontSize: "0.75rem" }}>{inq.category} · {inq.tier}</p>
+                      <p className="text-brand-main truncate" style={{ fontSize: "0.85rem" }}>{inq.name || inq.contactName}</p>
+                      <p className="text-brand-main/40 truncate" style={{ fontSize: "0.75rem" }}>{inq.category || inq.eventType} · {inq.tier || inq.contactEmail}</p>
                     </div>
-                    <span className={`shrink-0 ml-3 px-2.5 py-0.5 ${cfg.color}`} style={{ fontSize: "0.6rem" }}>{cfg.label}</span>
+                    {cfg && <span className={`shrink-0 ml-3 px-2.5 py-0.5 ${cfg.color}`} style={{ fontSize: "0.6rem" }}>{cfg.label}</span>}
                   </Link>
                 );
               })}
@@ -92,8 +129,8 @@ export default function AdminOverview() {
               </Link>
             </div>
             <div className="divide-y divide-brand-main/6">
-              {mockBookings.filter((b) => b.status === "confirmed" || b.status === "pending").map((bk) => {
-                const cfg = bookingStatusConfig[bk.status];
+              {bookings.filter((b: any) => b.status === "confirmed" || b.status === "pending").map((bk: any) => {
+                const cfg = bookingStatusConfig[bk.status as keyof typeof bookingStatusConfig];
                 return (
                   <Link key={bk.id} href={`/admin/bookings/${bk.id}`} className="flex items-center justify-between p-4 hover:bg-card/50 transition-colors">
                     <div className="min-w-0">
@@ -102,7 +139,7 @@ export default function AdminOverview() {
                         <Clock className="w-3 h-3" />{bk.date} · {bk.type}
                       </p>
                     </div>
-                    <span className={`shrink-0 ml-3 px-2.5 py-0.5 ${cfg.color}`} style={{ fontSize: "0.6rem" }}>{cfg.label}</span>
+                    {cfg && <span className={`shrink-0 ml-3 px-2.5 py-0.5 ${cfg.color}`} style={{ fontSize: "0.6rem" }}>{cfg.label}</span>}
                   </Link>
                 );
               })}
@@ -120,11 +157,11 @@ export default function AdminOverview() {
               </Link>
             </div>
             <div className="divide-y divide-brand-main/6">
-              {mockPayments.filter((p) => p.status === "pending").map((pay) => (
+              {payments.filter((p: any) => p.status === "pending").map((pay: any) => (
                 <div key={pay.id} className="flex items-center justify-between p-4">
                   <div>
                     <p className="text-brand-main" style={{ fontSize: "0.85rem" }}>{pay.clientName}</p>
-                    <p className="text-brand-main/40" style={{ fontSize: "0.75rem" }}>{pay.label} · Due {pay.dueDate}</p>
+                    <p className="text-brand-main/40" style={{ fontSize: "0.75rem" }}>{pay.label || pay.description} · Due {pay.dueDate}</p>
                   </div>
                   <p className="font-serif text-brand-main" style={{ fontSize: "1.05rem" }}>${pay.amount.toLocaleString()}</p>
                 </div>

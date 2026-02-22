@@ -5,7 +5,7 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import { motion } from "motion/react";
 import { ArrowLeft, Upload, Eye, EyeOff, Trash2, Image, Send, CheckCircle2, X } from "lucide-react";
-import { mockGalleries } from "@/lib/mock-data/admin-data";
+import { useGallery } from "@/services/galleries";
 import { ImageWithFallback } from "@/components/shared/image-with-fallback";
 
 const mockPhotos = [
@@ -19,11 +19,35 @@ const mockPhotos = [
 
 export default function AdminGalleryDetail() {
   const { id } = useParams();
-  const gallery = mockGalleries.find((g) => g.id === id);
-  const [isPublished, setIsPublished] = useState(gallery?.status === "published");
-  const [photos, setPhotos] = useState(gallery?.status === "published" ? mockPhotos : []);
+  const { data: gallery, isLoading } = useGallery(id as string);
+  const [isPublished, setIsPublished] = useState<boolean | null>(null);
+  const [photos, setPhotos] = useState<string[]>([]);
+  const [photosInitialized, setPhotosInitialized] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [notified, setNotified] = useState(false);
+
+  // Initialize local state from fetched data once
+  if (gallery && !photosInitialized) {
+    setIsPublished(gallery.status === "published");
+    setPhotos(gallery.status === "published" ? mockPhotos : []);
+    setPhotosInitialized(true);
+  }
+
+  if (isLoading) {
+    return (
+      <div>
+        <div className="h-4 w-32 bg-brand-main/10 animate-pulse mb-6" />
+        <div className="h-8 w-64 bg-brand-main/10 animate-pulse mb-2" />
+        <div className="h-4 w-48 bg-brand-main/5 animate-pulse mb-6" />
+        <div className="h-40 bg-brand-main/5 animate-pulse mb-6" />
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} className="aspect-[4/3] bg-brand-main/5 animate-pulse" />
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   if (!gallery) {
     return (
@@ -33,6 +57,9 @@ export default function AdminGalleryDetail() {
       </div>
     );
   }
+
+  const published = isPublished ?? gallery.status === "published";
+  const clientName = gallery.clientName || gallery.client?.fullName || "Unknown";
 
   const handleSimulateUpload = () => {
     setUploading(true);
@@ -57,16 +84,16 @@ export default function AdminGalleryDetail() {
           <div>
             <div className="flex items-center gap-3 mb-1">
               <h1 className="font-serif text-brand-main" style={{ fontSize: "1.8rem" }}>{gallery.title}</h1>
-              {isPublished ? (
+              {published ? (
                 <span className="inline-flex items-center gap-1 px-3 py-1 bg-green-100 text-green-700" style={{ fontSize: "0.6rem" }}><Eye className="w-3 h-3" /> Published</span>
               ) : (
                 <span className="inline-flex items-center gap-1 px-3 py-1 bg-amber-100 text-amber-700" style={{ fontSize: "0.6rem" }}><EyeOff className="w-3 h-3" /> Draft</span>
               )}
             </div>
-            <p className="text-brand-main/50" style={{ fontSize: "0.85rem" }}>{gallery.clientName} · {photos.length} photos</p>
+            <p className="text-brand-main/50" style={{ fontSize: "0.85rem" }}>{clientName} · {photos.length} photos</p>
           </div>
           <div className="flex items-center gap-3">
-            {isPublished && !notified && (
+            {published && !notified && (
               <button onClick={() => setNotified(true)}
                 className="inline-flex items-center gap-2 px-4 py-2.5 border border-brand-main/15 text-brand-main/60 hover:text-brand-main hover:border-brand-main/30 transition-colors" style={{ fontSize: "0.7rem" }}>
                 <Send className="w-3.5 h-3.5" /> Notify Client
@@ -75,11 +102,11 @@ export default function AdminGalleryDetail() {
             {notified && (
               <span className="inline-flex items-center gap-1.5 text-green-600 px-3" style={{ fontSize: "0.75rem" }}><CheckCircle2 className="w-4 h-4" /> Client notified</span>
             )}
-            <button onClick={() => setIsPublished(!isPublished)}
+            <button onClick={() => setIsPublished(!published)}
               className={`inline-flex items-center gap-2 px-5 py-2.5 tracking-[0.1em] uppercase transition-colors ${
-                isPublished ? "bg-amber-100 text-amber-700 hover:bg-amber-200" : "bg-brand-main text-brand-secondary hover:bg-brand-main-light"
+                published ? "bg-amber-100 text-amber-700 hover:bg-amber-200" : "bg-brand-main text-brand-secondary hover:bg-brand-main-light"
               }`} style={{ fontSize: "0.65rem" }}>
-              {isPublished ? <><EyeOff className="w-3.5 h-3.5" /> Unpublish</> : <><Eye className="w-3.5 h-3.5" /> Publish</>}
+              {published ? <><EyeOff className="w-3.5 h-3.5" /> Unpublish</> : <><Eye className="w-3.5 h-3.5" /> Publish</>}
             </button>
           </div>
         </div>

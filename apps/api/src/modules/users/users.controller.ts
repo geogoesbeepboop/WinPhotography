@@ -6,6 +6,7 @@ import {
   Param,
   Body,
   UseGuards,
+  NotFoundException,
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { UserRole } from '@winphotography/shared';
@@ -23,21 +24,30 @@ export class UsersController {
 
   @Get()
   async findAll() {
-    throw new Error('Not implemented');
+    return this.usersService.findAll();
+  }
+
+  @Get('clients')
+  async findClients() {
+    return this.usersService.findClients();
   }
 
   @Get(':id')
   async findOne(@Param('id') id: string) {
-    throw new Error('Not implemented');
+    const user = await this.usersService.findById(id);
+    if (!user) {
+      throw new NotFoundException(`User ${id} not found`);
+    }
+    return user;
   }
 
   @Patch(':id')
-  async update(@Param('id') id: string, @Body() updateData: any) {
-    throw new Error('Not implemented');
+  async update(@Param('id') id: string, @Body() updateData: Partial<{ fullName: string; phone: string; isActive: boolean }>) {
+    return this.usersService.update(id, updateData);
   }
 
   @Delete(':id')
   async remove(@Param('id') id: string) {
-    throw new Error('Not implemented');
+    return this.usersService.remove(id);
   }
 }

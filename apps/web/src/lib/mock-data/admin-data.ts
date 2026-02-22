@@ -118,23 +118,35 @@ export const mockClients: Client[] = [
   { id: "c-4", name: "Jessica & Tom Lee", email: "jlee@example.com", phone: "(707) 555-0321", bookingCount: 1, totalSpent: 2550, lastBooking: "Jun 14, 2026", status: "active", joinedAt: "Jan 2026" },
 ];
 
-export const inquiryStatusConfig = {
+export const inquiryStatusConfig: Record<string, { label: string; color: string }> = {
+  // Mock statuses
   new: { label: "New", color: "bg-blue-100 text-blue-700" },
   responded: { label: "Responded", color: "bg-amber-100 text-amber-700" },
   booked: { label: "Booked", color: "bg-green-100 text-green-700" },
   archived: { label: "Archived", color: "bg-gray-100 text-gray-500" },
+  // API statuses
+  contacted: { label: "Contacted", color: "bg-amber-100 text-amber-700" },
+  quoted: { label: "Quoted", color: "bg-purple-100 text-purple-700" },
+  converted: { label: "Converted", color: "bg-green-100 text-green-700" },
 };
 
-export const bookingStatusConfig = {
+export const bookingStatusConfig: Record<string, { label: string; color: string }> = {
   pending: { label: "Pending", color: "bg-amber-100 text-amber-700" },
+  pending_deposit: { label: "Pending Deposit", color: "bg-amber-100 text-amber-700" },
   confirmed: { label: "Confirmed", color: "bg-green-100 text-green-700" },
+  in_progress: { label: "In Progress", color: "bg-blue-100 text-blue-700" },
+  editing: { label: "Editing", color: "bg-purple-100 text-purple-700" },
+  delivered: { label: "Delivered", color: "bg-teal-100 text-teal-700" },
   completed: { label: "Completed", color: "bg-brand-main/10 text-brand-main/60" },
   cancelled: { label: "Cancelled", color: "bg-red-100 text-red-600" },
 };
 
-export const paymentStatusConfig = {
+export const paymentStatusConfig: Record<string, { label: string; color: string }> = {
   paid: { label: "Paid", color: "text-green-600 bg-green-50" },
+  succeeded: { label: "Paid", color: "text-green-600 bg-green-50" },
   pending: { label: "Pending", color: "text-amber-600 bg-amber-50" },
+  processing: { label: "Processing", color: "text-blue-600 bg-blue-50" },
   overdue: { label: "Overdue", color: "text-red-600 bg-red-50" },
+  failed: { label: "Failed", color: "text-red-600 bg-red-50" },
   refunded: { label: "Refunded", color: "text-gray-500 bg-gray-50" },
 };

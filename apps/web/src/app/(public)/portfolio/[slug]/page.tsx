@@ -1,11 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { motion, AnimatePresence } from "motion/react";
 import { ArrowLeft, X, ChevronLeft, ChevronRight } from "lucide-react";
 import { ImageWithFallback } from "@/components/shared/image-with-fallback";
+import { usePortfolioBySlug } from "@/services/portfolio";
+import { format } from "date-fns";
 
 const portfolioData: Record<
   string,
@@ -79,7 +81,22 @@ const defaultData = {
 
 export default function PortfolioDetailPage() {
   const { slug } = useParams();
-  const data = portfolioData[slug as string || ""] || defaultData;
+  const { data: apiData, isLoading } = usePortfolioBySlug(slug as string);
+
+  const data = useMemo(() => {
+    if (apiData) {
+      return {
+        title: apiData.title,
+        category: apiData.category,
+        location: apiData.description?.split(',').pop()?.trim() || 'Pacific Northwest',
+        date: apiData.eventDate ? format(new Date(apiData.eventDate), 'MMMM yyyy') : '',
+        description: apiData.description || '',
+        images: apiData.photos?.map((p: any) => p.r2Key) || [],
+      };
+    }
+    return portfolioData[slug as string || ""] || defaultData;
+  }, [apiData, slug]);
+
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
 
   const openLightbox = (index: number) => setLightboxIndex(index);
@@ -98,6 +115,18 @@ export default function PortfolioDetailPage() {
       );
     }
   };
+
+  if (isLoading) {
+    return (
+      <div className="pt-32 pb-12 lg:pt-40 lg:pb-16 bg-brand-secondary min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-brand-main/50" style={{ fontSize: "0.9rem" }}>
+            Loading gallery...
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div>
@@ -148,7 +177,7 @@ export default function PortfolioDetailPage() {
       <section className="py-12 lg:py-16 bg-brand-secondary">
         <div className="max-w-6xl mx-auto px-6 lg:px-8">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {data.images.map((img, i) => (
+            {data.images.map((img: any, i: number) => (
               <motion.div
                 key={i}
                 initial={{ opacity: 0, y: 20 }}
