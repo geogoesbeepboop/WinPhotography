@@ -6,17 +6,7 @@ import Link from "next/link";
 import { motion } from "motion/react";
 import { Calendar, Mail, Heart, Send, Loader2 } from "lucide-react";
 import { apiClient } from "@/lib/api-client";
-
-const sessionTypes = [
-  { label: "Wedding", value: "wedding" },
-  { label: "Elopement", value: "wedding" },
-  { label: "Proposal", value: "engagement" },
-  { label: "Engagement", value: "engagement" },
-  { label: "Graduation", value: "event" },
-  { label: "Headshots", value: "portrait" },
-  { label: "Event", value: "event" },
-  { label: "Other", value: "other" },
-];
+import { useEventTypes } from "@/services/event-types";
 
 const howFoundOptions = [
   "Instagram",
@@ -30,6 +20,7 @@ const howFoundOptions = [
 
 export default function InquirePage() {
   const router = useRouter();
+  const { data: eventTypes = [] } = useEventTypes();
   const [formData, setFormData] = useState({
     firstName: "",
     lastName: "",
@@ -88,7 +79,7 @@ export default function InquirePage() {
       }
     }
 
-    if (!formData.sessionType) errors.sessionType = "Please select a session type";
+    if (!formData.sessionType) errors.sessionType = "Please select an event type";
 
     if (formData.date) {
       const selected = new Date(formData.date);
@@ -122,17 +113,13 @@ export default function InquirePage() {
     setSubmitting(true);
 
     try {
-      const selectedType = sessionTypes.find(
-        (t) => t.label === formData.sessionType
-      );
-
       const guestCount = formData.guestCount ? parseInt(formData.guestCount, 10) : undefined;
 
       await apiClient.post("/inquiries", {
         contactName: `${formData.firstName} ${formData.lastName}`.trim(),
         contactEmail: formData.email,
         contactPhone: formData.phone ? formData.phone.replace(/\D/g, "") : undefined,
-        eventType: selectedType?.value || "other",
+        eventType: formData.sessionType,
         eventDate: formData.date || undefined,
         eventLocation: formData.location || undefined,
         guestCount: guestCount && !isNaN(guestCount) ? guestCount : undefined,
@@ -341,7 +328,7 @@ export default function InquirePage() {
                   className="block mb-2 tracking-[0.1em] uppercase text-brand-main/70"
                   style={{ fontSize: "0.7rem" }}
                 >
-                  Session Type *
+                  Event Type *
                 </label>
                 <select
                   id="sessionType"
@@ -352,10 +339,10 @@ export default function InquirePage() {
                   className={`w-full px-4 py-3 bg-white border ${fieldErrors.sessionType ? "border-red-400" : "border-brand-main/10"} text-brand-main focus:outline-none focus:border-brand-tertiary transition-colors appearance-none`}
                   style={{ fontSize: "0.9rem" }}
                 >
-                  <option value="">Select a type...</option>
-                  {sessionTypes.map((type) => (
-                    <option key={type.label} value={type.label}>
-                      {type.label}
+                  <option value="">Select an event type...</option>
+                  {eventTypes.map((eventType) => (
+                    <option key={eventType.id} value={eventType.slug}>
+                      {eventType.name}
                     </option>
                   ))}
                 </select>

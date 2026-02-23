@@ -6,12 +6,30 @@ import Link from "next/link";
 import { motion } from "motion/react";
 import { ArrowLeft, Upload, Eye, EyeOff, Image, X, Loader2 } from "lucide-react";
 import { useGallery, usePublishGallery, useAddGalleryPhotos, useDeleteGalleryPhoto, useUpdateGallery } from "@/services/galleries";
-import { getGalleryUploadUrl, uploadFileToR2 } from "@/services/upload";
+import { uploadGalleryPhoto } from "@/services/upload";
 import { ImageWithFallback } from "@/components/shared/image-with-fallback";
+import { resolveMediaUrl } from "@/lib/media";
+
+interface GalleryPhotoItem {
+  id: string;
+  filename?: string;
+  caption?: string;
+  url?: string;
+  r2Key?: string;
+}
+
+interface GalleryDetails {
+  id: string;
+  title: string;
+  status: string;
+  clientName?: string;
+  client?: { fullName?: string };
+  photos?: GalleryPhotoItem[];
+}
 
 export default function AdminGalleryDetail() {
   const { id } = useParams();
-  const { data: gallery, isLoading } = useGallery(id as string);
+  const { data: galleryData, isLoading } = useGallery(id as string);
   const publishGallery = usePublishGallery();
   const addPhotos = useAddGalleryPhotos();
   const deletePhoto = useDeleteGalleryPhoto();
@@ -37,7 +55,7 @@ export default function AdminGalleryDetail() {
     );
   }
 
-  if (!gallery) {
+  if (!galleryData) {
     return (
       <div className="text-center py-24">
         <h1 className="font-serif text-brand-main mb-4" style={{ fontSize: "1.5rem" }}>Gallery Not Found</h1>
@@ -46,8 +64,9 @@ export default function AdminGalleryDetail() {
     );
   }
 
+  const gallery = galleryData as GalleryDetails;
   const published = gallery.status === "published";
-  const clientName = (gallery as any).clientName || gallery.client?.fullName || "Unknown";
+  const clientName = gallery.clientName || gallery.client?.fullName || "Unknown";
   const photos = gallery.photos || [];
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -70,8 +89,7 @@ export default function AdminGalleryDetail() {
         const file = files[i];
         setUploadProgress({ current: i + 1, total: files.length });
 
-        const { uploadUrl, key } = await getGalleryUploadUrl(id as string, file);
-        await uploadFileToR2(uploadUrl, file);
+        const { key } = await uploadGalleryPhoto(id as string, file);
         photoRecords.push({
           filename: file.name,
           r2Key: key,
@@ -110,6 +128,9 @@ export default function AdminGalleryDetail() {
   };
 
   const handleDeletePhoto = (photoId: string) => {
+    if (!window.confirm("Delete this photo from the gallery?")) {
+      return;
+    }
     deletePhoto.mutate({ galleryId: id as string, photoId });
   };
 
@@ -193,7 +214,7 @@ export default function AdminGalleryDetail() {
         {/* Photo Grid */}
         {photos.length > 0 ? (
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-            {photos.map((photo: any, i: number) => (
+            {photos.map((photo, i) => (
               <motion.div
                 key={photo.id || i}
                 initial={{ opacity: 0, scale: 0.95 }}
@@ -202,7 +223,7 @@ export default function AdminGalleryDetail() {
                 className="relative group aspect-[4/3] overflow-hidden bg-brand-main/5"
               >
                 <ImageWithFallback
-                  src={photo.url || photo.r2Key}
+                  src={resolveMediaUrl(photo.url || photo.r2Key || "")}
                   alt={photo.caption || photo.filename || `Photo ${i + 1}`}
                   className="w-full h-full object-cover"
                 />

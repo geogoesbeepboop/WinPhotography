@@ -6,6 +6,22 @@ import { motion } from "motion/react";
 import { PlusCircle, Eye, EyeOff, Star, Image, Trash2 } from "lucide-react";
 import { useAdminPortfolio, useUpdatePortfolioItem, useDeletePortfolioItem } from "@/services/portfolio";
 import { ImageWithFallback } from "@/components/shared/image-with-fallback";
+import { resolveMediaUrl } from "@/lib/media";
+
+interface PortfolioAdminItem {
+  id: string;
+  title: string;
+  category: string;
+  imageCount?: number;
+  photos?: Array<{ id?: string }>;
+  published?: boolean;
+  isPublished?: boolean;
+  featured?: boolean;
+  isFeatured?: boolean;
+  coverImage?: string;
+  coverImageUrl?: string;
+  coverImageKey?: string;
+}
 
 export default function AdminPortfolio() {
   const { data: portfolioData = [], isLoading } = useAdminPortfolio();
@@ -14,25 +30,28 @@ export default function AdminPortfolio() {
 
   const [activeCategory, setActiveCategory] = useState("All");
 
-  const items = portfolioData as any[];
+  const items = portfolioData as PortfolioAdminItem[];
 
-  const togglePublish = (item: any) => {
+  const togglePublish = (item: PortfolioAdminItem) => {
     const isPublished = item.published ?? item.isPublished ?? false;
     updateItem.mutate({ id: item.id, isPublished: !isPublished, published: !isPublished });
   };
 
-  const toggleFeatured = (item: any) => {
+  const toggleFeatured = (item: PortfolioAdminItem) => {
     const isFeatured = item.featured ?? item.isFeatured ?? false;
     updateItem.mutate({ id: item.id, isFeatured: !isFeatured, featured: !isFeatured });
   };
 
   const removeItem = (id: string) => {
+    if (!window.confirm("Delete this portfolio collection? This action cannot be undone.")) {
+      return;
+    }
     deleteItem.mutate(id);
   };
 
-  const categories = ["All", ...Array.from(new Set(items.map((p: any) => p.category)))];
+  const categories = ["All", ...Array.from(new Set(items.map((p) => p.category)))];
 
-  const filtered = activeCategory === "All" ? items : items.filter((p: any) => p.category === activeCategory);
+  const filtered = activeCategory === "All" ? items : items.filter((p) => p.category === activeCategory);
 
   if (isLoading) {
     return (
@@ -90,10 +109,12 @@ export default function AdminPortfolio() {
 
       {/* Portfolio Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-        {filtered.map((item: any, i: number) => {
+        {filtered.map((item, i) => {
           const isPublished = item.published ?? item.isPublished ?? false;
           const isFeatured = item.featured ?? item.isFeatured ?? false;
-          const coverImage = item.coverImage || item.coverImageKey || "";
+          const coverImage = resolveMediaUrl(
+            item.coverImageUrl || item.coverImage || item.coverImageKey || "",
+          );
           const imageCount = item.imageCount ?? item.photos?.length ?? 0;
 
           return (

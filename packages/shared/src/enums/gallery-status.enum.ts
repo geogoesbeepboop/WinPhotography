@@ -9,6 +9,5 @@ export enum PortfolioCategory {
   ENGAGEMENT = 'engagement',
   EVENT = 'event',
   PORTRAIT = 'portrait',
-  CORPORATE = 'corporate',
   OTHER = 'other',
 }

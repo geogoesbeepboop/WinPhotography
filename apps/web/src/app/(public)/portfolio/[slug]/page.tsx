@@ -8,15 +8,20 @@ import { ArrowLeft, X, ChevronLeft, ChevronRight, Camera } from "lucide-react";
 import { ImageWithFallback } from "@/components/shared/image-with-fallback";
 import { usePortfolioBySlug } from "@/services/portfolio";
 import { format } from "date-fns";
+import { resolveMediaUrl } from "@/lib/media";
 
-const categoryLabels: Record<string, string> = {
-  wedding: "Wedding",
-  engagement: "Engagement",
-  event: "Event",
-  portrait: "Portrait",
-  corporate: "Corporate",
-  other: "Other",
-};
+interface PortfolioPhoto {
+  url?: string;
+  r2Key?: string;
+}
+
+interface PortfolioDetailApi {
+  title: string;
+  category: string;
+  description?: string;
+  eventDate?: string;
+  photos?: PortfolioPhoto[];
+}
 
 export default function PortfolioDetailPage() {
   const { slug } = useParams();
@@ -24,13 +29,14 @@ export default function PortfolioDetailPage() {
 
   const data = useMemo(() => {
     if (!apiData) return null;
+    const detail = apiData as PortfolioDetailApi;
     return {
-      title: apiData.title,
-      category: categoryLabels[apiData.category] || apiData.category,
-      location: apiData.description?.split(",").pop()?.trim() || "Pacific Northwest",
-      date: apiData.eventDate ? format(new Date(apiData.eventDate), "MMMM yyyy") : "",
-      description: apiData.description || "",
-      images: (apiData.photos || []).map((p: any) => p.url || p.r2Key),
+      title: detail.title,
+      category: detail.category,
+      location: detail.description?.split(",").pop()?.trim() || "Pacific Northwest",
+      date: detail.eventDate ? format(new Date(detail.eventDate), "MMMM yyyy") : "",
+      description: detail.description || "",
+      images: (detail.photos || []).map((p) => resolveMediaUrl(p.url || p.r2Key || "")),
     };
   }, [apiData]);
 
@@ -130,7 +136,7 @@ export default function PortfolioDetailPage() {
         <div className="max-w-6xl mx-auto px-6 lg:px-8">
           {data.images.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {data.images.map((img: any, i: number) => (
+              {data.images.map((img, i) => (
                 <motion.div
                   key={i}
                   initial={{ opacity: 0, y: 20 }}

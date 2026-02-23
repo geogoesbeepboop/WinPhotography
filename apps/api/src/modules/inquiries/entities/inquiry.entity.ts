@@ -8,7 +8,7 @@ import {
   ManyToOne,
   JoinColumn,
 } from 'typeorm';
-import { EventType, InquiryStatus } from '@winphotography/shared';
+import { InquiryStatus } from '@winphotography/shared';
 import { Booking } from '../../bookings/entities/booking.entity';
 
 @Entity('inquiries')
@@ -25,8 +25,8 @@ export class InquiryEntity {
   @Column({ name: 'contact_phone', type: 'varchar', length: 50, nullable: true })
   contactPhone: string | null;
 
-  @Column({ name: 'event_type', type: 'enum', enum: EventType })
-  eventType: EventType;
+  @Column({ name: 'event_type', type: 'varchar', length: 100 })
+  eventType: string;
 
   @Column({ name: 'event_date', type: 'date', nullable: true })
   eventDate: Date | null;

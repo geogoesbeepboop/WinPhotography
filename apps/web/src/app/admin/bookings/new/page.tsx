@@ -6,6 +6,21 @@ import Link from "next/link";
 import { ArrowLeft, Loader2, CheckCircle2 } from "lucide-react";
 import { useClients, useCreateClient } from "@/services/clients";
 import { useCreateBooking } from "@/services/bookings";
+import { EventTypeItem, useEventTypes } from "@/services/event-types";
+import { usePackages } from "@/services/packages";
+
+interface ClientOption {
+  id: string;
+  fullName?: string;
+  name?: string;
+  email?: string;
+}
+
+interface PackageOption {
+  id: string;
+  name: string;
+  price: number | string;
+}
 
 function NewBookingForm() {
   const router = useRouter();
@@ -13,10 +28,14 @@ function NewBookingForm() {
   const prefilledClientId = searchParams.get("clientId") || "";
 
   const { data: clients } = useClients();
+  const { data: eventTypes = [] } = useEventTypes();
+  const { data: packages = [] } = usePackages();
   const createBooking = useCreateBooking();
   const createClient = useCreateClient();
 
   const [creatingNewClient, setCreatingNewClient] = useState(false);
+  const [customPackage, setCustomPackage] = useState(false);
+  const [selectedPackageId, setSelectedPackageId] = useState("");
   const [newClientForm, setNewClientForm] = useState({ fullName: "", email: "", phone: "" });
   const [error, setError] = useState("");
   const [form, setForm] = useState({
@@ -28,6 +47,9 @@ function NewBookingForm() {
     packagePrice: "",
     depositAmount: "",
   });
+  const clientOptions = (clients || []) as ClientOption[];
+  const packageOptions = packages as PackageOption[];
+  const eventTypeOptions = eventTypes as EventTypeItem[];
 
   const handleSubmit = async () => {
     setError("");
@@ -157,7 +179,7 @@ function NewBookingForm() {
               style={{ fontSize: "0.85rem" }}
             >
               <option value="">Select a client...</option>
-              {(clients || []).map((c: any) => (
+              {clientOptions.map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.fullName || c.name || c.email}
                 </option>
@@ -180,12 +202,9 @@ function NewBookingForm() {
               style={{ fontSize: "0.85rem" }}
             >
               <option value="">Select type...</option>
-              <option value="wedding">Wedding</option>
-              <option value="engagement">Engagement</option>
-              <option value="event">Event</option>
-              <option value="portrait">Portrait</option>
-              <option value="corporate">Corporate</option>
-              <option value="other">Other</option>
+              {eventTypeOptions.map((et) => (
+                <option key={et.slug} value={et.slug}>{et.name}</option>
+              ))}
             </select>
           </div>
           <div>
@@ -216,43 +235,110 @@ function NewBookingForm() {
           <label className="block text-brand-main/50 tracking-[0.1em] uppercase mb-1" style={{ fontSize: "0.65rem" }}>
             Package & Pricing
           </label>
-          <div>
-            <label className="block text-brand-main/50 mb-1" style={{ fontSize: "0.75rem" }}>Package Name *</label>
-            <input
-              type="text"
-              placeholder="e.g. Wedding Signature"
-              value={form.packageName}
-              onChange={(e) => setForm((f) => ({ ...f, packageName: e.target.value }))}
-              className="w-full px-3 py-2.5 bg-brand-secondary border border-brand-main/10 text-brand-main focus:outline-none focus:border-brand-tertiary"
-              style={{ fontSize: "0.85rem" }}
-            />
+          <div className="flex items-center gap-2 mb-1">
+            <button
+              type="button"
+              onClick={() => { setCustomPackage(false); setSelectedPackageId(""); }}
+              className={`px-3 py-1.5 transition-colors ${!customPackage ? "bg-brand-main text-brand-secondary" : "bg-brand-secondary border border-brand-main/10 text-brand-main/50"}`}
+              style={{ fontSize: "0.7rem" }}
+            >
+              Select Package
+            </button>
+            <button
+              type="button"
+              onClick={() => { setCustomPackage(true); setSelectedPackageId(""); setForm((f) => ({ ...f, packageName: "", packagePrice: "", depositAmount: "" })); }}
+              className={`px-3 py-1.5 transition-colors ${customPackage ? "bg-brand-main text-brand-secondary" : "bg-brand-secondary border border-brand-main/10 text-brand-main/50"}`}
+              style={{ fontSize: "0.7rem" }}
+            >
+              Add a custom package
+            </button>
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          {!customPackage ? (
             <div>
-              <label className="block text-brand-main/50 mb-1" style={{ fontSize: "0.75rem" }}>Package Price ($) *</label>
-              <input
-                type="number"
-                placeholder="5800"
-                min="0"
-                value={form.packagePrice}
-                onChange={(e) => setForm((f) => ({ ...f, packagePrice: e.target.value }))}
+              <label className="block text-brand-main/50 mb-1" style={{ fontSize: "0.75rem" }}>Package *</label>
+              <select
+                value={selectedPackageId}
+                onChange={(e) => {
+                  const pkg = packageOptions.find((p) => p.id === e.target.value);
+                  setSelectedPackageId(e.target.value);
+                  if (pkg) {
+                    setForm((f) => ({
+                      ...f,
+                      packageName: pkg.name,
+                      packagePrice: String(pkg.price),
+                      depositAmount: String(Math.round(Number(pkg.price) * 0.3)),
+                    }));
+                  }
+                }}
                 className="w-full px-3 py-2.5 bg-brand-secondary border border-brand-main/10 text-brand-main focus:outline-none focus:border-brand-tertiary"
                 style={{ fontSize: "0.85rem" }}
-              />
+              >
+                <option value="">Select a package...</option>
+                {packageOptions.map((pkg) => (
+                  <option key={pkg.id} value={pkg.id}>
+                    {pkg.name} — ${Number(pkg.price).toLocaleString()}
+                  </option>
+                ))}
+              </select>
+              {selectedPackageId && (
+                <div className="mt-3 p-3 bg-brand-secondary border border-brand-main/8 space-y-1">
+                  <p className="text-brand-main" style={{ fontSize: "0.85rem" }}>{form.packageName}</p>
+                  <p className="text-brand-main/50" style={{ fontSize: "0.8rem" }}>Price: ${Number(form.packagePrice).toLocaleString()}</p>
+                  <div className="mt-2">
+                    <label className="block text-brand-main/50 mb-1" style={{ fontSize: "0.75rem" }}>Deposit Amount ($) *</label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={form.depositAmount}
+                      onChange={(e) => setForm((f) => ({ ...f, depositAmount: e.target.value }))}
+                      className="w-full px-3 py-2.5 bg-white border border-brand-main/10 text-brand-main focus:outline-none focus:border-brand-tertiary"
+                      style={{ fontSize: "0.85rem" }}
+                    />
+                  </div>
+                </div>
+              )}
             </div>
-            <div>
-              <label className="block text-brand-main/50 mb-1" style={{ fontSize: "0.75rem" }}>Deposit Amount ($) *</label>
-              <input
-                type="number"
-                placeholder="1740"
-                min="0"
-                value={form.depositAmount}
-                onChange={(e) => setForm((f) => ({ ...f, depositAmount: e.target.value }))}
-                className="w-full px-3 py-2.5 bg-brand-secondary border border-brand-main/10 text-brand-main focus:outline-none focus:border-brand-tertiary"
-                style={{ fontSize: "0.85rem" }}
-              />
-            </div>
-          </div>
+          ) : (
+            <>
+              <div>
+                <label className="block text-brand-main/50 mb-1" style={{ fontSize: "0.75rem" }}>Package Name *</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Wedding Signature"
+                  value={form.packageName}
+                  onChange={(e) => setForm((f) => ({ ...f, packageName: e.target.value }))}
+                  className="w-full px-3 py-2.5 bg-brand-secondary border border-brand-main/10 text-brand-main focus:outline-none focus:border-brand-tertiary"
+                  style={{ fontSize: "0.85rem" }}
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-brand-main/50 mb-1" style={{ fontSize: "0.75rem" }}>Package Price ($) *</label>
+                  <input
+                    type="number"
+                    placeholder="5800"
+                    min="0"
+                    value={form.packagePrice}
+                    onChange={(e) => setForm((f) => ({ ...f, packagePrice: e.target.value }))}
+                    className="w-full px-3 py-2.5 bg-brand-secondary border border-brand-main/10 text-brand-main focus:outline-none focus:border-brand-tertiary"
+                    style={{ fontSize: "0.85rem" }}
+                  />
+                </div>
+                <div>
+                  <label className="block text-brand-main/50 mb-1" style={{ fontSize: "0.75rem" }}>Deposit Amount ($) *</label>
+                  <input
+                    type="number"
+                    placeholder="1740"
+                    min="0"
+                    value={form.depositAmount}
+                    onChange={(e) => setForm((f) => ({ ...f, depositAmount: e.target.value }))}
+                    className="w-full px-3 py-2.5 bg-brand-secondary border border-brand-main/10 text-brand-main focus:outline-none focus:border-brand-tertiary"
+                    style={{ fontSize: "0.85rem" }}
+                  />
+                </div>
+              </div>
+            </>
+          )}
         </div>
 
         {/* Submit */}

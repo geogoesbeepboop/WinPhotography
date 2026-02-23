@@ -7,22 +7,49 @@ import { useRouter } from "next/navigation";
 import { useClients } from "@/services/clients";
 import { useBookings } from "@/services/bookings";
 
+interface ClientItem {
+  id: string;
+  name?: string;
+  fullName?: string;
+  email?: string;
+  phone?: string;
+  bookingCount?: number;
+  totalSpent?: number;
+  status?: string;
+  isActive?: boolean;
+  joinedAt?: string;
+  createdAt?: string;
+}
+
+interface BookingItem {
+  id: string;
+  clientId: string;
+  eventType?: string;
+  packageName?: string;
+  date?: string;
+  totalAmount?: number;
+}
+
 export default function AdminClients() {
   const { data: clients = [], isLoading: clientsLoading } = useClients();
   const { data: bookings = [] } = useBookings();
 
   const router = useRouter();
   const [search, setSearch] = useState("");
-  const [selectedClient, setSelectedClient] = useState<any | null>(null);
+  const [selectedClient, setSelectedClient] = useState<ClientItem | null>(null);
+  const clientList = clients as ClientItem[];
+  const bookingList = bookings as BookingItem[];
 
-  const filtered = (clients as any[]).filter((c) => {
+  const filtered = clientList.filter((c) => {
     const name = c.name || c.fullName || "";
     const email = c.email || "";
     if (search && !name.toLowerCase().includes(search.toLowerCase()) && !email.toLowerCase().includes(search.toLowerCase())) return false;
     return true;
   });
 
-  const clientBookings = selectedClient ? (bookings as any[]).filter((b) => b.clientId === selectedClient.id) : [];
+  const clientBookings = selectedClient
+    ? bookingList.filter((b) => b.clientId === selectedClient.id)
+    : [];
 
   if (clientsLoading) {
     return (
@@ -70,7 +97,7 @@ export default function AdminClients() {
 
       {/* Client List */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {filtered.map((client: any, i: number) => {
+        {filtered.map((client, i) => {
           const clientName = client.name || client.fullName || "Unknown";
           const bookingCount = client.bookingCount ?? 0;
           const totalSpent = client.totalSpent ?? 0;
@@ -181,9 +208,11 @@ export default function AdminClients() {
                   <div>
                     <p className="tracking-[0.1em] uppercase text-brand-main/40 mb-3" style={{ fontSize: "0.65rem" }}>Booking History</p>
                     <div className="space-y-3">
-                      {clientBookings.map((bk: any) => (
+                      {clientBookings.map((bk) => (
                         <div key={bk.id} className="bg-brand-secondary/50 p-4">
-                          <p className="text-brand-main mb-1" style={{ fontSize: "0.85rem" }}>{bk.type || bk.category || ""}</p>
+                          <p className="text-brand-main mb-1" style={{ fontSize: "0.85rem" }}>
+                            {bk.eventType || bk.packageName || ""}
+                          </p>
                           <div className="flex items-center gap-3 text-brand-main/40" style={{ fontSize: "0.75rem" }}>
                             <span className="flex items-center gap-1"><Calendar className="w-3 h-3" />{bk.date}</span>
                             <span className="flex items-center gap-1"><DollarSign className="w-3 h-3" />${(bk.totalAmount ?? 0).toLocaleString()}</span>

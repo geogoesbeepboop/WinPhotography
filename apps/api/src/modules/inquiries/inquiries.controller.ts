@@ -10,9 +10,10 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
-import { UserRole } from '@winphotography/shared';
+import { UserRole, InquiryStatus } from '@winphotography/shared';
 import { InquiriesService } from './inquiries.service';
 import { CreateInquiryDto } from './dto/create-inquiry.dto';
+import { EmailService } from '../email/email.service';
 import { SupabaseAuthGuard } from '../../common/guards/supabase-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
@@ -20,7 +21,10 @@ import { Roles } from '../../common/decorators/roles.decorator';
 @ApiTags('Inquiries')
 @Controller('inquiries')
 export class InquiriesController {
-  constructor(private readonly inquiriesService: InquiriesService) {}
+  constructor(
+    private readonly inquiriesService: InquiriesService,
+    private readonly emailService: EmailService,
+  ) {}
 
   // Public endpoint — no auth required
   @Post()
@@ -51,6 +55,31 @@ export class InquiriesController {
   @Roles(UserRole.ADMIN)
   async update(@Param('id') id: string, @Body() body: any) {
     return this.inquiriesService.update(id, body);
+  }
+
+  @Post(':id/reply')
+  @UseGuards(SupabaseAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  async sendReply(
+    @Param('id') id: string,
+    @Body() body: { message: string },
+  ) {
+    const inquiry = await this.inquiriesService.findById(id);
+    if (!inquiry) {
+      throw new NotFoundException(`Inquiry ${id} not found`);
+    }
+
+    await this.emailService.sendInquiryReply(inquiry.contactEmail, {
+      clientName: inquiry.contactName,
+      replyMessage: body.message,
+    });
+
+    // Update status to responded if currently new
+    if (inquiry.status === InquiryStatus.NEW) {
+      await this.inquiriesService.update(id, { status: InquiryStatus.CONTACTED });
+    }
+
+    return { message: 'Reply sent successfully' };
   }
 
   @Post(':id/convert')

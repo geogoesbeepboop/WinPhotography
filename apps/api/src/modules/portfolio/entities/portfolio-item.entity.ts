@@ -7,7 +7,6 @@ import {
   Index,
   OneToMany,
 } from 'typeorm';
-import { PortfolioCategory } from '@winphotography/shared';
 import { PortfolioPhotoEntity } from './portfolio-photo.entity';
 
 @Entity('portfolio_items')
@@ -26,8 +25,8 @@ export class PortfolioItemEntity {
   description: string | null;
 
   @Index()
-  @Column({ type: 'enum', enum: PortfolioCategory })
-  category: PortfolioCategory;
+  @Column({ type: 'varchar', length: 100 })
+  category: string;
 
   @Column({ name: 'cover_image_key', type: 'varchar', length: 500 })
   coverImageKey: string;

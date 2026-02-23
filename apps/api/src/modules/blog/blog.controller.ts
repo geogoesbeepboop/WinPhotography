@@ -17,11 +17,16 @@ import { UpdateBlogPostDto } from './dto/update-blog-post.dto';
 import { SupabaseAuthGuard } from '../../common/guards/supabase-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
+import { StorageService } from '../storage/storage.service';
+import { randomUUID } from 'crypto';
 
 @ApiTags('Blog')
 @Controller('blog')
 export class BlogController {
-  constructor(private readonly blogService: BlogService) {}
+  constructor(
+    private readonly blogService: BlogService,
+    private readonly storageService: StorageService,
+  ) {}
 
   // Public: return published posts
   @Get()
@@ -41,6 +46,23 @@ export class BlogController {
   @Get(':slug')
   async findBySlug(@Param('slug') slug: string) {
     return this.blogService.findBySlug(slug);
+  }
+
+  // Admin: get presigned upload URL for blog cover image
+  @Post('upload-url')
+  @UseGuards(SupabaseAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  async getUploadUrl(
+    @Body() body: { filename: string; contentType: string },
+  ) {
+    const ext = body.filename.split('.').pop() || 'jpg';
+    const key = `blog/${randomUUID()}.${ext}`;
+    const uploadUrl = await this.storageService.generatePresignedUploadUrl(
+      key,
+      body.contentType,
+    );
+    const publicUrl = this.storageService.generatePublicUrl(key);
+    return { uploadUrl, key, publicUrl };
   }
 
   // Admin: create post

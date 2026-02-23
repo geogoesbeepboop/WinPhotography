@@ -1,14 +1,12 @@
 import {
   IsString,
   IsEmail,
-  IsEnum,
   IsOptional,
   MinLength,
   MaxLength,
   IsInt,
   Min,
 } from 'class-validator';
-import { EventType } from '@winphotography/shared';
 
 export class CreateInquiryDto {
   @IsString()
@@ -24,8 +22,9 @@ export class CreateInquiryDto {
   @MaxLength(50)
   contactPhone?: string;
 
-  @IsEnum(EventType)
-  eventType: EventType;
+  @IsString()
+  @MaxLength(100)
+  eventType: string;
 
   @IsOptional()
   @IsString()

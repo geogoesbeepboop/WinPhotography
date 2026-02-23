@@ -6,7 +6,6 @@ import {
   UpdateDateColumn,
   Index,
 } from 'typeorm';
-import { EventType } from '@winphotography/shared';
 
 @Entity('packages')
 export class PackageEntity {
@@ -38,8 +37,8 @@ export class PackageEntity {
   @Column({ type: 'jsonb', default: '[]' })
   features: string[];
 
-  @Column({ name: 'event_type', type: 'enum', enum: EventType })
-  eventType: EventType;
+  @Column({ name: 'event_type', type: 'varchar', length: 100 })
+  eventType: string;
 
   @Column({ name: 'is_popular', type: 'boolean', default: false })
   isPopular: boolean;

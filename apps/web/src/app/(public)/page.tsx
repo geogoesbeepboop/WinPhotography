@@ -7,6 +7,7 @@ import { ArrowRight, Star, Heart, Sparkles } from "lucide-react";
 import { ImageWithFallback } from "@/components/shared/image-with-fallback";
 import { useFeaturedTestimonials } from "@/services/testimonials";
 import { usePortfolio } from "@/services/portfolio";
+import { resolveMediaUrl } from "@/lib/media";
 
 const heroImage =
   "https://images.unsplash.com/photo-1578251133581-bf5e671b97fd?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxjb3VwbGUlMjBlbG9wZW1lbnQlMjBtb3VudGFpbiUyMGdvbGRlbiUyMGhvdXJ8ZW58MXx8fHwxNzcxNzIxNjEwfDA&ixlib=rb-4.1.0&q=80&w=1080";
@@ -98,7 +99,7 @@ export default function HomePage() {
       return apiFeatured.slice(0, 3).map((item: any) => ({
         title: item.title,
         category: item.category,
-        image: item.coverImageKey || '',
+        image: resolveMediaUrl(item.coverImageUrl || item.coverImageKey || ""),
         slug: item.slug,
       }));
     }

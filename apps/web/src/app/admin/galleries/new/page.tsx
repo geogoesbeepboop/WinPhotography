@@ -9,6 +9,19 @@ import { ArrowLeft, Save } from "lucide-react";
 import { useBookings } from "@/services/bookings";
 import { useCreateGallery } from "@/services/galleries";
 
+interface BookingOption {
+  id: string;
+  status: string;
+  clientName?: string;
+  client?: { fullName?: string };
+  eventType?: string;
+  packageName?: string;
+  date?: string;
+  eventDate?: string;
+  location?: string;
+  eventLocation?: string;
+}
+
 function AdminGalleryNewContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -23,9 +36,12 @@ function AdminGalleryNewContent() {
     notes: "",
   });
 
-  const availableBookings = bookings.filter((b: any) => b.status === "completed" || b.status === "confirmed");
+  const bookingOptions = bookings as BookingOption[];
+  const availableBookings = bookingOptions.filter(
+    (b) => b.status === "completed" || b.status === "confirmed",
+  );
 
-  const selectedBooking = availableBookings.find((b: any) => b.id === form.bookingId);
+  const selectedBooking = availableBookings.find((b) => b.id === form.bookingId);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -71,9 +87,9 @@ function AdminGalleryNewContent() {
               <select
                 value={form.bookingId}
                 onChange={(e) => {
-                  const bk = availableBookings.find((b: any) => b.id === e.target.value);
+                  const bk = availableBookings.find((b) => b.id === e.target.value);
                   const clientName = bk ? (bk.clientName || bk.client?.fullName || "") : "";
-                  const bookingType = bk ? (bk.type || bk.category || "") : "";
+                  const bookingType = bk ? (bk.eventType || bk.packageName || "") : "";
                   setForm({ ...form, bookingId: e.target.value, title: bk ? `${bookingType} - ${clientName}` : "" });
                 }}
                 className="w-full px-4 py-3 bg-brand-secondary border border-brand-main/10 text-brand-main focus:outline-none focus:border-brand-tertiary transition-colors"
@@ -81,8 +97,10 @@ function AdminGalleryNewContent() {
                 required
               >
                 <option value="">Select a booking...</option>
-                {availableBookings.map((bk: any) => (
-                  <option key={bk.id} value={bk.id}>{bk.clientName || bk.client?.fullName || "Unknown"} — {bk.type || bk.category || ""} ({bk.date})</option>
+                {availableBookings.map((bk) => (
+                  <option key={bk.id} value={bk.id}>
+                    {bk.clientName || bk.client?.fullName || "Unknown"} — {bk.eventType || bk.packageName || ""} ({bk.date || bk.eventDate || ""})
+                  </option>
                 ))}
               </select>
             </div>
@@ -90,7 +108,9 @@ function AdminGalleryNewContent() {
             {selectedBooking && (
               <div className="p-4 bg-brand-secondary/50 border border-brand-main/6">
                 <p className="text-brand-main" style={{ fontSize: "0.85rem" }}>{selectedBooking.clientName || selectedBooking.client?.fullName || "Unknown"}</p>
-                <p className="text-brand-main/40" style={{ fontSize: "0.75rem" }}>{selectedBooking.type || selectedBooking.category || ""} · {selectedBooking.date} · {selectedBooking.location || ""}</p>
+                <p className="text-brand-main/40" style={{ fontSize: "0.75rem" }}>
+                  {selectedBooking.eventType || selectedBooking.packageName || ""} · {selectedBooking.date || selectedBooking.eventDate || ""} · {selectedBooking.location || selectedBooking.eventLocation || ""}
+                </p>
               </div>
             )}
 

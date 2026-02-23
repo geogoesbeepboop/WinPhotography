@@ -1,44 +1,44 @@
 import { apiClient } from '@/lib/api-client';
 
-interface PresignedUrlResponse {
-  uploadUrl: string;
+interface UploadResponse {
   key: string;
+  publicUrl: string;
 }
 
-export async function getPortfolioUploadUrl(
+/**
+ * Upload a file to R2 via the API server (avoids CORS issues with presigned URLs).
+ */
+async function serverUpload(
+  file: File,
+  folder: string,
+  entityId?: string,
+): Promise<UploadResponse> {
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('folder', folder);
+  if (entityId) formData.append('entityId', entityId);
+
+  // Let the browser set the multipart boundary automatically.
+  const { data } = await apiClient.post('/storage/upload', formData);
+  return data;
+}
+
+export async function uploadPortfolioPhoto(
   portfolioItemId: string,
   file: File,
-): Promise<PresignedUrlResponse> {
-  const { data } = await apiClient.post('/portfolio/upload-url', {
-    portfolioItemId,
-    filename: file.name,
-    contentType: file.type,
-  });
-  return data;
+): Promise<UploadResponse> {
+  return serverUpload(file, 'portfolio', portfolioItemId);
 }
 
-export async function getGalleryUploadUrl(
+export async function uploadGalleryPhoto(
   galleryId: string,
   file: File,
-): Promise<PresignedUrlResponse> {
-  const { data } = await apiClient.post('/galleries/upload-url', {
-    galleryId,
-    filename: file.name,
-    contentType: file.type,
-  });
-  return data;
+): Promise<UploadResponse> {
+  return serverUpload(file, 'galleries', galleryId);
 }
 
-export async function uploadFileToR2(
-  uploadUrl: string,
+export async function uploadBlogCoverImage(
   file: File,
-): Promise<void> {
-  const response = await fetch(uploadUrl, {
-    method: 'PUT',
-    body: file,
-    headers: { 'Content-Type': file.type },
-  });
-  if (!response.ok) {
-    throw new Error(`Upload failed: ${response.status}`);
-  }
+): Promise<UploadResponse> {
+  return serverUpload(file, 'blog');
 }

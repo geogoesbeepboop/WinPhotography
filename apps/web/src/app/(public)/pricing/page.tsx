@@ -383,10 +383,10 @@ export default function PricingPage() {
   const { dataSource } = useDataSourceStore();
   const { data: apiPackages } = usePackages();
 
-  const categories =
-    dataSource === "api" && apiPackages && apiPackages.length > 0
-      ? buildCategoriesFromApi(apiPackages)
-      : mockCategories;
+  const isLive = dataSource === "api";
+  const categories = isLive
+    ? (apiPackages && apiPackages.length > 0 ? buildCategoriesFromApi(apiPackages) : [])
+    : mockCategories;
 
   const [activeCategory, setActiveCategory] = useState(categories[0]?.id || "elopements");
   const currentCategory = categories.find((c) => c.id === activeCategory) || categories[0];
@@ -428,6 +428,27 @@ export default function PricingPage() {
         </div>
       </section>
 
+      {categories.length === 0 ? (
+        <section className="py-24 bg-brand-secondary">
+          <div className="max-w-2xl mx-auto px-6 text-center">
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}>
+              <p className="font-serif text-brand-main/50 mb-3" style={{ fontSize: "1.4rem" }}>Packages Coming Soon</p>
+              <p className="text-brand-main/40 mb-8" style={{ fontSize: "0.9rem", lineHeight: "1.8" }}>
+                We're putting the finishing touches on our photography collections.
+                In the meantime, feel free to reach out — we'd love to create a custom package just for you.
+              </p>
+              <Link
+                href="/inquire"
+                className="inline-block px-10 py-4 bg-brand-tertiary text-white tracking-[0.15em] uppercase transition-all duration-300 hover:bg-brand-tertiary-dark"
+                style={{ fontSize: "0.7rem" }}
+              >
+                Get in Touch
+              </Link>
+            </motion.div>
+          </div>
+        </section>
+      ) : (
+      <>
       {/* Category Tabs */}
       <section className="pb-8 bg-brand-secondary">
         <div className="max-w-7xl mx-auto px-6 lg:px-8">
@@ -699,6 +720,8 @@ export default function PricingPage() {
         />
         <div className="absolute inset-0 bg-brand-main/20" />
       </section>
+      </>
+      )}
 
       {/* FAQ */}
       <section className="py-24 bg-brand-secondary">

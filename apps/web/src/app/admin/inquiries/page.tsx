@@ -9,6 +9,19 @@ import { useInquiries } from "@/services/inquiries";
 
 const defaultStatusCfg = { label: "Unknown", color: "bg-gray-100 text-gray-500" };
 
+function formatReceivedTimestamp(value?: string): string {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  const yyyy = date.getFullYear();
+  const mm = String(date.getMonth() + 1).padStart(2, "0");
+  const dd = String(date.getDate()).padStart(2, "0");
+  const hh = String(date.getHours()).padStart(2, "0");
+  const min = String(date.getMinutes()).padStart(2, "0");
+  const ss = String(date.getSeconds()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd} ${hh}:${min}:${ss}`;
+}
+
 export default function AdminInquiries() {
   const { data: inquiries = [], isLoading } = useInquiries();
   const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -149,7 +162,9 @@ export default function AdminInquiries() {
                   </div>
                   <div className="text-right">
                     <p className="text-brand-main/60" style={{ fontSize: "0.8rem" }}>{category}{tier ? ` · ${tier}` : ""}</p>
-                    <p className="text-brand-main/30" style={{ fontSize: "0.7rem" }}>Received {inq.createdAt}</p>
+                    <p className="text-brand-main/30" style={{ fontSize: "0.7rem" }}>
+                      Received {formatReceivedTimestamp(inq.createdAt)}
+                    </p>
                   </div>
                 </div>
                 <p className="text-brand-main/50 line-clamp-2" style={{ fontSize: "0.85rem", lineHeight: "1.6" }}>{inq.message}</p>

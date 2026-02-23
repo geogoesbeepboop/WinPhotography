@@ -21,15 +21,21 @@ import {
   useUpdatePackage,
   useDeletePackage,
 } from "@/services/packages";
+import { EventTypeItem, useEventTypes } from "@/services/event-types";
 
-const eventTypes = [
-  { label: "Wedding", value: "wedding" },
-  { label: "Engagement", value: "engagement" },
-  { label: "Event", value: "event" },
-  { label: "Portrait", value: "portrait" },
-  { label: "Corporate", value: "corporate" },
-  { label: "Other", value: "other" },
-];
+interface PackageItem {
+  id: string;
+  name: string;
+  subtitle?: string;
+  categoryLabel?: string;
+  categoryDescription?: string;
+  price: number | string;
+  features?: string[];
+  eventType: string;
+  isPopular?: boolean;
+  isActive?: boolean;
+  sortOrder?: number;
+}
 
 const emptyForm = {
   name: "",
@@ -38,7 +44,7 @@ const emptyForm = {
   categoryDescription: "",
   price: "",
   features: "",
-  eventType: "wedding",
+  eventType: "",
   isPopular: false,
   isActive: true,
   sortOrder: "0",
@@ -46,6 +52,7 @@ const emptyForm = {
 
 export default function AdminPricing() {
   const { data: packages = [], isLoading } = useAdminPackages();
+  const { data: eventTypes = [] } = useEventTypes();
   const createPackage = useCreatePackage();
   const updatePackage = useUpdatePackage();
   const deletePackage = useDeletePackage();
@@ -53,10 +60,12 @@ export default function AdminPricing() {
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState(emptyForm);
+  const packageList = packages as PackageItem[];
+  const eventTypeOptions = eventTypes as EventTypeItem[];
 
   // Group packages by categoryLabel
-  const grouped = (packages as any[]).reduce(
-    (acc: Record<string, { description: string; packages: any[] }>, pkg: any) => {
+  const grouped = packageList.reduce(
+    (acc: Record<string, { description: string; packages: PackageItem[] }>, pkg) => {
       const label = pkg.categoryLabel || "Uncategorized";
       if (!acc[label]) {
         acc[label] = { description: pkg.categoryDescription || "", packages: [] };
@@ -64,16 +73,19 @@ export default function AdminPricing() {
       acc[label].packages.push(pkg);
       return acc;
     },
-    {} as Record<string, { description: string; packages: any[] }>
+    {} as Record<string, { description: string; packages: PackageItem[] }>
   );
 
   const openCreateForm = () => {
     setEditingId(null);
-    setForm(emptyForm);
+    setForm({
+      ...emptyForm,
+      eventType: eventTypeOptions[0]?.slug || "",
+    });
     setShowForm(true);
   };
 
-  const openEditForm = (pkg: any) => {
+  const openEditForm = (pkg: PackageItem) => {
     setEditingId(pkg.id);
     setForm({
       name: pkg.name || "",
@@ -82,7 +94,7 @@ export default function AdminPricing() {
       categoryDescription: pkg.categoryDescription || "",
       price: String(pkg.price || ""),
       features: (pkg.features || []).join("\n"),
-      eventType: pkg.eventType || "wedding",
+      eventType: pkg.eventType || eventTypeOptions[0]?.slug || "",
       isPopular: pkg.isPopular || false,
       isActive: pkg.isActive ?? true,
       sortOrder: String(pkg.sortOrder || 0),
@@ -124,7 +136,7 @@ export default function AdminPricing() {
     }
   };
 
-  const toggleActive = (pkg: any) => {
+  const toggleActive = (pkg: PackageItem) => {
     updatePackage.mutate({ id: pkg.id, isActive: !pkg.isActive });
   };
 
@@ -184,8 +196,7 @@ export default function AdminPricing() {
         </div>
       ) : (
         <div className="space-y-8">
-          {Object.entries(grouped).map(
-            ([label, group]: [string, any]) => (
+          {Object.entries(grouped).map(([label, group]) => (
               <div key={label}>
                 <div className="mb-3">
                   <h2
@@ -204,7 +215,7 @@ export default function AdminPricing() {
                   )}
                 </div>
                 <div className="space-y-2">
-                  {group.packages.map((pkg: any, i: number) => (
+                  {group.packages.map((pkg, i) => (
                     <motion.div
                       key={pkg.id}
                       initial={{ opacity: 0, y: 10 }}
@@ -353,9 +364,9 @@ export default function AdminPricing() {
                       className="w-full px-3 py-2.5 bg-brand-secondary border border-brand-main/10 text-brand-main focus:outline-none focus:border-brand-tertiary"
                       style={{ fontSize: "0.85rem" }}
                     >
-                      {eventTypes.map((t) => (
-                        <option key={t.value} value={t.value}>
-                          {t.label}
+                      {eventTypeOptions.map((et) => (
+                        <option key={et.slug} value={et.slug}>
+                          {et.name}
                         </option>
                       ))}
                     </select>

@@ -1,16 +1,18 @@
 "use client";
 
-import { useState, useEffect, Suspense } from "react";
+import { useState, useEffect, useRef, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Eye, Save, Send } from "lucide-react";
+import { ArrowLeft, Eye, Save, Send, Upload, X, Loader2 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { useCreateBlogPost, useUpdateBlogPost, useAdminBlogPosts } from "@/services/blog";
+import { uploadBlogCoverImage } from "@/services/upload";
 
 function BlogEditor() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const editId = searchParams.get("edit");
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { data: posts } = useAdminBlogPosts();
   const createBlog = useCreateBlogPost();
@@ -18,6 +20,7 @@ function BlogEditor() {
 
   const [preview, setPreview] = useState(false);
   const [error, setError] = useState("");
+  const [uploading, setUploading] = useState(false);
   const [form, setForm] = useState({
     title: "",
     category: "",
@@ -41,6 +44,46 @@ function BlogEditor() {
       }
     }
   }, [editId, posts]);
+
+  const handleCoverUpload = async (file: File) => {
+    if (!file.type.startsWith("image/")) return;
+    setUploading(true);
+    setError("");
+    try {
+      const { publicUrl } = await uploadBlogCoverImage(file);
+      setForm((prev) => ({ ...prev, coverImageUrl: publicUrl }));
+    } catch (err: any) {
+      const msg = err?.response?.data?.message || "Failed to upload cover image. Please try again.";
+      setError(Array.isArray(msg) ? msg.join(", ") : msg);
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) handleCoverUpload(file);
+    e.target.value = "";
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    const file = e.dataTransfer.files[0];
+    if (file && file.type.startsWith("image/")) handleCoverUpload(file);
+  };
+
+  const handlePaste = (e: React.ClipboardEvent) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    for (const item of Array.from(items)) {
+      if (item.type.startsWith("image/")) {
+        e.preventDefault();
+        const file = item.getAsFile();
+        if (file) handleCoverUpload(file);
+        return;
+      }
+    }
+  };
 
   const handleSave = async (publish: boolean) => {
     setError("");
@@ -241,31 +284,70 @@ function BlogEditor() {
             />
           </div>
 
-          {/* Cover Image URL */}
-          <div className="bg-card border border-brand-main/10 p-5">
+          {/* Cover Image */}
+          <div
+            className="bg-card border border-brand-main/10 p-5"
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={handleDrop}
+            onPaste={handlePaste}
+          >
             <label className="block text-brand-main/50 tracking-[0.1em] uppercase mb-2" style={{ fontSize: "0.6rem" }}>
-              Cover Image URL
+              Cover Image
             </label>
+
             <input
-              type="text"
-              placeholder="https://..."
-              value={form.coverImageUrl}
-              onChange={(e) => setForm({ ...form, coverImageUrl: e.target.value })}
-              className="w-full px-3 py-2 bg-transparent border border-brand-main/10 text-brand-main placeholder:text-brand-main/30 focus:outline-none focus:border-brand-main/30"
-              style={{ fontSize: "0.85rem" }}
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              onChange={handleFileSelect}
+              className="hidden"
             />
-            {form.coverImageUrl && (
-              <div className="mt-3 aspect-video overflow-hidden bg-brand-main/5">
-                <img
-                  src={form.coverImageUrl}
-                  alt="Cover preview"
-                  className="w-full h-full object-cover"
-                  onError={(e) => {
-                    (e.target as HTMLImageElement).style.display = "none";
-                  }}
-                />
+
+            {form.coverImageUrl ? (
+              <div className="relative group">
+                <div className="aspect-video overflow-hidden bg-brand-main/5">
+                  <img
+                    src={form.coverImageUrl}
+                    alt="Cover preview"
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).style.display = "none";
+                    }}
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setForm({ ...form, coverImageUrl: "" })}
+                  className="absolute top-2 right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            ) : (
+              <div
+                onClick={() => fileInputRef.current?.click()}
+                className="border-2 border-dashed border-brand-main/15 p-6 text-center hover:border-brand-tertiary/40 transition-colors cursor-pointer"
+              >
+                {uploading ? (
+                  <Loader2 className="w-6 h-6 text-brand-tertiary animate-spin mx-auto mb-2" />
+                ) : (
+                  <Upload className="w-6 h-6 text-brand-main/20 mx-auto mb-2" />
+                )}
+                <p className="text-brand-main/40" style={{ fontSize: "0.8rem" }}>
+                  {uploading ? "Uploading..." : "Drop image, click to browse, or paste"}
+                </p>
               </div>
             )}
+
+            {/* URL input as fallback */}
+            <input
+              type="text"
+              placeholder="Or paste an image URL..."
+              value={form.coverImageUrl}
+              onChange={(e) => setForm({ ...form, coverImageUrl: e.target.value })}
+              className="w-full mt-3 px-3 py-2 bg-transparent border border-brand-main/10 text-brand-main placeholder:text-brand-main/30 focus:outline-none focus:border-brand-main/30"
+              style={{ fontSize: "0.8rem" }}
+            />
           </div>
 
           {/* Markdown Help */}

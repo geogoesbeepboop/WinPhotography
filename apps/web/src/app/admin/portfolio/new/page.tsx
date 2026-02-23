@@ -6,21 +6,15 @@ import { useRouter } from "next/navigation";
 import { motion } from "motion/react";
 import { ArrowLeft, Save, Upload, X, Loader2, ImageIcon } from "lucide-react";
 import { useCreatePortfolioItem, useAddPortfolioPhotos } from "@/services/portfolio";
-import { getPortfolioUploadUrl, uploadFileToR2 } from "@/services/upload";
-
-const categories = [
-  { label: "Weddings", value: "wedding" },
-  { label: "Engagements", value: "engagement" },
-  { label: "Events", value: "event" },
-  { label: "Portraits", value: "portrait" },
-  { label: "Corporate", value: "corporate" },
-  { label: "Other", value: "other" },
-];
+import { uploadPortfolioPhoto } from "@/services/upload";
+import { EventTypeItem, useEventTypes } from "@/services/event-types";
 
 export default function AdminPortfolioNew() {
   const router = useRouter();
   const createPortfolioItem = useCreatePortfolioItem();
   const addPhotos = useAddPortfolioPhotos();
+  const { data: eventTypes = [] } = useEventTypes();
+  const eventTypeOptions = eventTypes as EventTypeItem[];
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [form, setForm] = useState({
@@ -96,10 +90,8 @@ export default function AdminPortfolioNew() {
           const file = selectedFiles[i];
           setUploadProgress({ current: i + 1, total: selectedFiles.length });
 
-          // Get presigned URL
-          const { uploadUrl, key } = await getPortfolioUploadUrl(item.id, file);
-          // Upload directly to R2
-          await uploadFileToR2(uploadUrl, file);
+          // Upload via server-side API (avoids R2 CORS issues)
+          const { key } = await uploadPortfolioPhoto(item.id, file);
           photoRecords.push({ r2Key: key, mimeType: file.type });
         }
 
@@ -139,12 +131,12 @@ export default function AdminPortfolioNew() {
             </div>
 
             <div>
-              <label className="block text-brand-main mb-1.5 tracking-[0.05em]" style={{ fontSize: "0.75rem" }}>Category *</label>
+              <label className="block text-brand-main mb-1.5 tracking-[0.05em]" style={{ fontSize: "0.75rem" }}>Event Type *</label>
               <select value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })}
                 className="w-full px-4 py-3 bg-brand-secondary border border-brand-main/10 text-brand-main focus:outline-none focus:border-brand-tertiary transition-colors" style={{ fontSize: "0.9rem" }}
                 required>
-                <option value="">Select category...</option>
-                {categories.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
+                <option value="">Select event type...</option>
+                {eventTypeOptions.map((et) => <option key={et.slug} value={et.slug}>{et.name}</option>)}
               </select>
             </div>
 

@@ -9,6 +9,8 @@ import { ArrowLeft, Mail, Phone, Calendar, Tag, MessageSquare, Send, CalendarPlu
 import { inquiryStatusConfig } from "@/lib/mock-data/admin-data";
 import { useInquiry, useUpdateInquiry, useConvertInquiry } from "@/services/inquiries";
 import { useClients, useCreateClient } from "@/services/clients";
+import { apiClient } from "@/lib/api-client";
+import { useAdminPackages } from "@/services/packages";
 
 const defaultStatusCfg = { label: "Unknown", color: "bg-gray-100 text-gray-500" };
 
@@ -23,6 +25,32 @@ const allStatusOptions = [
   { value: "archived", label: "Archived" },
 ];
 
+interface ClientOption {
+  id: string;
+  fullName?: string;
+  name?: string;
+  email?: string;
+}
+
+interface PackageOption {
+  id: string;
+  name: string;
+  price: number | string;
+}
+
+function formatReceivedTimestamp(value?: string): string {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  const yyyy = date.getFullYear();
+  const mm = String(date.getMonth() + 1).padStart(2, "0");
+  const dd = String(date.getDate()).padStart(2, "0");
+  const hh = String(date.getHours()).padStart(2, "0");
+  const min = String(date.getMinutes()).padStart(2, "0");
+  const ss = String(date.getSeconds()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd} ${hh}:${min}:${ss}`;
+}
+
 export default function AdminInquiryDetail() {
   const { id } = useParams();
   const router = useRouter();
@@ -31,13 +59,19 @@ export default function AdminInquiryDetail() {
 
   const convertInquiry = useConvertInquiry();
   const { data: clients } = useClients();
+  const { data: packages = [] } = useAdminPackages();
   const createClient = useCreateClient();
 
   const [status, setStatus] = useState<string>("new");
   const [reply, setReply] = useState("");
   const [notes, setNotes] = useState("");
+  const [showReplyConfirm, setShowReplyConfirm] = useState(false);
+  const [sendingReply, setSendingReply] = useState(false);
+  const [replyError, setReplyError] = useState("");
   const [showConvertModal, setShowConvertModal] = useState(false);
   const [creatingNewClient, setCreatingNewClient] = useState(false);
+  const [useCustomPackage, setUseCustomPackage] = useState(false);
+  const [selectedPackageId, setSelectedPackageId] = useState("");
   const [newClientForm, setNewClientForm] = useState({ fullName: "", email: "", phone: "" });
   const [convertForm, setConvertForm] = useState({
     clientId: "",
@@ -45,6 +79,8 @@ export default function AdminInquiryDetail() {
     packagePrice: "",
     depositAmount: "",
   });
+  const clientOptions = (clients || []) as ClientOption[];
+  const packageOptions = packages as PackageOption[];
 
   // Sync local state when inquiry data arrives
   useEffect(() => {
@@ -63,13 +99,31 @@ export default function AdminInquiryDetail() {
   };
 
   const handleSendReply = () => {
-    setReply("");
-    handleStatusChange("responded");
+    if (!reply.trim()) return;
+    setShowReplyConfirm(true);
+  };
+
+  const confirmSendReply = async () => {
+    if (!inquiry?.id || !reply.trim()) return;
+    setSendingReply(true);
+    setReplyError("");
+    try {
+      await apiClient.post(`/inquiries/${inquiry.id}/reply`, { message: reply.trim() });
+      setReply("");
+      setShowReplyConfirm(false);
+      // Status will be updated on the backend automatically
+      setStatus("contacted");
+    } catch (err: any) {
+      const msg = err?.response?.data?.message || "Failed to send reply. Please try again.";
+      setReplyError(Array.isArray(msg) ? msg.join(", ") : msg);
+    } finally {
+      setSendingReply(false);
+    }
   };
 
   const handleSaveNotes = () => {
     if (inquiry?.id) {
-      updateInquiry.mutate({ id: inquiry.id, notes });
+      updateInquiry.mutate({ id: inquiry.id, adminNotes: notes });
     }
   };
 
@@ -187,7 +241,9 @@ export default function AdminInquiryDetail() {
               <h1 className="font-serif text-brand-main" style={{ fontSize: "1.8rem" }}>{name}</h1>
               <span className={`px-3 py-1 ${cfg.color}`} style={{ fontSize: "0.6rem" }}>{cfg.label}</span>
             </div>
-            <p className="text-brand-main/40" style={{ fontSize: "0.85rem" }}>Received {inquiry.createdAt}</p>
+            <p className="text-brand-main/40" style={{ fontSize: "0.85rem" }}>
+              Received {formatReceivedTimestamp(inquiry.createdAt)}
+            </p>
           </div>
           <div className="flex items-center gap-2">
             <select
@@ -229,14 +285,25 @@ export default function AdminInquiryDetail() {
                 className="w-full px-4 py-3 bg-brand-secondary border border-brand-main/10 text-brand-main focus:outline-none focus:border-brand-tertiary transition-colors resize-none mb-3"
                 style={{ fontSize: "0.9rem" }}
               />
+              {replyError && (
+                <p className="text-red-600 mb-3" style={{ fontSize: "0.8rem" }}>{replyError}</p>
+              )}
               <div className="flex items-center gap-3">
                 <button
                   onClick={handleSendReply}
-                  className="inline-flex items-center gap-2 px-5 py-2.5 bg-brand-main text-brand-secondary hover:bg-brand-main-light transition-colors tracking-[0.1em] uppercase"
+                  disabled={!reply.trim() || sendingReply}
+                  className="inline-flex items-center gap-2 px-5 py-2.5 bg-brand-main text-brand-secondary hover:bg-brand-main-light transition-colors tracking-[0.1em] uppercase disabled:opacity-40"
                   style={{ fontSize: "0.65rem" }}
                 >
-                  <Send className="w-3.5 h-3.5" /> Send Reply
+                  {sendingReply ? (
+                    <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Sending...</>
+                  ) : (
+                    <><Send className="w-3.5 h-3.5" /> Send Reply</>
+                  )}
                 </button>
+                <span className="text-brand-main/30" style={{ fontSize: "0.75rem" }}>
+                  Sends an email to {inquiry.contactEmail}
+                </span>
               </div>
             </div>
 
@@ -293,7 +360,9 @@ export default function AdminInquiryDetail() {
               <div className="space-y-2">
                 <button
                   onClick={() => {
-                    setConvertForm({ clientId: "", packageName: category || "", packagePrice: "", depositAmount: "" });
+                    setConvertForm({ clientId: "", packageName: "", packagePrice: "", depositAmount: "" });
+                    setUseCustomPackage(false);
+                    setSelectedPackageId("");
                     setCreatingNewClient(false);
                     setNewClientForm({ fullName: name, email, phone });
                     setShowConvertModal(true);
@@ -315,6 +384,53 @@ export default function AdminInquiryDetail() {
           </div>
         </div>
       </motion.div>
+
+      {/* Reply Confirmation Dialog */}
+      {showReplyConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setShowReplyConfirm(false)}>
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="bg-white border border-brand-main/10 p-6 w-full max-w-lg mx-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-serif text-brand-main" style={{ fontSize: "1.2rem" }}>Confirm Reply</h3>
+              <button onClick={() => setShowReplyConfirm(false)} className="text-brand-main/30 hover:text-brand-main"><X className="w-5 h-5" /></button>
+            </div>
+            <p className="text-brand-main/60 mb-3" style={{ fontSize: "0.85rem" }}>
+              You are about to send the following reply to <strong>{inquiry?.contactEmail}</strong>:
+            </p>
+            <div className="bg-brand-secondary border border-brand-main/8 p-4 mb-4 max-h-40 overflow-y-auto">
+              <p className="text-brand-main/70 whitespace-pre-wrap" style={{ fontSize: "0.85rem", lineHeight: "1.7" }}>{reply}</p>
+            </div>
+            {replyError && (
+              <p className="text-red-600 mb-3" style={{ fontSize: "0.8rem" }}>{replyError}</p>
+            )}
+            <div className="flex items-center justify-end gap-3">
+              <button
+                onClick={() => setShowReplyConfirm(false)}
+                className="px-4 py-2 text-brand-main/50 hover:text-brand-main transition-colors"
+                style={{ fontSize: "0.8rem" }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmSendReply}
+                disabled={sendingReply}
+                className="inline-flex items-center gap-2 px-5 py-2.5 bg-brand-main text-brand-secondary hover:bg-brand-main-light transition-colors tracking-[0.1em] uppercase disabled:opacity-50"
+                style={{ fontSize: "0.65rem" }}
+              >
+                {sendingReply ? (
+                  <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Sending...</>
+                ) : (
+                  <><Send className="w-3.5 h-3.5" /> Confirm & Send</>
+                )}
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
 
       {/* Convert to Booking Modal */}
       {showConvertModal && (
@@ -392,7 +508,7 @@ export default function AdminInquiryDetail() {
                     style={{ fontSize: "0.85rem" }}
                   >
                     <option value="">Select a client...</option>
-                    {(clients || []).map((c: any) => (
+                    {clientOptions.map((c) => (
                       <option key={c.id} value={c.id}>
                         {c.fullName || c.name || c.email}
                       </option>
@@ -401,46 +517,108 @@ export default function AdminInquiryDetail() {
                 )}
               </div>
 
-              {/* Package Name */}
+              {/* Package Selection */}
               <div>
-                <label className="block text-brand-main/50 mb-1" style={{ fontSize: "0.75rem" }}>Package Name *</label>
-                <input
-                  type="text"
-                  value={convertForm.packageName}
-                  onChange={(e) => setConvertForm((f) => ({ ...f, packageName: e.target.value }))}
-                  placeholder="e.g. Wedding Premium"
-                  className="w-full px-3 py-2.5 bg-brand-secondary border border-brand-main/10 text-brand-main focus:outline-none focus:border-brand-tertiary"
-                  style={{ fontSize: "0.85rem" }}
-                />
+                <label className="block text-brand-main/50 mb-1" style={{ fontSize: "0.75rem" }}>Package *</label>
+                {!useCustomPackage ? (
+                  <select
+                    value={selectedPackageId}
+                    onChange={(e) => {
+                      const selectedId = e.target.value;
+                      setSelectedPackageId(selectedId);
+                      const pkg = packageOptions.find((p) => p.id === selectedId);
+                      if (pkg) {
+                        const price = Number(pkg.price);
+                        setConvertForm((f) => ({
+                          ...f,
+                          packageName: pkg.name,
+                          packagePrice: String(price),
+                          depositAmount: String(Math.round(price * 0.3)),
+                        }));
+                      } else {
+                        setConvertForm((f) => ({
+                          ...f,
+                          packageName: "",
+                          packagePrice: "",
+                          depositAmount: "",
+                        }));
+                      }
+                    }}
+                    className="w-full px-3 py-2.5 bg-brand-secondary border border-brand-main/10 text-brand-main focus:outline-none focus:border-brand-tertiary"
+                    style={{ fontSize: "0.85rem" }}
+                  >
+                    <option value="">Select a package...</option>
+                    {packageOptions.map((pkg) => (
+                      <option key={pkg.id} value={pkg.id}>
+                        {pkg.name} — ${Number(pkg.price).toLocaleString()}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <div className="space-y-3">
+                    <input
+                      type="text"
+                      value={convertForm.packageName}
+                      onChange={(e) => setConvertForm((f) => ({ ...f, packageName: e.target.value }))}
+                      placeholder="Package name"
+                      className="w-full px-3 py-2.5 bg-brand-secondary border border-brand-main/10 text-brand-main focus:outline-none focus:border-brand-tertiary"
+                      style={{ fontSize: "0.85rem" }}
+                    />
+                    <div className="grid grid-cols-2 gap-3">
+                      <input
+                        type="number"
+                        value={convertForm.packagePrice}
+                        onChange={(e) => setConvertForm((f) => ({ ...f, packagePrice: e.target.value }))}
+                        placeholder="Price ($)"
+                        min="0"
+                        className="w-full px-3 py-2.5 bg-brand-secondary border border-brand-main/10 text-brand-main focus:outline-none focus:border-brand-tertiary"
+                        style={{ fontSize: "0.85rem" }}
+                      />
+                      <input
+                        type="number"
+                        value={convertForm.depositAmount}
+                        onChange={(e) => setConvertForm((f) => ({ ...f, depositAmount: e.target.value }))}
+                        placeholder="Deposit ($)"
+                        min="0"
+                        className="w-full px-3 py-2.5 bg-brand-secondary border border-brand-main/10 text-brand-main focus:outline-none focus:border-brand-tertiary"
+                        style={{ fontSize: "0.85rem" }}
+                      />
+                    </div>
+                  </div>
+                )}
+                <button
+                  type="button"
+                  onClick={() => {
+                    const next = !useCustomPackage;
+                    setUseCustomPackage(next);
+                    setSelectedPackageId("");
+                    setConvertForm((f) => ({
+                      ...f,
+                      packageName: "",
+                      packagePrice: "",
+                      depositAmount: "",
+                    }));
+                  }}
+                  className="mt-2 text-brand-tertiary hover:text-brand-tertiary-dark transition-colors"
+                  style={{ fontSize: "0.75rem" }}
+                >
+                  {useCustomPackage ? "Use a saved package" : "Add a custom package"}
+                </button>
               </div>
 
-              {/* Package Price */}
-              <div>
-                <label className="block text-brand-main/50 mb-1" style={{ fontSize: "0.75rem" }}>Package Price ($) *</label>
-                <input
-                  type="number"
-                  value={convertForm.packagePrice}
-                  onChange={(e) => setConvertForm((f) => ({ ...f, packagePrice: e.target.value }))}
-                  placeholder="3500"
-                  min="0"
-                  className="w-full px-3 py-2.5 bg-brand-secondary border border-brand-main/10 text-brand-main focus:outline-none focus:border-brand-tertiary"
-                  style={{ fontSize: "0.85rem" }}
-                />
-              </div>
-
-              {/* Deposit Amount */}
-              <div>
-                <label className="block text-brand-main/50 mb-1" style={{ fontSize: "0.75rem" }}>Deposit Amount ($) *</label>
-                <input
-                  type="number"
-                  value={convertForm.depositAmount}
-                  onChange={(e) => setConvertForm((f) => ({ ...f, depositAmount: e.target.value }))}
-                  placeholder="1000"
-                  min="0"
-                  className="w-full px-3 py-2.5 bg-brand-secondary border border-brand-main/10 text-brand-main focus:outline-none focus:border-brand-tertiary"
-                  style={{ fontSize: "0.85rem" }}
-                />
-              </div>
+              {!useCustomPackage && selectedPackageId && (
+                <div>
+                  <label className="block text-brand-main/50 mb-1" style={{ fontSize: "0.75rem" }}>Deposit Amount ($) *</label>
+                  <input
+                    type="number"
+                    value={convertForm.depositAmount}
+                    onChange={(e) => setConvertForm((f) => ({ ...f, depositAmount: e.target.value }))}
+                    min="0"
+                    className="w-full px-3 py-2.5 bg-brand-secondary border border-brand-main/10 text-brand-main focus:outline-none focus:border-brand-tertiary"
+                    style={{ fontSize: "0.85rem" }}
+                  />
+                </div>
+              )}
             </div>
 
             <div className="flex items-center gap-3 mt-6">

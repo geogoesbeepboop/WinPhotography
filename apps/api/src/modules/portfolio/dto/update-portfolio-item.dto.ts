@@ -1,6 +1,5 @@
 import {
   IsString,
-  IsEnum,
   IsOptional,
   IsBoolean,
   IsInt,
@@ -8,7 +7,6 @@ import {
   MinLength,
   MaxLength,
 } from 'class-validator';
-import { PortfolioCategory } from '@winphotography/shared';
 
 export class UpdatePortfolioItemDto {
   @IsOptional()
@@ -23,8 +21,9 @@ export class UpdatePortfolioItemDto {
   description?: string;
 
   @IsOptional()
-  @IsEnum(PortfolioCategory)
-  category?: PortfolioCategory;
+  @IsString()
+  @MaxLength(100)
+  category?: string;
 
   @IsOptional()
   @IsBoolean()

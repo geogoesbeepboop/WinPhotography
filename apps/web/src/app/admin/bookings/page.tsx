@@ -7,27 +7,44 @@ import { Search, CalendarCheck, Clock, MapPin, DollarSign, Plus } from "lucide-r
 import { bookingStatusConfig } from "@/lib/mock-data/admin-data";
 import { useBookings } from "@/services/bookings";
 
+interface BookingListItem {
+  id: string;
+  status: string;
+  clientName?: string;
+  client?: { fullName?: string };
+  eventType?: string;
+  packageName?: string;
+  eventDate?: string;
+  date?: string;
+  time?: string;
+  location?: string;
+  totalAmount?: number;
+  packagePrice?: number;
+  paidAmount?: number;
+  depositAmount?: number;
+}
+
 export default function AdminBookings() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [search, setSearch] = useState("");
   const { data: bookings, isLoading } = useBookings();
 
-  const allBookings = bookings ?? [];
+  const allBookings = (bookings ?? []) as BookingListItem[];
 
-  const filtered = allBookings.filter((b: any) => {
+  const filtered = allBookings.filter((b) => {
     if (statusFilter !== "all" && b.status !== statusFilter) return false;
     const name = (b.clientName || b.client?.fullName || "").toLowerCase();
-    const type = (b.type || b.eventType || "").toLowerCase();
+    const type = (b.eventType || b.packageName || "").toLowerCase();
     if (search && !name.includes(search.toLowerCase()) && !type.includes(search.toLowerCase())) return false;
     return true;
   });
 
   const counts = {
     all: allBookings.length,
-    pending: allBookings.filter((b: any) => b.status === "pending").length,
-    confirmed: allBookings.filter((b: any) => b.status === "confirmed").length,
-    completed: allBookings.filter((b: any) => b.status === "completed").length,
-    cancelled: allBookings.filter((b: any) => b.status === "cancelled").length,
+    pending: allBookings.filter((b) => b.status === "pending").length,
+    confirmed: allBookings.filter((b) => b.status === "confirmed").length,
+    completed: allBookings.filter((b) => b.status === "completed").length,
+    cancelled: allBookings.filter((b) => b.status === "cancelled").length,
   };
 
   return (
@@ -92,13 +109,13 @@ export default function AdminBookings() {
       {/* Booking List */}
       {!isLoading && (
         <div className="space-y-3">
-          {filtered.map((bk: any, i: number) => {
+          {filtered.map((bk, i) => {
             const cfg = bookingStatusConfig[bk.status];
             const total = bk.totalAmount ?? bk.packagePrice ?? 0;
             const paid = bk.paidAmount ?? bk.depositAmount ?? 0;
             const progress = total > 0 ? Math.round((paid / total) * 100) : 0;
             const clientName = bk.clientName || bk.client?.fullName || "Unknown";
-            const bookingType = bk.type || bk.eventType || bk.packageName || "";
+            const bookingType = bk.eventType || bk.packageName || "";
             const bookingDate = bk.date || bk.eventDate || "";
             return (
               <motion.div key={bk.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.04 }}>

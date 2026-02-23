@@ -146,7 +146,8 @@ export class GalleriesService {
       key,
       contentType,
     );
-    return { uploadUrl, key };
+    const publicUrl = this.storageService.generatePublicUrl(key);
+    return { uploadUrl, key, publicUrl };
   }
 
   async addPhotos(

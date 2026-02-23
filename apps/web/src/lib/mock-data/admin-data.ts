@@ -104,11 +104,11 @@ export const mockGalleries: Gallery[] = [
 ];
 
 export const mockPortfolio: PortfolioItem[] = [
-  { id: "pf-1", title: "Golden Hour at Baker Beach", category: "Elopements", coverImage: "https://images.unsplash.com/photo-1542810185-a9c0362dcff4?w=600", imageCount: 24, published: true, featured: true, createdAt: "Jan 10, 2026" },
-  { id: "pf-2", title: "Napa Valley Vineyard Wedding", category: "Weddings", coverImage: "https://images.unsplash.com/photo-1649191717256-d4a81a6df923?w=600", imageCount: 48, published: true, featured: true, createdAt: "Dec 15, 2025" },
-  { id: "pf-3", title: "Surprise at Crissy Field", category: "Proposals", coverImage: "https://images.unsplash.com/photo-1667565454350-fd0484baaa2c?w=600", imageCount: 18, published: true, featured: false, createdAt: "Nov 20, 2025" },
-  { id: "pf-4", title: "Stanford Grad 2025", category: "Graduations", coverImage: "https://images.unsplash.com/photo-1637537791710-a78698013174?w=600", imageCount: 12, published: false, featured: false, createdAt: "Feb 1, 2026" },
-  { id: "pf-5", title: "Executive Portraits", category: "Headshots", coverImage: "https://images.unsplash.com/photo-1768039376092-70e587cb7b94?w=600", imageCount: 8, published: true, featured: false, createdAt: "Jan 5, 2026" },
+  { id: "pf-1", title: "Golden Hour at Baker Beach", category: "wedding", coverImage: "https://images.unsplash.com/photo-1542810185-a9c0362dcff4?w=600", imageCount: 24, published: true, featured: true, createdAt: "Jan 10, 2026" },
+  { id: "pf-2", title: "Napa Valley Vineyard Wedding", category: "wedding", coverImage: "https://images.unsplash.com/photo-1649191717256-d4a81a6df923?w=600", imageCount: 48, published: true, featured: true, createdAt: "Dec 15, 2025" },
+  { id: "pf-3", title: "Surprise at Crissy Field", category: "engagement", coverImage: "https://images.unsplash.com/photo-1667565454350-fd0484baaa2c?w=600", imageCount: 18, published: true, featured: false, createdAt: "Nov 20, 2025" },
+  { id: "pf-4", title: "Stanford Grad 2025", category: "event", coverImage: "https://images.unsplash.com/photo-1637537791710-a78698013174?w=600", imageCount: 12, published: false, featured: false, createdAt: "Feb 1, 2026" },
+  { id: "pf-5", title: "Executive Portraits", category: "portrait", coverImage: "https://images.unsplash.com/photo-1768039376092-70e587cb7b94?w=600", imageCount: 8, published: true, featured: false, createdAt: "Jan 5, 2026" },
 ];
 
 export const mockClients: Client[] = [

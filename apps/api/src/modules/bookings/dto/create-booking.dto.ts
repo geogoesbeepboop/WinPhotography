@@ -7,7 +7,7 @@ import {
   MaxLength,
   Min,
 } from 'class-validator';
-import { BookingStatus, EventType } from '@winphotography/shared';
+import { BookingStatus } from '@winphotography/shared';
 
 export class CreateBookingDto {
   @IsUUID()
@@ -17,8 +17,9 @@ export class CreateBookingDto {
   @IsUUID()
   inquiryId?: string;
 
-  @IsEnum(EventType)
-  eventType: EventType;
+  @IsString()
+  @MaxLength(100)
+  eventType: string;
 
   @IsString()
   eventDate: string;

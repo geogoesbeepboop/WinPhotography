@@ -6,23 +6,40 @@ import { motion, AnimatePresence } from "motion/react";
 import { ImageWithFallback } from "@/components/shared/image-with-fallback";
 import { usePortfolio } from "@/services/portfolio";
 import { Camera } from "lucide-react";
+import { resolveMediaUrl } from "@/lib/media";
 
-const categoryLabels: Record<string, string> = {
-  wedding: "Weddings",
-  engagement: "Engagements",
-  event: "Events",
-  portrait: "Portraits",
-  corporate: "Corporate",
-  other: "Other",
-};
+interface PortfolioPhoto {
+  url?: string;
+  r2Key?: string;
+  width?: number;
+  height?: number;
+}
+
+interface PortfolioApiItem {
+  slug: string;
+  title: string;
+  category: string;
+  description?: string;
+  coverImageUrl?: string;
+  coverImageKey?: string;
+  photos?: PortfolioPhoto[];
+}
+
+interface PortfolioViewItem {
+  slug: string;
+  title: string;
+  category: string;
+  location: string;
+  image: string;
+  aspect: "portrait" | "landscape";
+}
 
 export default function PortfolioPage() {
   const [activeCategory, setActiveCategory] = useState("All");
-  const { data: apiItems, isLoading } = usePortfolio();
+  const { data: apiItems = [], isLoading } = usePortfolio();
 
-  const items = useMemo(() => {
-    if (!apiItems) return [];
-    return (apiItems as any[]).map((item: any, index: number) => {
+  const items = useMemo<PortfolioViewItem[]>(() => {
+    return (apiItems as PortfolioApiItem[]).map((item, index) => {
       // Determine aspect from cover photo dimensions if available
       const coverPhoto = item.photos?.[0];
       let aspect: "portrait" | "landscape" = "portrait";
@@ -38,9 +55,14 @@ export default function PortfolioPage() {
         slug: item.slug,
         title: item.title,
         category: item.category,
-        categoryLabel: categoryLabels[item.category] || item.category,
         location: item.description?.split(",").pop()?.trim() || "Pacific Northwest",
-        image: item.coverImageUrl || item.coverImageKey || coverPhoto?.url || coverPhoto?.r2Key || "",
+        image: resolveMediaUrl(
+          item.coverImageUrl ||
+            item.coverImageKey ||
+            coverPhoto?.url ||
+            coverPhoto?.r2Key ||
+            "",
+        ),
         aspect,
       };
     });
@@ -55,7 +77,7 @@ export default function PortfolioPage() {
   const filteredItems =
     activeCategory === "All"
       ? items
-      : items.filter((item: any) => item.category === activeCategory);
+      : items.filter((item) => item.category === activeCategory);
 
   return (
     <div>
@@ -109,7 +131,7 @@ export default function PortfolioPage() {
                   }`}
                   style={{ fontSize: "0.65rem" }}
                 >
-                  {categoryLabels[cat] || cat}
+                  {cat}
                 </button>
               ))}
             </div>
@@ -129,7 +151,7 @@ export default function PortfolioPage() {
           ) : filteredItems.length > 0 ? (
             <div className="columns-1 sm:columns-2 lg:columns-3 gap-4 space-y-4">
               <AnimatePresence mode="popLayout">
-                {filteredItems.map((item: any) => (
+                {filteredItems.map((item) => (
                   <motion.div
                     key={item.slug}
                     layout
@@ -161,7 +183,7 @@ export default function PortfolioPage() {
                               className="tracking-[0.2em] uppercase text-brand-tertiary-light mb-1"
                               style={{ fontSize: "0.6rem" }}
                             >
-                              {categoryLabels[item.category] || item.category} &middot; {item.location}
+                              {item.category} &middot; {item.location}
                             </p>
                             <h3
                               className="font-serif text-brand-secondary"

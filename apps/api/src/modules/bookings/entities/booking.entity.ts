@@ -9,7 +9,7 @@ import {
   OneToMany,
   JoinColumn,
 } from 'typeorm';
-import { BookingStatus, EventType } from '@winphotography/shared';
+import { BookingStatus } from '@winphotography/shared';
 import { UserEntity } from '../../users/entities/user.entity';
 import { GalleryEntity } from '../../galleries/entities/gallery.entity';
 import { PaymentEntity } from '../../payments/entities/payment.entity';
@@ -30,8 +30,8 @@ export class Booking {
   @Column({ name: 'inquiry_id', type: 'uuid', nullable: true })
   inquiryId: string | null;
 
-  @Column({ name: 'event_type', type: 'enum', enum: EventType })
-  eventType: EventType;
+  @Column({ name: 'event_type', type: 'varchar', length: 100 })
+  eventType: string;
 
   @Index()
   @Column({ name: 'event_date', type: 'date' })

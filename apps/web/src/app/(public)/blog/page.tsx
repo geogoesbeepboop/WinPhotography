@@ -6,6 +6,16 @@ import { ArrowRight, Clock } from "lucide-react";
 import { ImageWithFallback } from "@/components/shared/image-with-fallback";
 import { useBlogPosts } from "@/services/blog";
 
+type BlogPost = {
+  slug: string;
+  title: string;
+  excerpt: string;
+  image: string;
+  date: string;
+  readTime: string;
+  category: string;
+};
+
 const formatDate = (dateStr: string) => {
   if (!dateStr) return "";
   return new Date(dateStr).toLocaleDateString("en-US", {
@@ -17,7 +27,7 @@ const formatDate = (dateStr: string) => {
 
 export default function BlogPage() {
   const { data: posts, isLoading } = useBlogPosts();
-  const blogPosts = (posts ?? []).map((p: any): { slug: string; title: string; excerpt: string; image: string; date: string; readTime: string; category: string } => ({
+  const blogPosts: BlogPost[] = (posts ?? []).map((p: any) => ({
     slug: p.slug,
     title: p.title,
     excerpt: p.excerpt,

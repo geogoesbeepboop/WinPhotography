@@ -16,6 +16,7 @@ import { TestimonialsModule } from './modules/testimonials/testimonials.module';
 import { StorageModule } from './modules/storage/storage.module';
 import { EmailModule } from './modules/email/email.module';
 import { BlogModule } from './modules/blog/blog.module';
+import { EventTypesModule } from './modules/event-types/event-types.module';
 import configuration from './config/configuration';
 
 @Module({
@@ -33,7 +34,7 @@ import configuration from './config/configuration';
       type: 'postgres',
       url: process.env.DATABASE_URL,
       autoLoadEntities: true,
-      synchronize: false, // Always use migrations in production
+      synchronize: false, // Manual migrations — TypeORM enum sync conflicts with shared PG enum types
       // Supabase requires SSL even in development
       ssl: process.env.DATABASE_URL?.includes('supabase.co')
         ? { rejectUnauthorized: false }
@@ -60,6 +61,7 @@ import configuration from './config/configuration';
     StorageModule,
     EmailModule,
     BlogModule,
+    EventTypesModule,
   ],
 })
 export class AppModule {}

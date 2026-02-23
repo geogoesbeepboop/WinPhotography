@@ -6,11 +6,23 @@ import { useState } from "react";
 import { Image, PlusCircle, Eye, EyeOff, Calendar, User, Search } from "lucide-react";
 import { useGalleries } from "@/services/galleries";
 
+interface GalleryListItem {
+  id: string;
+  title: string;
+  status: string;
+  clientName?: string;
+  client?: { fullName?: string };
+  photoCount?: number;
+  createdAt?: string;
+  publishedAt?: string;
+}
+
 export default function AdminGalleries() {
   const { data: galleries = [], isLoading } = useGalleries();
   const [search, setSearch] = useState("");
+  const galleryList = galleries as GalleryListItem[];
 
-  const filtered = (galleries as any[]).filter((gal) => {
+  const filtered = galleryList.filter((gal) => {
     if (!search) return true;
     const q = search.toLowerCase();
     const title = (gal.title || "").toLowerCase();
@@ -61,7 +73,7 @@ export default function AdminGalleries() {
       </div>
 
       <div className="space-y-3">
-        {filtered.map((gal: any, i: number) => (
+        {filtered.map((gal, i) => (
           <motion.div key={gal.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}>
             <Link href={`/admin/galleries/${gal.id}`} className="block bg-white border border-brand-main/8 p-5 hover:border-brand-tertiary/30 transition-colors">
               <div className="flex flex-wrap items-start justify-between gap-3">

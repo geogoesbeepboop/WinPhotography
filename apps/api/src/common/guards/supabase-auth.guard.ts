@@ -47,14 +47,29 @@ export class SupabaseAuthGuard implements CanActivate {
       let localUser = await this.usersService.findBySupabaseId(supabaseUser.id);
 
       if (!localUser) {
-        // Auto-sync: create local user from Supabase auth data
         const metadata = supabaseUser.user_metadata || {};
-        localUser = await this.usersService.create({
-          supabaseId: supabaseUser.id,
-          email: supabaseUser.email!,
-          fullName: (metadata.full_name as string) || supabaseUser.email!.split('@')[0],
-          role: (metadata.role as UserRole) || UserRole.CLIENT,
-        });
+        const email = supabaseUser.email!;
+
+        // Reconcile by email first to avoid duplicate/role-downgrade issues.
+        const existingByEmail = await this.usersService.findByEmail(email);
+        if (existingByEmail) {
+          localUser = await this.usersService.update(existingByEmail.id, {
+            supabaseId: supabaseUser.id,
+            email,
+            fullName:
+              (metadata.full_name as string) ||
+              existingByEmail.fullName ||
+              email.split('@')[0],
+          });
+        } else {
+          // Auto-sync: create local user from Supabase auth data.
+          localUser = await this.usersService.create({
+            supabaseId: supabaseUser.id,
+            email,
+            fullName: (metadata.full_name as string) || email.split('@')[0],
+            role: (metadata.role as UserRole) || UserRole.CLIENT,
+          });
+        }
       }
 
       if (!localUser.isActive) {

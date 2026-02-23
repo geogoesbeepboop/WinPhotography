@@ -8,6 +8,7 @@ import {
   Body,
   UseGuards,
   NotFoundException,
+  ConflictException,
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { UserRole } from '@winphotography/shared';
@@ -33,12 +34,18 @@ export class UsersController {
   async createClient(
     @Body() body: { fullName: string; email: string; phone?: string },
   ) {
+    // Check for existing user with same email
+    const existing = await this.usersService.findByEmail(body.email);
+    if (existing) {
+      throw new ConflictException(`A user with email "${body.email}" already exists`);
+    }
+
     return this.usersService.create({
       fullName: body.fullName,
       email: body.email,
       phone: body.phone || null,
       role: UserRole.CLIENT,
-      supabaseId: `placeholder-${randomUUID()}`,
+      supabaseId: randomUUID(), // Valid UUID — placeholder until client signs in via Supabase
     });
   }
 

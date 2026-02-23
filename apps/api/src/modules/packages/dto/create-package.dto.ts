@@ -1,6 +1,5 @@
 import {
   IsString,
-  IsEnum,
   IsOptional,
   IsBoolean,
   IsNumber,
@@ -10,7 +9,6 @@ import {
   MinLength,
   MaxLength,
 } from 'class-validator';
-import { EventType } from '@winphotography/shared';
 
 export class CreatePackageDto {
   @IsString()
@@ -46,8 +44,9 @@ export class CreatePackageDto {
   @IsString({ each: true })
   features: string[];
 
-  @IsEnum(EventType)
-  eventType: EventType;
+  @IsString()
+  @MaxLength(100)
+  eventType: string;
 
   @IsOptional()
   @IsBoolean()

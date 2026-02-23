@@ -22,6 +22,7 @@ import {
   ChevronRight,
   DollarSign,
   FileText,
+  Tag,
 } from "lucide-react";
 import { DataSourceToggle } from "@/components/admin/data-source-toggle";
 
@@ -48,6 +49,12 @@ const navSections = [
       { path: "/admin/portfolio", label: "Portfolio", icon: FolderOpen },
       { path: "/admin/pricing", label: "Pricing", icon: DollarSign },
       { path: "/admin/blog", label: "Blog", icon: FileText },
+    ],
+  },
+  {
+    title: "Settings",
+    items: [
+      { path: "/admin/event-types", label: "Event Types", icon: Tag },
     ],
   },
 ];

@@ -54,7 +54,8 @@ export class PortfolioService {
       key,
       contentType,
     );
-    return { uploadUrl, key };
+    const publicUrl = this.storageService.generatePublicUrl(key);
+    return { uploadUrl, key, publicUrl };
   }
 
   private hydratePhotoUrls(item: PortfolioItemEntity): PortfolioItemEntity {

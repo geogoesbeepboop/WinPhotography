@@ -46,6 +46,7 @@ export class StorageService implements OnModuleInit {
     key: string,
     contentType: string,
   ): Promise<string> {
+    this.ensureConfigured();
     const command = new PutObjectCommand({
       Bucket: this.bucketName,
       Key: key,
@@ -55,6 +56,7 @@ export class StorageService implements OnModuleInit {
   }
 
   async generateSignedReadUrl(key: string): Promise<string> {
+    this.ensureConfigured();
     const command = new GetObjectCommand({
       Bucket: this.bucketName,
       Key: key,
@@ -63,19 +65,38 @@ export class StorageService implements OnModuleInit {
   }
 
   async deleteObject(key: string): Promise<void> {
+    this.ensureConfigured();
     await this.s3Client.send(
       new DeleteObjectCommand({ Bucket: this.bucketName, Key: key }),
     );
   }
 
   generatePublicUrl(key: string): string {
-    if (this.publicUrl) {
-      return `${this.publicUrl.replace(/\/$/, '')}/${key}`;
+    if (!key) return '';
+
+    // Prefer an explicit API base URL (supports local + deployed environments).
+    const configuredApiUrl =
+      process.env.API_URL ||
+      process.env.NEXT_PUBLIC_API_URL ||
+      this.configService.get<string>('apiUrl');
+
+    if (configuredApiUrl) {
+      const normalized = configuredApiUrl.replace(/\/+$/, '');
+      const baseWithPrefix = normalized.endsWith('/api/v1')
+        ? normalized
+        : `${normalized}/api/v1`;
+      return `${baseWithPrefix}/storage/image?key=${encodeURIComponent(key)}`;
     }
-    return key;
+
+    // Local fallback.
+    const port = this.configService.get<number>('port', 3001);
+    return `http://localhost:${port}/api/v1/storage/image?key=${encodeURIComponent(
+      key,
+    )}`;
   }
 
   async downloadToBuffer(key: string): Promise<Buffer> {
+    this.ensureConfigured();
     const response = await this.s3Client.send(
       new GetObjectCommand({ Bucket: this.bucketName, Key: key }),
     );
@@ -91,6 +112,7 @@ export class StorageService implements OnModuleInit {
     buffer: Buffer,
     contentType: string,
   ): Promise<void> {
+    this.ensureConfigured();
     await this.s3Client.send(
       new PutObjectCommand({
         Bucket: this.bucketName,
@@ -99,5 +121,13 @@ export class StorageService implements OnModuleInit {
         ContentType: contentType,
       }),
     );
+  }
+
+  private ensureConfigured(): void {
+    if (!this.s3Client || !this.bucketName) {
+      throw new Error(
+        'R2 storage is not configured. Set R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, and R2_BUCKET_NAME.',
+      );
+    }
   }
 }

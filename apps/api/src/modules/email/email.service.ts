@@ -399,7 +399,43 @@ ${this.paragraph(
   }
 
   // ---------------------------------------------------------------------------
-  // 6. Admin notification
+  // 6. Inquiry reply (admin → client)
+  // ---------------------------------------------------------------------------
+
+  async sendInquiryReply(
+    to: string,
+    data: {
+      clientName: string;
+      replyMessage: string;
+    },
+  ): Promise<void> {
+    const escapedMessage = data.replyMessage
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/\n/g, '<br />');
+
+    const body = `
+${this.heading(`Hi ${data.clientName}`)}
+${this.paragraph(escapedMessage)}
+${this.divider()}
+${this.paragraph(
+  'If you have any further questions, simply reply to this email or visit our website.',
+)}
+${this.button('Visit Our Website', this.frontendUrl)}
+${this.paragraph(
+  'With warmth,<br /><span style="color:#1a1a1a;font-style:italic;">Mae Win Photography</span>',
+)}`;
+
+    await this.send(
+      to,
+      `Message from Mae Win Photography`,
+      this.wrapInLayout(body),
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // 7. Admin notification
   // ---------------------------------------------------------------------------
 
   async sendAdminNotification(
