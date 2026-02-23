@@ -11,6 +11,8 @@ import { useInquiry, useUpdateInquiry, useConvertInquiry } from "@/services/inqu
 import { useClients, useCreateClient } from "@/services/clients";
 import { apiClient } from "@/lib/api-client";
 import { useAdminPackages } from "@/services/packages";
+import { EventTypeItem, useEventTypes } from "@/services/event-types";
+import { getEventTypeLabel } from "@/lib/event-type-label";
 
 const defaultStatusCfg = { label: "Unknown", color: "bg-gray-100 text-gray-500" };
 
@@ -36,6 +38,8 @@ interface PackageOption {
   id: string;
   name: string;
   price: number | string;
+  eventType: string;
+  isActive?: boolean;
 }
 
 function formatReceivedTimestamp(value?: string): string {
@@ -60,6 +64,7 @@ export default function AdminInquiryDetail() {
   const convertInquiry = useConvertInquiry();
   const { data: clients } = useClients();
   const { data: packages = [] } = useAdminPackages();
+  const { data: eventTypes = [] } = useEventTypes();
   const createClient = useCreateClient();
 
   const [status, setStatus] = useState<string>("new");
@@ -81,6 +86,13 @@ export default function AdminInquiryDetail() {
   });
   const clientOptions = (clients || []) as ClientOption[];
   const packageOptions = packages as PackageOption[];
+  const eventTypeOptions = eventTypes as EventTypeItem[];
+  const inquiryEventType = (inquiry?.eventType || inquiry?.category || "") as string;
+  const filteredPackageOptions = packageOptions.filter((pkg) => {
+    if (pkg.isActive === false) return false;
+    if (!inquiryEventType) return false;
+    return pkg.eventType === inquiryEventType;
+  });
 
   // Sync local state when inquiry data arrives
   useEffect(() => {
@@ -224,7 +236,10 @@ export default function AdminInquiryDetail() {
   const name = inquiry.name || inquiry.contactName || "Unknown";
   const email = inquiry.email || inquiry.contactEmail || "";
   const phone = inquiry.phone || inquiry.contactPhone || "";
-  const category = inquiry.category || inquiry.eventType || "";
+  const category = getEventTypeLabel(
+    inquiry.category || inquiry.eventType || "",
+    eventTypeOptions,
+  );
   const tier = inquiry.tier || "";
   const preferredDate = inquiry.preferredDate || inquiry.eventDate || "";
 
@@ -521,39 +536,54 @@ export default function AdminInquiryDetail() {
               <div>
                 <label className="block text-brand-main/50 mb-1" style={{ fontSize: "0.75rem" }}>Package *</label>
                 {!useCustomPackage ? (
-                  <select
-                    value={selectedPackageId}
-                    onChange={(e) => {
-                      const selectedId = e.target.value;
-                      setSelectedPackageId(selectedId);
-                      const pkg = packageOptions.find((p) => p.id === selectedId);
-                      if (pkg) {
-                        const price = Number(pkg.price);
-                        setConvertForm((f) => ({
-                          ...f,
-                          packageName: pkg.name,
-                          packagePrice: String(price),
-                          depositAmount: String(Math.round(price * 0.3)),
-                        }));
-                      } else {
-                        setConvertForm((f) => ({
-                          ...f,
-                          packageName: "",
-                          packagePrice: "",
-                          depositAmount: "",
-                        }));
-                      }
-                    }}
-                    className="w-full px-3 py-2.5 bg-brand-secondary border border-brand-main/10 text-brand-main focus:outline-none focus:border-brand-tertiary"
-                    style={{ fontSize: "0.85rem" }}
-                  >
-                    <option value="">Select a package...</option>
-                    {packageOptions.map((pkg) => (
-                      <option key={pkg.id} value={pkg.id}>
-                        {pkg.name} — ${Number(pkg.price).toLocaleString()}
+                  <>
+                    <select
+                      value={selectedPackageId}
+                      disabled={!inquiryEventType}
+                      onChange={(e) => {
+                        const selectedId = e.target.value;
+                        setSelectedPackageId(selectedId);
+                        const pkg = filteredPackageOptions.find((p) => p.id === selectedId);
+                        if (pkg) {
+                          const price = Number(pkg.price);
+                          setConvertForm((f) => ({
+                            ...f,
+                            packageName: pkg.name,
+                            packagePrice: String(price),
+                            depositAmount: String(Math.round(price * 0.3)),
+                          }));
+                        } else {
+                          setConvertForm((f) => ({
+                            ...f,
+                            packageName: "",
+                            packagePrice: "",
+                            depositAmount: "",
+                          }));
+                        }
+                      }}
+                      className="w-full px-3 py-2.5 bg-brand-secondary border border-brand-main/10 text-brand-main focus:outline-none focus:border-brand-tertiary"
+                      style={{ fontSize: "0.85rem" }}
+                    >
+                      <option value="">
+                        {inquiryEventType ? "Select a package..." : "Inquiry has no event type"}
                       </option>
-                    ))}
-                  </select>
+                      {filteredPackageOptions.map((pkg) => (
+                        <option key={pkg.id} value={pkg.id}>
+                          {pkg.name} — ${Number(pkg.price).toLocaleString()}
+                        </option>
+                      ))}
+                    </select>
+                    {!inquiryEventType && (
+                      <p className="mt-2 text-brand-main/50" style={{ fontSize: "0.75rem" }}>
+                        This inquiry has no event type. Use &ldquo;Add a custom package&rdquo;.
+                      </p>
+                    )}
+                    {inquiryEventType && filteredPackageOptions.length === 0 && (
+                      <p className="mt-2 text-brand-main/50" style={{ fontSize: "0.75rem" }}>
+                        No saved packages for this event type. Use &ldquo;Add a custom package&rdquo;.
+                      </p>
+                    )}
+                  </>
                 ) : (
                   <div className="space-y-3">
                     <input

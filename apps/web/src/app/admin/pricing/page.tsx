@@ -22,6 +22,16 @@ import {
   useDeletePackage,
 } from "@/services/packages";
 import { EventTypeItem, useEventTypes } from "@/services/event-types";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface PackageItem {
   id: string;
@@ -60,6 +70,7 @@ export default function AdminPricing() {
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState(emptyForm);
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
   const packageList = packages as PackageItem[];
   const eventTypeOptions = eventTypes as EventTypeItem[];
 
@@ -130,10 +141,11 @@ export default function AdminPricing() {
     }
   };
 
-  const handleDelete = (id: string) => {
-    if (confirm("Delete this package?")) {
-      deletePackage.mutate(id);
-    }
+  const handleDelete = () => {
+    if (!deleteTarget) return;
+    deletePackage.mutate(deleteTarget.id, {
+      onSuccess: () => setDeleteTarget(null),
+    });
   };
 
   const toggleActive = (pkg: PackageItem) => {
@@ -284,7 +296,7 @@ export default function AdminPricing() {
                           <Pencil className="w-4 h-4" />
                         </button>
                         <button
-                          onClick={() => handleDelete(pkg.id)}
+                          onClick={() => setDeleteTarget({ id: pkg.id, name: pkg.name })}
                           className="p-2 text-brand-main/30 hover:text-red-500 transition-colors"
                         >
                           <Trash2 className="w-4 h-4" />
@@ -563,6 +575,26 @@ export default function AdminPricing() {
           </div>
         )}
       </AnimatePresence>
+
+      <AlertDialog open={!!deleteTarget} onOpenChange={() => setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Package</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete &ldquo;{deleteTarget?.name}&rdquo;? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              className="bg-red-600 hover:bg-red-700 text-white"
+            >
+              {deletePackage.isPending ? "Deleting..." : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

@@ -7,6 +7,7 @@ import { ArrowLeft, Clock, Calendar } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { ImageWithFallback } from "@/components/shared/image-with-fallback";
 import { useBlogPost } from "@/services/blog";
+import { resolveMediaUrl } from "@/lib/media";
 
 export default function BlogPostPage() {
   const { slug } = useParams();
@@ -65,7 +66,7 @@ export default function BlogPostPage() {
     );
   }
 
-  const coverImage = post.coverImageUrl || post.image;
+  const coverImage = resolveMediaUrl(post.coverImageUrl || post.image);
   const date = formatDate(post.publishedAt || post.createdAt);
 
   return (

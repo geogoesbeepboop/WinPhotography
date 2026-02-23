@@ -20,6 +20,8 @@ interface PackageOption {
   id: string;
   name: string;
   price: number | string;
+  eventType: string;
+  isActive?: boolean;
 }
 
 function NewBookingForm() {
@@ -50,6 +52,11 @@ function NewBookingForm() {
   const clientOptions = (clients || []) as ClientOption[];
   const packageOptions = packages as PackageOption[];
   const eventTypeOptions = eventTypes as EventTypeItem[];
+  const filteredPackageOptions = packageOptions.filter((pkg) => {
+    if (pkg.isActive === false) return false;
+    if (!form.eventType) return false;
+    return pkg.eventType === form.eventType;
+  });
 
   const handleSubmit = async () => {
     setError("");
@@ -197,7 +204,16 @@ function NewBookingForm() {
             <label className="block text-brand-main/50 mb-1" style={{ fontSize: "0.75rem" }}>Event Type *</label>
             <select
               value={form.eventType}
-              onChange={(e) => setForm((f) => ({ ...f, eventType: e.target.value }))}
+              onChange={(e) => {
+                setSelectedPackageId("");
+                setForm((f) => ({
+                  ...f,
+                  eventType: e.target.value,
+                  packageName: "",
+                  packagePrice: "",
+                  depositAmount: "",
+                }));
+              }}
               className="w-full px-3 py-2.5 bg-brand-secondary border border-brand-main/10 text-brand-main focus:outline-none focus:border-brand-tertiary"
               style={{ fontSize: "0.85rem" }}
             >
@@ -238,7 +254,11 @@ function NewBookingForm() {
           <div className="flex items-center gap-2 mb-1">
             <button
               type="button"
-              onClick={() => { setCustomPackage(false); setSelectedPackageId(""); }}
+              onClick={() => {
+                setCustomPackage(false);
+                setSelectedPackageId("");
+                setForm((f) => ({ ...f, packageName: "", packagePrice: "", depositAmount: "" }));
+              }}
               className={`px-3 py-1.5 transition-colors ${!customPackage ? "bg-brand-main text-brand-secondary" : "bg-brand-secondary border border-brand-main/10 text-brand-main/50"}`}
               style={{ fontSize: "0.7rem" }}
             >
@@ -258,8 +278,9 @@ function NewBookingForm() {
               <label className="block text-brand-main/50 mb-1" style={{ fontSize: "0.75rem" }}>Package *</label>
               <select
                 value={selectedPackageId}
+                disabled={!form.eventType}
                 onChange={(e) => {
-                  const pkg = packageOptions.find((p) => p.id === e.target.value);
+                  const pkg = filteredPackageOptions.find((p) => p.id === e.target.value);
                   setSelectedPackageId(e.target.value);
                   if (pkg) {
                     setForm((f) => ({
@@ -273,13 +294,25 @@ function NewBookingForm() {
                 className="w-full px-3 py-2.5 bg-brand-secondary border border-brand-main/10 text-brand-main focus:outline-none focus:border-brand-tertiary"
                 style={{ fontSize: "0.85rem" }}
               >
-                <option value="">Select a package...</option>
-                {packageOptions.map((pkg) => (
+                <option value="">
+                  {form.eventType ? "Select a package..." : "Select an event type first..."}
+                </option>
+                {filteredPackageOptions.map((pkg) => (
                   <option key={pkg.id} value={pkg.id}>
                     {pkg.name} — ${Number(pkg.price).toLocaleString()}
                   </option>
                 ))}
               </select>
+              {!form.eventType && (
+                <p className="mt-2 text-brand-main/50" style={{ fontSize: "0.75rem" }}>
+                  Choose an event type to load saved packages, or use &ldquo;Add a custom package&rdquo;.
+                </p>
+              )}
+              {form.eventType && filteredPackageOptions.length === 0 && (
+                <p className="mt-2 text-brand-main/50" style={{ fontSize: "0.75rem" }}>
+                  No saved packages for this event type. Use &ldquo;Add a custom package&rdquo;.
+                </p>
+              )}
               {selectedPackageId && (
                 <div className="mt-3 p-3 bg-brand-secondary border border-brand-main/8 space-y-1">
                   <p className="text-brand-main" style={{ fontSize: "0.85rem" }}>{form.packageName}</p>

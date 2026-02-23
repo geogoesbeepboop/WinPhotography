@@ -8,6 +8,8 @@ import { motion } from "motion/react";
 import { ArrowLeft, Save } from "lucide-react";
 import { useBookings } from "@/services/bookings";
 import { useCreateGallery } from "@/services/galleries";
+import { EventTypeItem, useEventTypes } from "@/services/event-types";
+import { getEventTypeLabel } from "@/lib/event-type-label";
 
 interface BookingOption {
   id: string;
@@ -28,6 +30,7 @@ function AdminGalleryNewContent() {
   const preselectedBooking = searchParams.get("booking") || "";
 
   const { data: bookings = [], isLoading: bookingsLoading } = useBookings();
+  const { data: eventTypes = [] } = useEventTypes();
   const createGallery = useCreateGallery();
 
   const [form, setForm] = useState({
@@ -37,6 +40,7 @@ function AdminGalleryNewContent() {
   });
 
   const bookingOptions = bookings as BookingOption[];
+  const eventTypeOptions = eventTypes as EventTypeItem[];
   const availableBookings = bookingOptions.filter(
     (b) => b.status === "completed" || b.status === "confirmed",
   );
@@ -89,7 +93,9 @@ function AdminGalleryNewContent() {
                 onChange={(e) => {
                   const bk = availableBookings.find((b) => b.id === e.target.value);
                   const clientName = bk ? (bk.clientName || bk.client?.fullName || "") : "";
-                  const bookingType = bk ? (bk.eventType || bk.packageName || "") : "";
+                  const bookingType = bk
+                    ? (getEventTypeLabel(bk.eventType, eventTypeOptions) || bk.packageName || "")
+                    : "";
                   setForm({ ...form, bookingId: e.target.value, title: bk ? `${bookingType} - ${clientName}` : "" });
                 }}
                 className="w-full px-4 py-3 bg-brand-secondary border border-brand-main/10 text-brand-main focus:outline-none focus:border-brand-tertiary transition-colors"
@@ -99,7 +105,7 @@ function AdminGalleryNewContent() {
                 <option value="">Select a booking...</option>
                 {availableBookings.map((bk) => (
                   <option key={bk.id} value={bk.id}>
-                    {bk.clientName || bk.client?.fullName || "Unknown"} — {bk.eventType || bk.packageName || ""} ({bk.date || bk.eventDate || ""})
+                    {bk.clientName || bk.client?.fullName || "Unknown"} — {getEventTypeLabel(bk.eventType, eventTypeOptions) || bk.packageName || ""} ({bk.date || bk.eventDate || ""})
                   </option>
                 ))}
               </select>
@@ -109,7 +115,7 @@ function AdminGalleryNewContent() {
               <div className="p-4 bg-brand-secondary/50 border border-brand-main/6">
                 <p className="text-brand-main" style={{ fontSize: "0.85rem" }}>{selectedBooking.clientName || selectedBooking.client?.fullName || "Unknown"}</p>
                 <p className="text-brand-main/40" style={{ fontSize: "0.75rem" }}>
-                  {selectedBooking.eventType || selectedBooking.packageName || ""} · {selectedBooking.date || selectedBooking.eventDate || ""} · {selectedBooking.location || selectedBooking.eventLocation || ""}
+                  {getEventTypeLabel(selectedBooking.eventType, eventTypeOptions) || selectedBooking.packageName || ""} · {selectedBooking.date || selectedBooking.eventDate || ""} · {selectedBooking.location || selectedBooking.eventLocation || ""}
                 </p>
               </div>
             )}

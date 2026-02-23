@@ -12,7 +12,6 @@ import {
   X,
   Save,
   Loader2,
-  GripVertical,
 } from "lucide-react";
 import {
   EventTypeItem,
@@ -32,7 +31,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 
-const emptyForm = { name: "", slug: "", isActive: true, sortOrder: "0" };
+const emptyForm = { name: "", isActive: true, sortOrder: "0" };
 
 export default function AdminEventTypesPage() {
   const { data: eventTypes = [], isLoading } = useAdminEventTypes();
@@ -48,8 +47,12 @@ export default function AdminEventTypesPage() {
   const eventTypeList = eventTypes as EventTypeItem[];
 
   const openCreateForm = () => {
+    const nextSortOrder =
+      eventTypeList.length > 0
+        ? Math.max(...eventTypeList.map((eventType) => eventType.sortOrder || 0)) + 1
+        : 0;
     setEditingId(null);
-    setForm({ ...emptyForm, sortOrder: String(eventTypeList.length) });
+    setForm({ ...emptyForm, sortOrder: String(nextSortOrder) });
     setFormError("");
     setShowForm(true);
   };
@@ -58,7 +61,6 @@ export default function AdminEventTypesPage() {
     setEditingId(et.id);
     setForm({
       name: et.name || "",
-      slug: et.slug || "",
       isActive: et.isActive ?? true,
       sortOrder: String(et.sortOrder || 0),
     });
@@ -68,11 +70,28 @@ export default function AdminEventTypesPage() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    const sortOrder = Number(form.sortOrder);
+    if (Number.isNaN(sortOrder) || sortOrder < 0) {
+      setFormError("Sort order must be a non-negative number.");
+      return;
+    }
+
+    const duplicateSortOrder = eventTypeList.find(
+      (eventType) =>
+        eventType.sortOrder === sortOrder &&
+        eventType.id !== editingId,
+    );
+    if (duplicateSortOrder) {
+      setFormError(
+        `Sort order #${sortOrder} is already used by "${duplicateSortOrder.name}".`,
+      );
+      return;
+    }
+
     const payload = {
       name: form.name,
-      slug: form.slug || undefined,
       isActive: form.isActive,
-      sortOrder: Number(form.sortOrder) || 0,
+      sortOrder,
     };
 
     if (editingId) {
@@ -164,19 +183,10 @@ export default function AdminEventTypesPage() {
               transition={{ delay: i * 0.03 }}
               className={`bg-white border border-brand-main/8 p-4 flex items-center gap-4 ${!et.isActive ? "opacity-50" : ""}`}
             >
-              <GripVertical className="w-4 h-4 text-brand-main/15 shrink-0" />
               <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <h3 className="text-brand-main" style={{ fontSize: "0.95rem" }}>
-                    {et.name}
-                  </h3>
-                  <span
-                    className="text-brand-main/30 font-mono"
-                    style={{ fontSize: "0.7rem" }}
-                  >
-                    {et.slug}
-                  </span>
-                </div>
+                <h3 className="text-brand-main" style={{ fontSize: "0.95rem" }}>
+                  {et.name}
+                </h3>
               </div>
               <span className="text-brand-main/20" style={{ fontSize: "0.7rem" }}>
                 #{et.sortOrder}
@@ -238,7 +248,7 @@ export default function AdminEventTypesPage() {
                 )}
                 <div>
                   <label className="block text-brand-main/50 mb-1" style={{ fontSize: "0.75rem" }}>
-                    Name *
+                    Event Type Name *
                   </label>
                   <input
                     type="text"
@@ -248,20 +258,6 @@ export default function AdminEventTypesPage() {
                     className="w-full px-3 py-2.5 bg-brand-secondary border border-brand-main/10 text-brand-main focus:outline-none focus:border-brand-tertiary"
                     style={{ fontSize: "0.85rem" }}
                     required
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-brand-main/50 mb-1" style={{ fontSize: "0.75rem" }}>
-                    Slug (auto-generated if empty)
-                  </label>
-                  <input
-                    type="text"
-                    value={form.slug}
-                    onChange={(e) => setForm({ ...form, slug: e.target.value })}
-                    placeholder="e.g. wedding"
-                    className="w-full px-3 py-2.5 bg-brand-secondary border border-brand-main/10 text-brand-main focus:outline-none focus:border-brand-tertiary font-mono"
-                    style={{ fontSize: "0.85rem" }}
                   />
                 </div>
 
@@ -277,6 +273,9 @@ export default function AdminEventTypesPage() {
                     className="w-full px-3 py-2.5 bg-brand-secondary border border-brand-main/10 text-brand-main focus:outline-none focus:border-brand-tertiary"
                     style={{ fontSize: "0.85rem" }}
                   />
+                  <p className="mt-1 text-brand-main/40" style={{ fontSize: "0.7rem" }}>
+                    Must be unique.
+                  </p>
                 </div>
 
                 <label className="flex items-center gap-2 cursor-pointer">

@@ -81,16 +81,18 @@ export class EventTypesService implements OnModuleInit {
 
   async create(dto: CreateEventTypeDto): Promise<EventTypeEntity> {
     const slug = this.normalizeSlug(dto.slug || dto.name);
+    const sortOrder = dto.sortOrder ?? 0;
     const existing = await this.repo.findOne({ where: { slug } });
     if (existing) {
       throw new ConflictException(`Event type with slug "${slug}" already exists`);
     }
+    await this.ensureSortOrderAvailable(sortOrder);
 
     const entity = this.repo.create({
       name: dto.name,
       slug,
       isActive: dto.isActive ?? true,
-      sortOrder: dto.sortOrder ?? 0,
+      sortOrder,
     });
     const saved = await this.repo.save(entity);
     await this.syncEnumValues(saved.slug);
@@ -111,11 +113,12 @@ export class EventTypesService implements OnModuleInit {
         throw new ConflictException(`Event type with slug "${normalized}" already exists`);
       }
       entity.slug = normalized;
-    } else if (dto.name !== undefined) {
-      entity.slug = this.normalizeSlug(dto.name);
     }
     if (dto.isActive !== undefined) entity.isActive = dto.isActive;
-    if (dto.sortOrder !== undefined) entity.sortOrder = dto.sortOrder;
+    if (dto.sortOrder !== undefined) {
+      await this.ensureSortOrderAvailable(dto.sortOrder, id);
+      entity.sortOrder = dto.sortOrder;
+    }
 
     const saved = await this.repo.save(entity);
     await this.syncEnumValues(saved.slug);
@@ -153,6 +156,40 @@ export class EventTypesService implements OnModuleInit {
     await this.repo.query(`
       CREATE UNIQUE INDEX IF NOT EXISTS idx_event_types_slug ON event_types (slug);
     `);
+
+    // Ensure pre-existing duplicate sort orders are repaired before enforcing uniqueness.
+    await this.repo.query(`
+      WITH duplicate_rows AS (
+        SELECT
+          id,
+          sort_order,
+          ROW_NUMBER() OVER (
+            PARTITION BY sort_order
+            ORDER BY created_at ASC, id ASC
+          ) AS duplicate_rank
+        FROM event_types
+      ),
+      max_sort AS (
+        SELECT COALESCE(MAX(sort_order), -1) AS value
+        FROM event_types
+      ),
+      reassignments AS (
+        SELECT
+          d.id,
+          m.value + ROW_NUMBER() OVER (ORDER BY d.sort_order ASC, d.id ASC) AS new_sort_order
+        FROM duplicate_rows d
+        CROSS JOIN max_sort m
+        WHERE d.duplicate_rank > 1
+      )
+      UPDATE event_types e
+      SET sort_order = r.new_sort_order
+      FROM reassignments r
+      WHERE e.id = r.id;
+    `);
+
+    await this.repo.query(`
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_event_types_sort_order ON event_types (sort_order);
+    `);
   }
 
   private async syncEnumValues(slug: string): Promise<void> {
@@ -165,5 +202,25 @@ export class EventTypesService implements OnModuleInit {
     await this.repo.query(
       `ALTER TYPE ${enumName} ADD VALUE IF NOT EXISTS '${value}';`,
     );
+  }
+
+  private async ensureSortOrderAvailable(
+    sortOrder: number,
+    excludeId?: string,
+  ): Promise<void> {
+    const query = this.repo
+      .createQueryBuilder('eventType')
+      .where('eventType.sortOrder = :sortOrder', { sortOrder });
+
+    if (excludeId) {
+      query.andWhere('eventType.id != :excludeId', { excludeId });
+    }
+
+    const existing = await query.getOne();
+    if (existing) {
+      throw new ConflictException(
+        `Sort order "${sortOrder}" is already used by "${existing.name}"`,
+      );
+    }
   }
 }

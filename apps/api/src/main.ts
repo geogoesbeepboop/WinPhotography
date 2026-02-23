@@ -8,7 +8,12 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
   // Security
-  app.use(helmet());
+  app.use(
+    helmet({
+      // Images are served from the API domain and consumed by the web app domain.
+      crossOriginResourcePolicy: { policy: 'cross-origin' },
+    }),
+  );
   app.enableCors({
     origin: process.env.FRONTEND_URL || 'http://localhost:3000',
     credentials: true,

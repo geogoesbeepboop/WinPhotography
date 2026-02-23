@@ -1,20 +1,41 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { motion } from "motion/react";
 import { ArrowLeft, Save, Upload, X, Loader2, ImageIcon } from "lucide-react";
-import { useCreatePortfolioItem, useAddPortfolioPhotos } from "@/services/portfolio";
+import {
+  useCreatePortfolioItem,
+  useAddPortfolioPhotos,
+  useAdminPortfolio,
+  useUpdatePortfolioItem,
+} from "@/services/portfolio";
 import { uploadPortfolioPhoto } from "@/services/upload";
 import { EventTypeItem, useEventTypes } from "@/services/event-types";
 
+interface PortfolioItemOption {
+  id: string;
+  title: string;
+  category: string;
+  description?: string;
+  isFeatured?: boolean;
+  featured?: boolean;
+}
+
 export default function AdminPortfolioNew() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const editId = searchParams.get("edit");
   const createPortfolioItem = useCreatePortfolioItem();
+  const updatePortfolioItem = useUpdatePortfolioItem();
   const addPhotos = useAddPortfolioPhotos();
+  const { data: portfolioItems = [] } = useAdminPortfolio();
   const { data: eventTypes = [] } = useEventTypes();
   const eventTypeOptions = eventTypes as EventTypeItem[];
+  const existingItem = (portfolioItems as PortfolioItemOption[]).find(
+    (item) => item.id === editId,
+  );
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [form, setForm] = useState({
@@ -28,6 +49,16 @@ export default function AdminPortfolioNew() {
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState({ current: 0, total: 0 });
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (!editId || !existingItem) return;
+    setForm({
+      title: existingItem.title || "",
+      category: existingItem.category || "",
+      description: existingItem.description || "",
+      featured: existingItem.featured ?? existingItem.isFeatured ?? false,
+    });
+  }, [editId, existingItem]);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
@@ -73,13 +104,24 @@ export default function AdminPortfolioNew() {
     setIsUploading(true);
     setError("");
     try {
-      // Step 1: Create the portfolio item
-      const item = await createPortfolioItem.mutateAsync({
-        title: form.title,
-        category: form.category,
-        description: form.description || undefined,
-        isFeatured: form.featured,
-      });
+      let itemId = editId || "";
+      if (editId) {
+        await updatePortfolioItem.mutateAsync({
+          id: editId,
+          title: form.title,
+          category: form.category,
+          description: form.description || undefined,
+          isFeatured: form.featured,
+        });
+      } else {
+        const item = await createPortfolioItem.mutateAsync({
+          title: form.title,
+          category: form.category,
+          description: form.description || undefined,
+          isFeatured: form.featured,
+        });
+        itemId = item.id;
+      }
 
       // Step 2: Upload photos to R2 if any selected
       if (selectedFiles.length > 0) {
@@ -91,24 +133,30 @@ export default function AdminPortfolioNew() {
           setUploadProgress({ current: i + 1, total: selectedFiles.length });
 
           // Upload via server-side API (avoids R2 CORS issues)
-          const { key } = await uploadPortfolioPhoto(item.id, file);
+          const { key } = await uploadPortfolioPhoto(itemId, file);
           photoRecords.push({ r2Key: key, mimeType: file.type });
         }
 
         // Step 3: Save photo records
-        await addPhotos.mutateAsync({ id: item.id, photos: photoRecords });
+        await addPhotos.mutateAsync({ id: itemId, photos: photoRecords });
       }
 
       router.push("/admin/portfolio");
     } catch (err: any) {
-      const msg = err?.response?.data?.message || "Failed to create portfolio item. Please try again.";
+      const msg =
+        err?.response?.data?.message ||
+        `Failed to ${editId ? "update" : "create"} portfolio item. Please try again.`;
       setError(Array.isArray(msg) ? msg.join(", ") : msg);
     } finally {
       setIsUploading(false);
     }
   };
 
-  const isPending = createPortfolioItem.isPending || addPhotos.isPending || isUploading;
+  const isPending =
+    createPortfolioItem.isPending ||
+    updatePortfolioItem.isPending ||
+    addPhotos.isPending ||
+    isUploading;
 
   return (
     <div>
@@ -117,8 +165,14 @@ export default function AdminPortfolioNew() {
       </Link>
 
       <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }}>
-        <h1 className="font-serif text-brand-main mb-1" style={{ fontSize: "1.8rem" }}>Add Portfolio Collection</h1>
-        <p className="text-brand-main/50 mb-8" style={{ fontSize: "0.9rem" }}>Create a new portfolio collection for your public website.</p>
+        <h1 className="font-serif text-brand-main mb-1" style={{ fontSize: "1.8rem" }}>
+          {editId ? "Edit Portfolio Collection" : "Add Portfolio Collection"}
+        </h1>
+        <p className="text-brand-main/50 mb-8" style={{ fontSize: "0.9rem" }}>
+          {editId
+            ? "Update details for an existing portfolio collection."
+            : "Create a new portfolio collection for your public website."}
+        </p>
 
         <form onSubmit={handleSubmit} className="max-w-2xl space-y-6">
           <div className="bg-white border border-brand-main/8 p-6 space-y-5">
@@ -229,7 +283,7 @@ export default function AdminPortfolioNew() {
               {isPending ? (
                 <><Loader2 className="w-3.5 h-3.5 animate-spin" /> {isUploading ? "Uploading..." : "Saving..."}</>
               ) : (
-                <><Save className="w-3.5 h-3.5" /> Save Collection</>
+                <><Save className="w-3.5 h-3.5" /> {editId ? "Save Changes" : "Save Collection"}</>
               )}
             </button>
             <Link href="/admin/portfolio" className="text-brand-main/40 hover:text-brand-main transition-colors" style={{ fontSize: "0.8rem" }}>Cancel</Link>

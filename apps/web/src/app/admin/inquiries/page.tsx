@@ -6,6 +6,8 @@ import { motion } from "motion/react";
 import { Search, Filter, MessageSquare, ArrowRight, Mail, Phone } from "lucide-react";
 import { inquiryStatusConfig } from "@/lib/mock-data/admin-data";
 import { useInquiries } from "@/services/inquiries";
+import { EventTypeItem, useEventTypes } from "@/services/event-types";
+import { getEventTypeLabel } from "@/lib/event-type-label";
 
 const defaultStatusCfg = { label: "Unknown", color: "bg-gray-100 text-gray-500" };
 
@@ -24,8 +26,10 @@ function formatReceivedTimestamp(value?: string): string {
 
 export default function AdminInquiries() {
   const { data: inquiries = [], isLoading } = useInquiries();
+  const { data: eventTypes = [] } = useEventTypes();
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [search, setSearch] = useState("");
+  const eventTypeOptions = eventTypes as EventTypeItem[];
 
   const filtered = useMemo(
     () =>
@@ -34,12 +38,13 @@ export default function AdminInquiries() {
         if (search) {
           const q = search.toLowerCase();
           const name = (i.name || i.contactName || "").toLowerCase();
-          const category = (i.category || i.eventType || "").toLowerCase();
+          const rawCategory = i.category || i.eventType || "";
+          const category = `${rawCategory} ${getEventTypeLabel(rawCategory, eventTypeOptions)}`.toLowerCase();
           if (!name.includes(q) && !category.includes(q)) return false;
         }
         return true;
       }),
-    [inquiries, statusFilter, search]
+    [inquiries, statusFilter, search, eventTypeOptions]
   );
 
   // Collect all unique statuses present in the data for filter tabs
@@ -135,7 +140,7 @@ export default function AdminInquiries() {
           const cfg = inquiryStatusConfig[inq.status] || defaultStatusCfg;
           const name = inq.name || inq.contactName || "Unknown";
           const email = inq.email || inq.contactEmail || "";
-          const category = inq.category || inq.eventType || "";
+          const category = getEventTypeLabel(inq.category || inq.eventType || "", eventTypeOptions);
           const tier = inq.tier || "";
           const preferredDate = inq.preferredDate || inq.eventDate || "";
           return (

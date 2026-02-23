@@ -5,6 +5,7 @@ import { motion } from "motion/react";
 import { ArrowRight, Clock } from "lucide-react";
 import { ImageWithFallback } from "@/components/shared/image-with-fallback";
 import { useBlogPosts } from "@/services/blog";
+import { resolveMediaUrl } from "@/lib/media";
 
 type BlogPost = {
   slug: string;
@@ -31,7 +32,7 @@ export default function BlogPage() {
     slug: p.slug,
     title: p.title,
     excerpt: p.excerpt,
-    image: p.coverImageUrl || p.image,
+    image: resolveMediaUrl(p.coverImageUrl || p.image),
     date: formatDate(p.publishedAt || p.createdAt),
     readTime: p.readTime,
     category: p.category,

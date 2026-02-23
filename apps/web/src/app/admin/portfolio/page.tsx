@@ -3,10 +3,20 @@
 import { useState } from "react";
 import Link from "next/link";
 import { motion } from "motion/react";
-import { PlusCircle, Eye, EyeOff, Star, Image, Trash2 } from "lucide-react";
+import { PlusCircle, Eye, EyeOff, Star, Image, Trash2, Edit2 } from "lucide-react";
 import { useAdminPortfolio, useUpdatePortfolioItem, useDeletePortfolioItem } from "@/services/portfolio";
 import { ImageWithFallback } from "@/components/shared/image-with-fallback";
 import { resolveMediaUrl } from "@/lib/media";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface PortfolioAdminItem {
   id: string;
@@ -29,6 +39,7 @@ export default function AdminPortfolio() {
   const deleteItem = useDeletePortfolioItem();
 
   const [activeCategory, setActiveCategory] = useState("All");
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; title: string } | null>(null);
 
   const items = portfolioData as PortfolioAdminItem[];
 
@@ -42,11 +53,11 @@ export default function AdminPortfolio() {
     updateItem.mutate({ id: item.id, isFeatured: !isFeatured, featured: !isFeatured });
   };
 
-  const removeItem = (id: string) => {
-    if (!window.confirm("Delete this portfolio collection? This action cannot be undone.")) {
-      return;
-    }
-    deleteItem.mutate(id);
+  const removeItem = () => {
+    if (!deleteTarget) return;
+    deleteItem.mutate(deleteTarget.id, {
+      onSuccess: () => setDeleteTarget(null),
+    });
   };
 
   const categories = ["All", ...Array.from(new Set(items.map((p) => p.category)))];
@@ -147,7 +158,14 @@ export default function AdminPortfolio() {
                     style={{ fontSize: "0.65rem" }}>
                     <Star className={`w-3 h-3 ${isFeatured ? "fill-current" : ""}`} /> {isFeatured ? "Featured" : "Feature"}
                   </button>
-                  <button onClick={() => removeItem(item.id)}
+                  <Link
+                    href={`/admin/portfolio/new?edit=${item.id}`}
+                    className="inline-flex items-center gap-1 px-2.5 py-1.5 text-brand-main/40 hover:text-brand-main transition-colors"
+                    style={{ fontSize: "0.65rem" }}
+                  >
+                    <Edit2 className="w-3 h-3" /> Edit
+                  </Link>
+                  <button onClick={() => setDeleteTarget({ id: item.id, title: item.title })}
                     className="inline-flex items-center gap-1 px-2.5 py-1.5 text-red-400 hover:text-red-600 transition-colors ml-auto"
                     style={{ fontSize: "0.65rem" }}>
                     <Trash2 className="w-3 h-3" />
@@ -165,6 +183,26 @@ export default function AdminPortfolio() {
           <p className="text-brand-main/40" style={{ fontSize: "0.9rem" }}>No portfolio items in this category.</p>
         </div>
       )}
+
+      <AlertDialog open={!!deleteTarget} onOpenChange={() => setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Portfolio Collection</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete &ldquo;{deleteTarget?.title}&rdquo;? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={removeItem}
+              className="bg-red-600 hover:bg-red-700 text-white"
+            >
+              {deleteItem.isPending ? "Deleting..." : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

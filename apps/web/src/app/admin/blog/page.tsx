@@ -5,6 +5,17 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Plus, Search, FileText, Eye, EyeOff, Trash2, Edit2, Clock, Calendar } from "lucide-react";
 import { useAdminBlogPosts, useDeleteBlogPost, useUpdateBlogPost } from "@/services/blog";
+import { resolveMediaUrl } from "@/lib/media";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 const statusConfig: Record<string, { label: string; color: string }> = {
   published: { label: "Published", color: "bg-green-100 text-green-700" },
@@ -17,7 +28,7 @@ export default function AdminBlogPage() {
   const deleteBlog = useDeleteBlogPost();
   const updateBlog = useUpdateBlogPost();
   const [search, setSearch] = useState("");
-  const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; title: string } | null>(null);
 
   const filtered = (posts ?? []).filter((p: any) => {
     if (!search) return true;
@@ -36,8 +47,11 @@ export default function AdminBlogPage() {
     });
   };
 
-  const handleDelete = (id: string) => {
-    deleteBlog.mutate(id, { onSuccess: () => setDeleteId(null) });
+  const handleDelete = () => {
+    if (!deleteTarget) return;
+    deleteBlog.mutate(deleteTarget.id, {
+      onSuccess: () => setDeleteTarget(null),
+    });
   };
 
   const formatDate = (dateStr: string) => {
@@ -133,7 +147,7 @@ export default function AdminBlogPage() {
               {post.coverImageUrl && (
                 <div className="w-16 h-16 shrink-0 overflow-hidden bg-brand-main/5">
                   <img
-                    src={post.coverImageUrl}
+                    src={resolveMediaUrl(post.coverImageUrl)}
                     alt=""
                     className="w-full h-full object-cover"
                   />
@@ -203,36 +217,38 @@ export default function AdminBlogPage() {
                 >
                   <Edit2 className="w-4 h-4" />
                 </button>
-                {deleteId === post.id ? (
-                  <div className="flex items-center gap-1">
-                    <button
-                      onClick={() => handleDelete(post.id)}
-                      className="px-2 py-1 bg-red-500 text-white text-xs"
-                      disabled={deleteBlog.isPending}
-                    >
-                      {deleteBlog.isPending ? "..." : "Yes"}
-                    </button>
-                    <button
-                      onClick={() => setDeleteId(null)}
-                      className="px-2 py-1 bg-brand-main/10 text-brand-main text-xs"
-                    >
-                      No
-                    </button>
-                  </div>
-                ) : (
-                  <button
-                    onClick={() => setDeleteId(post.id)}
-                    className="p-2 text-brand-main/30 hover:text-red-500 transition-colors"
-                    title="Delete"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                )}
+                <button
+                  onClick={() => setDeleteTarget({ id: post.id, title: post.title || "this post" })}
+                  className="p-2 text-brand-main/30 hover:text-red-500 transition-colors"
+                  title="Delete"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
               </div>
             </div>
           ))}
         </div>
       )}
+
+      <AlertDialog open={!!deleteTarget} onOpenChange={() => setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Blog Post</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete &ldquo;{deleteTarget?.title}&rdquo;? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              className="bg-red-600 hover:bg-red-700 text-white"
+            >
+              {deleteBlog.isPending ? "Deleting..." : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

@@ -6,6 +6,8 @@ import { Search, Users, Mail, Phone, Calendar, DollarSign, CalendarCheck, X } fr
 import { useRouter } from "next/navigation";
 import { useClients } from "@/services/clients";
 import { useBookings } from "@/services/bookings";
+import { EventTypeItem, useEventTypes } from "@/services/event-types";
+import { getEventTypeLabel } from "@/lib/event-type-label";
 
 interface ClientItem {
   id: string;
@@ -33,12 +35,14 @@ interface BookingItem {
 export default function AdminClients() {
   const { data: clients = [], isLoading: clientsLoading } = useClients();
   const { data: bookings = [] } = useBookings();
+  const { data: eventTypes = [] } = useEventTypes();
 
   const router = useRouter();
   const [search, setSearch] = useState("");
   const [selectedClient, setSelectedClient] = useState<ClientItem | null>(null);
   const clientList = clients as ClientItem[];
   const bookingList = bookings as BookingItem[];
+  const eventTypeOptions = eventTypes as EventTypeItem[];
 
   const filtered = clientList.filter((c) => {
     const name = c.name || c.fullName || "";
@@ -211,7 +215,7 @@ export default function AdminClients() {
                       {clientBookings.map((bk) => (
                         <div key={bk.id} className="bg-brand-secondary/50 p-4">
                           <p className="text-brand-main mb-1" style={{ fontSize: "0.85rem" }}>
-                            {bk.eventType || bk.packageName || ""}
+                            {getEventTypeLabel(bk.eventType, eventTypeOptions) || bk.packageName || ""}
                           </p>
                           <div className="flex items-center gap-3 text-brand-main/40" style={{ fontSize: "0.75rem" }}>
                             <span className="flex items-center gap-1"><Calendar className="w-3 h-3" />{bk.date}</span>
@@ -235,7 +239,7 @@ export default function AdminClients() {
                       <Mail className="w-3.5 h-3.5" /> Send Email
                     </a>
                     <button
-                      onClick={() => router.push(`/admin/bookings?newBooking=true&clientId=${selectedClient.id}`)}
+                      onClick={() => router.push(`/admin/bookings/new?clientId=${selectedClient.id}`)}
                       className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 border border-brand-main/15 text-brand-main/60 hover:text-brand-main hover:border-brand-main/30 transition-colors"
                       style={{ fontSize: "0.7rem" }}
                     >

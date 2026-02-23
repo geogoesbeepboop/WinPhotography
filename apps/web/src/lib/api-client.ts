@@ -4,12 +4,18 @@ import { createBrowserClient } from '@/lib/supabase/client';
 
 const apiClient = axios.create({
   baseURL: API_URL,
-  headers: {
-    'Content-Type': 'application/json',
-  },
 });
 
 apiClient.interceptors.request.use(async (config) => {
+  if (typeof FormData !== 'undefined' && config.data instanceof FormData) {
+    // Allow the browser to set multipart boundaries for FormData uploads.
+    if (config.headers && typeof (config.headers as any).setContentType === 'function') {
+      (config.headers as any).setContentType(undefined);
+    } else if (config.headers) {
+      delete (config.headers as Record<string, unknown>)['Content-Type'];
+    }
+  }
+
   const supabase = createBrowserClient();
   const {
     data: { session },

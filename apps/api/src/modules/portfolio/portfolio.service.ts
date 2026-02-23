@@ -1,4 +1,9 @@
-import { Injectable, NotFoundException, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  Logger,
+  BadRequestException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { randomUUID } from 'crypto';
@@ -178,6 +183,10 @@ export class PortfolioService {
       sortOrder?: number;
     }>,
   ): Promise<PortfolioPhotoEntity[]> {
+    if (!Array.isArray(photos) || photos.length === 0) {
+      throw new BadRequestException('No photos provided');
+    }
+
     const item = await this.portfolioRepository.findOne({
       where: { id: itemId },
       relations: ['photos'],
@@ -188,12 +197,18 @@ export class PortfolioService {
 
     const existingCount = item.photos?.length || 0;
     const entities = photos.map((photo, i) => {
-      const thumbnailKey = photo.r2Key.replace(/(\.[^.]+)$/, '_thumb.jpg');
+      if (!photo?.r2Key) {
+        throw new BadRequestException(
+          `Photo ${i + 1} is missing a storage key`,
+        );
+      }
+
+      const thumbnailKey = this.buildThumbnailKey(photo.r2Key);
       return this.photosRepository.create({
         portfolioItem: item,
         r2Key: photo.r2Key,
         r2ThumbnailKey: thumbnailKey,
-        mimeType: photo.mimeType,
+        mimeType: photo.mimeType || this.inferMimeTypeFromKey(photo.r2Key),
         width: photo.width ?? null,
         height: photo.height ?? null,
         altText: photo.altText ?? null,
@@ -253,5 +268,27 @@ export class PortfolioService {
       item.coverThumbnailKey = remaining[0]?.r2ThumbnailKey ?? '';
       await this.portfolioRepository.save(item);
     }
+  }
+
+  private buildThumbnailKey(sourceKey: string): string {
+    if (/\.[^.]+$/.test(sourceKey)) {
+      return sourceKey.replace(/(\.[^.]+)$/, '_thumb.jpg');
+    }
+    return `${sourceKey}_thumb.jpg`;
+  }
+
+  private inferMimeTypeFromKey(key: string): string {
+    const ext = key.split('.').pop()?.toLowerCase();
+    const map: Record<string, string> = {
+      jpg: 'image/jpeg',
+      jpeg: 'image/jpeg',
+      png: 'image/png',
+      webp: 'image/webp',
+      gif: 'image/gif',
+      avif: 'image/avif',
+      heic: 'image/heic',
+      heif: 'image/heif',
+    };
+    return (ext && map[ext]) || 'image/jpeg';
   }
 }

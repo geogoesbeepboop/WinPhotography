@@ -7,6 +7,7 @@ import { ArrowLeft, Eye, Save, Send, Upload, X, Loader2 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { useCreateBlogPost, useUpdateBlogPost, useAdminBlogPosts } from "@/services/blog";
 import { uploadBlogCoverImage } from "@/services/upload";
+import { resolveMediaUrl } from "@/lib/media";
 
 function BlogEditor() {
   const router = useRouter();
@@ -50,8 +51,9 @@ function BlogEditor() {
     setUploading(true);
     setError("");
     try {
-      const { publicUrl } = await uploadBlogCoverImage(file);
-      setForm((prev) => ({ ...prev, coverImageUrl: publicUrl }));
+      const { key } = await uploadBlogCoverImage(file);
+      // Persist the storage key so environments can render through their own API host.
+      setForm((prev) => ({ ...prev, coverImageUrl: key }));
     } catch (err: any) {
       const msg = err?.response?.data?.message || "Failed to upload cover image. Please try again.";
       setError(Array.isArray(msg) ? msg.join(", ") : msg);
@@ -307,7 +309,7 @@ function BlogEditor() {
               <div className="relative group">
                 <div className="aspect-video overflow-hidden bg-brand-main/5">
                   <img
-                    src={form.coverImageUrl}
+                    src={resolveMediaUrl(form.coverImageUrl)}
                     alt="Cover preview"
                     className="w-full h-full object-cover"
                     onError={(e) => {
@@ -342,7 +344,7 @@ function BlogEditor() {
             {/* URL input as fallback */}
             <input
               type="text"
-              placeholder="Or paste an image URL..."
+              placeholder="Or paste an image URL / storage key..."
               value={form.coverImageUrl}
               onChange={(e) => setForm({ ...form, coverImageUrl: e.target.value })}
               className="w-full mt-3 px-3 py-2 bg-transparent border border-brand-main/10 text-brand-main placeholder:text-brand-main/30 focus:outline-none focus:border-brand-main/30"

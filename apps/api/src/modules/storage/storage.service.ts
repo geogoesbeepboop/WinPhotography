@@ -8,6 +8,15 @@ import {
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 
+interface DownloadedObject {
+  buffer: Buffer;
+  contentType?: string;
+  cacheControl?: string;
+  contentLength?: number;
+  etag?: string;
+  lastModified?: Date;
+}
+
 @Injectable()
 export class StorageService implements OnModuleInit {
   private readonly logger = new Logger(StorageService.name);
@@ -95,7 +104,7 @@ export class StorageService implements OnModuleInit {
     )}`;
   }
 
-  async downloadToBuffer(key: string): Promise<Buffer> {
+  async downloadObject(key: string): Promise<DownloadedObject> {
     this.ensureConfigured();
     const response = await this.s3Client.send(
       new GetObjectCommand({ Bucket: this.bucketName, Key: key }),
@@ -104,7 +113,22 @@ export class StorageService implements OnModuleInit {
     for await (const chunk of response.Body as AsyncIterable<Uint8Array>) {
       chunks.push(chunk);
     }
-    return Buffer.concat(chunks);
+    return {
+      buffer: Buffer.concat(chunks),
+      contentType: response.ContentType,
+      cacheControl: response.CacheControl,
+      contentLength:
+        response.ContentLength !== undefined
+          ? Number(response.ContentLength)
+          : undefined,
+      etag: response.ETag ?? undefined,
+      lastModified: response.LastModified ?? undefined,
+    };
+  }
+
+  async downloadToBuffer(key: string): Promise<Buffer> {
+    const { buffer } = await this.downloadObject(key);
+    return buffer;
   }
 
   async uploadBuffer(

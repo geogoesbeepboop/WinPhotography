@@ -18,6 +18,8 @@ import { useBookings } from "@/services/bookings";
 import { usePayments } from "@/services/payments";
 import { useGalleries } from "@/services/galleries";
 import { useClients } from "@/services/clients";
+import { EventTypeItem, useEventTypes } from "@/services/event-types";
+import { getEventTypeLabel } from "@/lib/event-type-label";
 
 export default function AdminOverview() {
   const { data: inquiriesData, isLoading: inquiriesLoading } = useInquiries();
@@ -25,12 +27,14 @@ export default function AdminOverview() {
   const { data: paymentsData, isLoading: paymentsLoading } = usePayments();
   const { data: galleriesData, isLoading: galleriesLoading } = useGalleries();
   const { data: clientsData, isLoading: clientsLoading } = useClients();
+  const { data: eventTypes = [] } = useEventTypes();
 
   const inquiries = inquiriesData ?? [];
   const bookings = bookingsData ?? [];
   const payments = paymentsData ?? [];
   const galleries = galleriesData ?? [];
   const clients = clientsData ?? [];
+  const eventTypeOptions = eventTypes as EventTypeItem[];
 
   const isLoading = inquiriesLoading || bookingsLoading || paymentsLoading || galleriesLoading || clientsLoading;
 
@@ -109,7 +113,9 @@ export default function AdminOverview() {
                   <Link key={inq.id} href={`/admin/inquiries/${inq.id}`} className="flex items-center justify-between p-4 hover:bg-card/50 transition-colors">
                     <div className="min-w-0">
                       <p className="text-brand-main truncate" style={{ fontSize: "0.85rem" }}>{inq.name || inq.contactName}</p>
-                      <p className="text-brand-main/40 truncate" style={{ fontSize: "0.75rem" }}>{inq.category || inq.eventType} · {inq.tier || inq.contactEmail}</p>
+                      <p className="text-brand-main/40 truncate" style={{ fontSize: "0.75rem" }}>
+                        {getEventTypeLabel(inq.category || inq.eventType, eventTypeOptions)} · {inq.tier || inq.contactEmail}
+                      </p>
                     </div>
                     {cfg && <span className={`shrink-0 ml-3 px-2.5 py-0.5 ${cfg.color}`} style={{ fontSize: "0.6rem" }}>{cfg.label}</span>}
                   </Link>
@@ -136,7 +142,7 @@ export default function AdminOverview() {
                     <div className="min-w-0">
                       <p className="text-brand-main truncate" style={{ fontSize: "0.85rem" }}>{bk.clientName}</p>
                       <p className="text-brand-main/40 truncate flex items-center gap-1.5" style={{ fontSize: "0.75rem" }}>
-                        <Clock className="w-3 h-3" />{bk.date} · {bk.type}
+                        <Clock className="w-3 h-3" />{bk.date} · {getEventTypeLabel(bk.eventType, eventTypeOptions) || bk.type}
                       </p>
                     </div>
                     {cfg && <span className={`shrink-0 ml-3 px-2.5 py-0.5 ${cfg.color}`} style={{ fontSize: "0.6rem" }}>{cfg.label}</span>}

@@ -7,13 +7,17 @@ import { motion } from "motion/react";
 import { ArrowLeft, Calendar, Clock, MapPin, Mail, Phone, CreditCard, FileText, Send, CheckCircle2, DollarSign, PlusCircle, User } from "lucide-react";
 import { bookingStatusConfig, paymentStatusConfig } from "@/lib/mock-data/admin-data";
 import { useBooking, useUpdateBooking } from "@/services/bookings";
+import { EventTypeItem, useEventTypes } from "@/services/event-types";
+import { getEventTypeLabel } from "@/lib/event-type-label";
 
 export default function AdminBookingDetail() {
   const { id } = useParams();
   const { data: booking, isLoading } = useBooking(id as string);
+  const { data: eventTypes = [] } = useEventTypes();
   const updateBooking = useUpdateBooking();
   const [status, setStatus] = useState("pending");
   const [notes, setNotes] = useState("");
+  const eventTypeOptions = eventTypes as EventTypeItem[];
 
   useEffect(() => {
     if (booking) {
@@ -86,7 +90,11 @@ export default function AdminBookingDetail() {
   const progress = totalAmount > 0 ? Math.round((paidAmount / totalAmount) * 100) : 0;
   const clientName = booking.clientName || booking.client?.fullName || "Unknown";
   const clientEmail = booking.clientEmail || booking.client?.email || "";
-  const bookingType = booking.type || booking.eventType || booking.packageName || "";
+  const bookingType =
+    getEventTypeLabel(booking.eventType, eventTypeOptions) ||
+    booking.type ||
+    booking.packageName ||
+    "";
   const bookingDate = booking.date || booking.eventDate || "";
   const payments = booking.payments || [];
 

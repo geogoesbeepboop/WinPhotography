@@ -6,6 +6,8 @@ import { motion } from "motion/react";
 import { Search, CalendarCheck, Clock, MapPin, DollarSign, Plus } from "lucide-react";
 import { bookingStatusConfig } from "@/lib/mock-data/admin-data";
 import { useBookings } from "@/services/bookings";
+import { EventTypeItem, useEventTypes } from "@/services/event-types";
+import { getEventTypeLabel } from "@/lib/event-type-label";
 
 interface BookingListItem {
   id: string;
@@ -28,13 +30,16 @@ export default function AdminBookings() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [search, setSearch] = useState("");
   const { data: bookings, isLoading } = useBookings();
+  const { data: eventTypes = [] } = useEventTypes();
 
   const allBookings = (bookings ?? []) as BookingListItem[];
+  const eventTypeOptions = eventTypes as EventTypeItem[];
 
   const filtered = allBookings.filter((b) => {
     if (statusFilter !== "all" && b.status !== statusFilter) return false;
     const name = (b.clientName || b.client?.fullName || "").toLowerCase();
-    const type = (b.eventType || b.packageName || "").toLowerCase();
+    const displayEventType = getEventTypeLabel(b.eventType, eventTypeOptions).toLowerCase();
+    const type = `${displayEventType} ${(b.eventType || "").toLowerCase()} ${(b.packageName || "").toLowerCase()}`;
     if (search && !name.includes(search.toLowerCase()) && !type.includes(search.toLowerCase())) return false;
     return true;
   });
@@ -115,7 +120,7 @@ export default function AdminBookings() {
             const paid = bk.paidAmount ?? bk.depositAmount ?? 0;
             const progress = total > 0 ? Math.round((paid / total) * 100) : 0;
             const clientName = bk.clientName || bk.client?.fullName || "Unknown";
-            const bookingType = bk.eventType || bk.packageName || "";
+            const bookingType = getEventTypeLabel(bk.eventType, eventTypeOptions) || bk.packageName || "";
             const bookingDate = bk.date || bk.eventDate || "";
             return (
               <motion.div key={bk.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.04 }}>

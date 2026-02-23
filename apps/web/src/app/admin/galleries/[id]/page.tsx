@@ -9,6 +9,16 @@ import { useGallery, usePublishGallery, useAddGalleryPhotos, useDeleteGalleryPho
 import { uploadGalleryPhoto } from "@/services/upload";
 import { ImageWithFallback } from "@/components/shared/image-with-fallback";
 import { resolveMediaUrl } from "@/lib/media";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface GalleryPhotoItem {
   id: string;
@@ -38,6 +48,7 @@ export default function AdminGalleryDetail() {
 
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState({ current: 0, total: 0 });
+  const [deletePhotoTarget, setDeletePhotoTarget] = useState<{ id: string; label: string } | null>(null);
 
   if (isLoading) {
     return (
@@ -127,11 +138,12 @@ export default function AdminGalleryDetail() {
     }
   };
 
-  const handleDeletePhoto = (photoId: string) => {
-    if (!window.confirm("Delete this photo from the gallery?")) {
-      return;
-    }
-    deletePhoto.mutate({ galleryId: id as string, photoId });
+  const handleDeletePhoto = () => {
+    if (!deletePhotoTarget) return;
+    deletePhoto.mutate(
+      { galleryId: id as string, photoId: deletePhotoTarget.id },
+      { onSuccess: () => setDeletePhotoTarget(null) },
+    );
   };
 
   return (
@@ -228,7 +240,12 @@ export default function AdminGalleryDetail() {
                   className="w-full h-full object-cover"
                 />
                 <button
-                  onClick={() => handleDeletePhoto(photo.id)}
+                  onClick={() =>
+                    setDeletePhotoTarget({
+                      id: photo.id,
+                      label: photo.filename || `Photo ${i + 1}`,
+                    })
+                  }
                   disabled={deletePhoto.isPending}
                   className="absolute top-2 right-2 p-1.5 bg-red-500 text-white opacity-0 group-hover:opacity-100 transition-opacity rounded-full disabled:opacity-50"
                 >
@@ -248,6 +265,26 @@ export default function AdminGalleryDetail() {
           </div>
         )}
       </motion.div>
+
+      <AlertDialog open={!!deletePhotoTarget} onOpenChange={() => setDeletePhotoTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Photo</AlertDialogTitle>
+            <AlertDialogDescription>
+              Delete &ldquo;{deletePhotoTarget?.label}&rdquo; from this gallery?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeletePhoto}
+              className="bg-red-600 hover:bg-red-700 text-white"
+            >
+              {deletePhoto.isPending ? "Deleting..." : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
