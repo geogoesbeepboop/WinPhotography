@@ -1,0 +1,73 @@
+import {
+  Controller,
+  Get,
+  Post,
+  Patch,
+  Delete,
+  Param,
+  Body,
+  UseGuards,
+  ParseUUIDPipe,
+} from '@nestjs/common';
+import { ApiTags } from '@nestjs/swagger';
+import { UserRole } from '@winphotography/shared';
+import { BlogService } from './blog.service';
+import { CreateBlogPostDto } from './dto/create-blog-post.dto';
+import { UpdateBlogPostDto } from './dto/update-blog-post.dto';
+import { SupabaseAuthGuard } from '../../common/guards/supabase-auth.guard';
+import { RolesGuard } from '../../common/guards/roles.guard';
+import { Roles } from '../../common/decorators/roles.decorator';
+
+@ApiTags('Blog')
+@Controller('blog')
+export class BlogController {
+  constructor(private readonly blogService: BlogService) {}
+
+  // Public: return published posts
+  @Get()
+  async findPublished() {
+    return this.blogService.findPublished();
+  }
+
+  // Admin: return ALL posts including drafts
+  @Get('admin/all')
+  @UseGuards(SupabaseAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  async findAll() {
+    return this.blogService.findAll();
+  }
+
+  // Public: single post by slug
+  @Get(':slug')
+  async findBySlug(@Param('slug') slug: string) {
+    return this.blogService.findBySlug(slug);
+  }
+
+  // Admin: create post
+  @Post()
+  @UseGuards(SupabaseAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  async create(@Body() dto: CreateBlogPostDto) {
+    return this.blogService.create(dto);
+  }
+
+  // Admin: update post
+  @Patch(':id')
+  @UseGuards(SupabaseAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  async update(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateBlogPostDto,
+  ) {
+    return this.blogService.update(id, dto);
+  }
+
+  // Admin: delete post
+  @Delete(':id')
+  @UseGuards(SupabaseAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  async remove(@Param('id', ParseUUIDPipe) id: string) {
+    await this.blogService.remove(id);
+    return { message: 'Blog post deleted successfully' };
+  }
+}

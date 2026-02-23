@@ -54,10 +54,71 @@ export default function InquirePage() {
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+
+  const formatPhone = (value: string) => {
+    const digits = value.replace(/\D/g, "");
+    if (digits.length <= 3) return digits;
+    if (digits.length <= 6) return `(${digits.slice(0, 3)}) ${digits.slice(3)}`;
+    return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6, 10)}`;
+  };
+
+  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const formatted = formatPhone(e.target.value);
+    setFormData({ ...formData, phone: formatted });
+    if (fieldErrors.phone) setFieldErrors((prev) => ({ ...prev, phone: "" }));
+  };
+
+  const validateForm = (): boolean => {
+    const errors: Record<string, string> = {};
+
+    if (!formData.firstName.trim()) errors.firstName = "First name is required";
+    if (!formData.lastName.trim()) errors.lastName = "Last name is required";
+
+    if (!formData.email.trim()) {
+      errors.email = "Email is required";
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+      errors.email = "Please enter a valid email address";
+    }
+
+    if (formData.phone) {
+      const digits = formData.phone.replace(/\D/g, "");
+      if (digits.length > 0 && digits.length < 10) {
+        errors.phone = "Please enter a valid 10-digit phone number";
+      }
+    }
+
+    if (!formData.sessionType) errors.sessionType = "Please select a session type";
+
+    if (formData.date) {
+      const selected = new Date(formData.date);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const fiveYearsFromNow = new Date();
+      fiveYearsFromNow.setFullYear(fiveYearsFromNow.getFullYear() + 5);
+      if (selected < today) {
+        errors.date = "Date cannot be in the past";
+      } else if (selected > fiveYearsFromNow) {
+        errors.date = "Date must be within the next 5 years";
+      }
+    }
+
+    if (!formData.message.trim()) {
+      errors.message = "Please tell us about your vision";
+    } else if (formData.message.trim().length < 10) {
+      errors.message = "Please provide at least 10 characters";
+    }
+
+    setFieldErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+
+    if (!validateForm()) return;
+
     setSubmitting(true);
 
     try {
@@ -65,14 +126,16 @@ export default function InquirePage() {
         (t) => t.label === formData.sessionType
       );
 
+      const guestCount = formData.guestCount ? parseInt(formData.guestCount, 10) : undefined;
+
       await apiClient.post("/inquiries", {
         contactName: `${formData.firstName} ${formData.lastName}`.trim(),
         contactEmail: formData.email,
-        contactPhone: formData.phone || undefined,
+        contactPhone: formData.phone ? formData.phone.replace(/\D/g, "") : undefined,
         eventType: selectedType?.value || "other",
         eventDate: formData.date || undefined,
         eventLocation: formData.location || undefined,
-        guestCount: formData.guestCount ? parseInt(formData.guestCount) : undefined,
+        guestCount: guestCount && !isNaN(guestCount) ? guestCount : undefined,
         message: formData.message,
         howFoundUs: formData.howFound || undefined,
       });
@@ -82,7 +145,7 @@ export default function InquirePage() {
       const msg =
         err?.response?.data?.message ||
         "Something went wrong. Please try again or email us directly.";
-      setError(Array.isArray(msg) ? msg[0] : msg);
+      setError(Array.isArray(msg) ? msg.join(", ") : msg);
       setSubmitting(false);
     }
   };
@@ -197,10 +260,11 @@ export default function InquirePage() {
                   name="firstName"
                   required
                   value={formData.firstName}
-                  onChange={handleChange}
-                  className="w-full px-4 py-3 bg-white border border-brand-main/10 text-brand-main focus:outline-none focus:border-brand-tertiary transition-colors"
+                  onChange={(e) => { handleChange(e); if (fieldErrors.firstName) setFieldErrors((prev) => ({ ...prev, firstName: "" })); }}
+                  className={`w-full px-4 py-3 bg-white border ${fieldErrors.firstName ? "border-red-400" : "border-brand-main/10"} text-brand-main focus:outline-none focus:border-brand-tertiary transition-colors`}
                   style={{ fontSize: "0.9rem" }}
                 />
+                {fieldErrors.firstName && <p className="mt-1 text-red-500" style={{ fontSize: "0.75rem" }}>{fieldErrors.firstName}</p>}
               </div>
               <div>
                 <label
@@ -216,10 +280,11 @@ export default function InquirePage() {
                   name="lastName"
                   required
                   value={formData.lastName}
-                  onChange={handleChange}
-                  className="w-full px-4 py-3 bg-white border border-brand-main/10 text-brand-main focus:outline-none focus:border-brand-tertiary transition-colors"
+                  onChange={(e) => { handleChange(e); if (fieldErrors.lastName) setFieldErrors((prev) => ({ ...prev, lastName: "" })); }}
+                  className={`w-full px-4 py-3 bg-white border ${fieldErrors.lastName ? "border-red-400" : "border-brand-main/10"} text-brand-main focus:outline-none focus:border-brand-tertiary transition-colors`}
                   style={{ fontSize: "0.9rem" }}
                 />
+                {fieldErrors.lastName && <p className="mt-1 text-red-500" style={{ fontSize: "0.75rem" }}>{fieldErrors.lastName}</p>}
               </div>
             </div>
 
@@ -239,10 +304,11 @@ export default function InquirePage() {
                   name="email"
                   required
                   value={formData.email}
-                  onChange={handleChange}
-                  className="w-full px-4 py-3 bg-white border border-brand-main/10 text-brand-main focus:outline-none focus:border-brand-tertiary transition-colors"
+                  onChange={(e) => { handleChange(e); if (fieldErrors.email) setFieldErrors((prev) => ({ ...prev, email: "" })); }}
+                  className={`w-full px-4 py-3 bg-white border ${fieldErrors.email ? "border-red-400" : "border-brand-main/10"} text-brand-main focus:outline-none focus:border-brand-tertiary transition-colors`}
                   style={{ fontSize: "0.9rem" }}
                 />
+                {fieldErrors.email && <p className="mt-1 text-red-500" style={{ fontSize: "0.75rem" }}>{fieldErrors.email}</p>}
               </div>
               <div>
                 <label
@@ -257,10 +323,13 @@ export default function InquirePage() {
                   id="phone"
                   name="phone"
                   value={formData.phone}
-                  onChange={handleChange}
-                  className="w-full px-4 py-3 bg-white border border-brand-main/10 text-brand-main focus:outline-none focus:border-brand-tertiary transition-colors"
+                  onChange={handlePhoneChange}
+                  placeholder="(555) 123-4567"
+                  maxLength={14}
+                  className={`w-full px-4 py-3 bg-white border ${fieldErrors.phone ? "border-red-400" : "border-brand-main/10"} text-brand-main placeholder:text-brand-main/30 focus:outline-none focus:border-brand-tertiary transition-colors`}
                   style={{ fontSize: "0.9rem" }}
                 />
+                {fieldErrors.phone && <p className="mt-1 text-red-500" style={{ fontSize: "0.75rem" }}>{fieldErrors.phone}</p>}
               </div>
             </div>
 
@@ -279,8 +348,8 @@ export default function InquirePage() {
                   name="sessionType"
                   required
                   value={formData.sessionType}
-                  onChange={handleChange}
-                  className="w-full px-4 py-3 bg-white border border-brand-main/10 text-brand-main focus:outline-none focus:border-brand-tertiary transition-colors appearance-none"
+                  onChange={(e) => { handleChange(e); if (fieldErrors.sessionType) setFieldErrors((prev) => ({ ...prev, sessionType: "" })); }}
+                  className={`w-full px-4 py-3 bg-white border ${fieldErrors.sessionType ? "border-red-400" : "border-brand-main/10"} text-brand-main focus:outline-none focus:border-brand-tertiary transition-colors appearance-none`}
                   style={{ fontSize: "0.9rem" }}
                 >
                   <option value="">Select a type...</option>
@@ -290,6 +359,7 @@ export default function InquirePage() {
                     </option>
                   ))}
                 </select>
+                {fieldErrors.sessionType && <p className="mt-1 text-red-500" style={{ fontSize: "0.75rem" }}>{fieldErrors.sessionType}</p>}
               </div>
               <div>
                 <label
@@ -304,10 +374,13 @@ export default function InquirePage() {
                   id="date"
                   name="date"
                   value={formData.date}
-                  onChange={handleChange}
-                  className="w-full px-4 py-3 bg-white border border-brand-main/10 text-brand-main focus:outline-none focus:border-brand-tertiary transition-colors"
+                  onChange={(e) => { handleChange(e); if (fieldErrors.date) setFieldErrors((prev) => ({ ...prev, date: "" })); }}
+                  min={new Date().toISOString().split("T")[0]}
+                  max={new Date(new Date().setFullYear(new Date().getFullYear() + 5)).toISOString().split("T")[0]}
+                  className={`w-full px-4 py-3 bg-white border ${fieldErrors.date ? "border-red-400" : "border-brand-main/10"} text-brand-main focus:outline-none focus:border-brand-tertiary transition-colors`}
                   style={{ fontSize: "0.9rem" }}
                 />
+                {fieldErrors.date && <p className="mt-1 text-red-500" style={{ fontSize: "0.75rem" }}>{fieldErrors.date}</p>}
               </div>
             </div>
 
@@ -373,11 +446,12 @@ export default function InquirePage() {
                 required
                 rows={6}
                 value={formData.message}
-                onChange={handleChange}
+                onChange={(e) => { handleChange(e); if (fieldErrors.message) setFieldErrors((prev) => ({ ...prev, message: "" })); }}
                 placeholder="Tell me about your day, your love story, what matters most to you, anything you'd like me to know..."
-                className="w-full px-4 py-3 bg-white border border-brand-main/10 text-brand-main placeholder:text-brand-main/30 focus:outline-none focus:border-brand-tertiary transition-colors resize-none font-sans"
+                className={`w-full px-4 py-3 bg-white border ${fieldErrors.message ? "border-red-400" : "border-brand-main/10"} text-brand-main placeholder:text-brand-main/30 focus:outline-none focus:border-brand-tertiary transition-colors resize-none font-sans`}
                 style={{ fontSize: "0.9rem", lineHeight: "1.7" }}
               />
+              {fieldErrors.message && <p className="mt-1 text-red-500" style={{ fontSize: "0.75rem" }}>{fieldErrors.message}</p>}
             </div>
 
             {error && (

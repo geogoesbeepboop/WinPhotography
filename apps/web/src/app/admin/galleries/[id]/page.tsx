@@ -1,37 +1,25 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { motion } from "motion/react";
-import { ArrowLeft, Upload, Eye, EyeOff, Trash2, Image, Send, CheckCircle2, X } from "lucide-react";
-import { useGallery } from "@/services/galleries";
+import { ArrowLeft, Upload, Eye, EyeOff, Image, X, Loader2 } from "lucide-react";
+import { useGallery, usePublishGallery, useAddGalleryPhotos, useDeleteGalleryPhoto, useUpdateGallery } from "@/services/galleries";
+import { getGalleryUploadUrl, uploadFileToR2 } from "@/services/upload";
 import { ImageWithFallback } from "@/components/shared/image-with-fallback";
-
-const mockPhotos = [
-  "https://images.unsplash.com/photo-1542810185-a9c0362dcff4?w=400",
-  "https://images.unsplash.com/photo-1667565454350-fd0484baaa2c?w=400",
-  "https://images.unsplash.com/photo-1637537791710-a78698013174?w=400",
-  "https://images.unsplash.com/photo-1768039376092-70e587cb7b94?w=400",
-  "https://images.unsplash.com/photo-1677768061409-3d4fbd0250d1?w=400",
-  "https://images.unsplash.com/photo-1649191717256-d4a81a6df923?w=400",
-];
 
 export default function AdminGalleryDetail() {
   const { id } = useParams();
   const { data: gallery, isLoading } = useGallery(id as string);
-  const [isPublished, setIsPublished] = useState<boolean | null>(null);
-  const [photos, setPhotos] = useState<string[]>([]);
-  const [photosInitialized, setPhotosInitialized] = useState(false);
-  const [uploading, setUploading] = useState(false);
-  const [notified, setNotified] = useState(false);
+  const publishGallery = usePublishGallery();
+  const addPhotos = useAddGalleryPhotos();
+  const deletePhoto = useDeleteGalleryPhoto();
+  const updateGallery = useUpdateGallery();
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Initialize local state from fetched data once
-  if (gallery && !photosInitialized) {
-    setIsPublished(gallery.status === "published");
-    setPhotos(gallery.status === "published" ? mockPhotos : []);
-    setPhotosInitialized(true);
-  }
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState({ current: 0, total: 0 });
 
   if (isLoading) {
     return (
@@ -58,19 +46,71 @@ export default function AdminGalleryDetail() {
     );
   }
 
-  const published = isPublished ?? gallery.status === "published";
-  const clientName = gallery.clientName || gallery.client?.fullName || "Unknown";
+  const published = gallery.status === "published";
+  const clientName = (gallery as any).clientName || gallery.client?.fullName || "Unknown";
+  const photos = gallery.photos || [];
 
-  const handleSimulateUpload = () => {
-    setUploading(true);
-    setTimeout(() => {
-      setPhotos((prev) => [...prev, mockPhotos[Math.floor(Math.random() * mockPhotos.length)]]);
-      setUploading(false);
-    }, 1500);
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+    e.target.value = "";
+
+    setIsUploading(true);
+    setUploadProgress({ current: 0, total: files.length });
+
+    try {
+      const photoRecords: Array<{
+        filename: string;
+        r2Key: string;
+        mimeType: string;
+        fileSizeBytes: number;
+      }> = [];
+
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        setUploadProgress({ current: i + 1, total: files.length });
+
+        const { uploadUrl, key } = await getGalleryUploadUrl(id as string, file);
+        await uploadFileToR2(uploadUrl, file);
+        photoRecords.push({
+          filename: file.name,
+          r2Key: key,
+          mimeType: file.type,
+          fileSizeBytes: file.size,
+        });
+      }
+
+      await addPhotos.mutateAsync({ id: id as string, photos: photoRecords });
+    } catch (error) {
+      console.error("Failed to upload photos:", error);
+    } finally {
+      setIsUploading(false);
+    }
   };
 
-  const removePhoto = (index: number) => {
-    setPhotos((prev) => prev.filter((_, i) => i !== index));
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    const files = Array.from(e.dataTransfer.files).filter((f) =>
+      f.type.startsWith("image/")
+    );
+    if (files.length === 0 || !fileInputRef.current) return;
+
+    const dt = new DataTransfer();
+    files.forEach((f) => dt.items.add(f));
+    fileInputRef.current.files = dt.files;
+    fileInputRef.current.dispatchEvent(new Event("change", { bubbles: true }));
+  };
+
+  const handlePublishToggle = () => {
+    if (!published) {
+      publishGallery.mutate(id as string);
+    } else {
+      updateGallery.mutate({ id: id as string, status: "draft" });
+    }
+  };
+
+  const handleDeletePhoto = (photoId: string) => {
+    deletePhoto.mutate({ galleryId: id as string, photoId });
   };
 
   return (
@@ -93,36 +133,59 @@ export default function AdminGalleryDetail() {
             <p className="text-brand-main/50" style={{ fontSize: "0.85rem" }}>{clientName} · {photos.length} photos</p>
           </div>
           <div className="flex items-center gap-3">
-            {published && !notified && (
-              <button onClick={() => setNotified(true)}
-                className="inline-flex items-center gap-2 px-4 py-2.5 border border-brand-main/15 text-brand-main/60 hover:text-brand-main hover:border-brand-main/30 transition-colors" style={{ fontSize: "0.7rem" }}>
-                <Send className="w-3.5 h-3.5" /> Notify Client
-              </button>
-            )}
-            {notified && (
-              <span className="inline-flex items-center gap-1.5 text-green-600 px-3" style={{ fontSize: "0.75rem" }}><CheckCircle2 className="w-4 h-4" /> Client notified</span>
-            )}
-            <button onClick={() => setIsPublished(!published)}
-              className={`inline-flex items-center gap-2 px-5 py-2.5 tracking-[0.1em] uppercase transition-colors ${
+            <button
+              onClick={handlePublishToggle}
+              disabled={publishGallery.isPending || updateGallery.isPending}
+              className={`inline-flex items-center gap-2 px-5 py-2.5 tracking-[0.1em] uppercase transition-colors disabled:opacity-50 ${
                 published ? "bg-amber-100 text-amber-700 hover:bg-amber-200" : "bg-brand-main text-brand-secondary hover:bg-brand-main-light"
               }`} style={{ fontSize: "0.65rem" }}>
-              {published ? <><EyeOff className="w-3.5 h-3.5" /> Unpublish</> : <><Eye className="w-3.5 h-3.5" /> Publish</>}
+              {publishGallery.isPending || updateGallery.isPending ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              ) : published ? (
+                <><EyeOff className="w-3.5 h-3.5" /> Unpublish</>
+              ) : (
+                <><Eye className="w-3.5 h-3.5" /> Publish</>
+              )}
             </button>
           </div>
         </div>
 
         {/* Upload Area */}
-        <div className="bg-white border-2 border-dashed border-brand-main/15 p-8 text-center mb-6 hover:border-brand-tertiary/40 transition-colors cursor-pointer" onClick={handleSimulateUpload}>
-          {uploading ? (
-            <div className="flex items-center justify-center gap-3">
-              <div className="w-5 h-5 border-2 border-brand-tertiary border-t-transparent rounded-full animate-spin" />
-              <p className="text-brand-main/50" style={{ fontSize: "0.85rem" }}>Uploading...</p>
+        <input
+          ref={fileInputRef}
+          type="file"
+          multiple
+          accept="image/*"
+          onChange={handleFileSelect}
+          className="hidden"
+        />
+
+        <div
+          onClick={() => !isUploading && fileInputRef.current?.click()}
+          onDragOver={(e) => e.preventDefault()}
+          onDrop={handleDrop}
+          className="bg-white border-2 border-dashed border-brand-main/15 p-8 text-center mb-6 hover:border-brand-tertiary/40 transition-colors cursor-pointer"
+        >
+          {isUploading ? (
+            <div>
+              <div className="flex items-center justify-center gap-3 mb-2">
+                <Loader2 className="w-5 h-5 text-brand-tertiary animate-spin" />
+                <p className="text-brand-main/50" style={{ fontSize: "0.85rem" }}>
+                  Uploading photo {uploadProgress.current} of {uploadProgress.total}...
+                </p>
+              </div>
+              <div className="w-full max-w-xs mx-auto bg-brand-main/5 h-1.5">
+                <div
+                  className="bg-brand-tertiary h-1.5 transition-all"
+                  style={{ width: `${(uploadProgress.current / uploadProgress.total) * 100}%` }}
+                />
+              </div>
             </div>
           ) : (
             <>
               <Upload className="w-8 h-8 text-brand-main/20 mx-auto mb-3" />
               <p className="text-brand-main/50 mb-1" style={{ fontSize: "0.85rem" }}>Click to upload photos</p>
-              <p className="text-brand-main/30" style={{ fontSize: "0.75rem" }}>Drag & drop or click to browse (simulated)</p>
+              <p className="text-brand-main/30" style={{ fontSize: "0.75rem" }}>Drag & drop or click to browse · JPG, PNG up to 20MB each</p>
             </>
           )}
         </div>
@@ -130,21 +193,28 @@ export default function AdminGalleryDetail() {
         {/* Photo Grid */}
         {photos.length > 0 ? (
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-            {photos.map((url, i) => (
+            {photos.map((photo: any, i: number) => (
               <motion.div
-                key={`${url}-${i}`}
+                key={photo.id || i}
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ delay: i * 0.03 }}
                 className="relative group aspect-[4/3] overflow-hidden bg-brand-main/5"
               >
-                <ImageWithFallback src={url} alt={`Photo ${i + 1}`} className="w-full h-full object-cover" />
-                <button onClick={() => removePhoto(i)}
-                  className="absolute top-2 right-2 p-1.5 bg-red-500 text-white opacity-0 group-hover:opacity-100 transition-opacity rounded-full">
+                <ImageWithFallback
+                  src={photo.url || photo.r2Key}
+                  alt={photo.caption || photo.filename || `Photo ${i + 1}`}
+                  className="w-full h-full object-cover"
+                />
+                <button
+                  onClick={() => handleDeletePhoto(photo.id)}
+                  disabled={deletePhoto.isPending}
+                  className="absolute top-2 right-2 p-1.5 bg-red-500 text-white opacity-0 group-hover:opacity-100 transition-opacity rounded-full disabled:opacity-50"
+                >
                   <X className="w-3 h-3" />
                 </button>
                 <div className="absolute bottom-2 left-2 bg-black/50 text-white px-2 py-0.5 opacity-0 group-hover:opacity-100 transition-opacity" style={{ fontSize: "0.65rem" }}>
-                  {i + 1}
+                  {photo.filename || `Photo ${i + 1}`}
                 </div>
               </motion.div>
             ))}

@@ -1,17 +1,27 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion } from "motion/react";
-import { ArrowLeft, Save, Upload } from "lucide-react";
-import { useCreatePortfolioItem } from "@/services/portfolio";
+import { ArrowLeft, Save, Upload, X, Loader2, ImageIcon } from "lucide-react";
+import { useCreatePortfolioItem, useAddPortfolioPhotos } from "@/services/portfolio";
+import { getPortfolioUploadUrl, uploadFileToR2 } from "@/services/upload";
 
-const categories = ["Elopements", "Proposals", "Weddings", "Graduations", "Headshots", "Events"];
+const categories = [
+  { label: "Weddings", value: "wedding" },
+  { label: "Engagements", value: "engagement" },
+  { label: "Events", value: "event" },
+  { label: "Portraits", value: "portrait" },
+  { label: "Corporate", value: "corporate" },
+  { label: "Other", value: "other" },
+];
 
 export default function AdminPortfolioNew() {
   const router = useRouter();
   const createPortfolioItem = useCreatePortfolioItem();
+  const addPhotos = useAddPortfolioPhotos();
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [form, setForm] = useState({
     title: "",
@@ -19,24 +29,94 @@ export default function AdminPortfolioNew() {
     description: "",
     featured: false,
   });
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [previews, setPreviews] = useState<string[]>([]);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState({ current: 0, total: 0 });
+  const [error, setError] = useState("");
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+    setSelectedFiles((prev) => [...prev, ...files]);
+    // Generate previews
+    files.forEach((file) => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setPreviews((prev) => [...prev, reader.result as string]);
+      };
+      reader.readAsDataURL(file);
+    });
+    // Reset input so the same file can be selected again
+    e.target.value = "";
+  };
+
+  const removeFile = (index: number) => {
+    setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
+    setPreviews((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
-    createPortfolioItem.mutate(
-      {
+    const files = Array.from(e.dataTransfer.files).filter((f) =>
+      f.type.startsWith("image/")
+    );
+    if (files.length === 0) return;
+    setSelectedFiles((prev) => [...prev, ...files]);
+    files.forEach((file) => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setPreviews((prev) => [...prev, reader.result as string]);
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!form.title || !form.category) return;
+
+    setIsUploading(true);
+    setError("");
+    try {
+      // Step 1: Create the portfolio item
+      const item = await createPortfolioItem.mutateAsync({
         title: form.title,
         category: form.category,
-        description: form.description,
+        description: form.description || undefined,
         isFeatured: form.featured,
-        featured: form.featured,
-      },
-      {
-        onSuccess: () => {
-          router.push("/admin/portfolio");
-        },
+      });
+
+      // Step 2: Upload photos to R2 if any selected
+      if (selectedFiles.length > 0) {
+        setUploadProgress({ current: 0, total: selectedFiles.length });
+        const photoRecords: Array<{ r2Key: string; mimeType: string }> = [];
+
+        for (let i = 0; i < selectedFiles.length; i++) {
+          const file = selectedFiles[i];
+          setUploadProgress({ current: i + 1, total: selectedFiles.length });
+
+          // Get presigned URL
+          const { uploadUrl, key } = await getPortfolioUploadUrl(item.id, file);
+          // Upload directly to R2
+          await uploadFileToR2(uploadUrl, file);
+          photoRecords.push({ r2Key: key, mimeType: file.type });
+        }
+
+        // Step 3: Save photo records
+        await addPhotos.mutateAsync({ id: item.id, photos: photoRecords });
       }
-    );
+
+      router.push("/admin/portfolio");
+    } catch (err: any) {
+      const msg = err?.response?.data?.message || "Failed to create portfolio item. Please try again.";
+      setError(Array.isArray(msg) ? msg.join(", ") : msg);
+    } finally {
+      setIsUploading(false);
+    }
   };
+
+  const isPending = createPortfolioItem.isPending || addPhotos.isPending || isUploading;
 
   return (
     <div>
@@ -64,7 +144,7 @@ export default function AdminPortfolioNew() {
                 className="w-full px-4 py-3 bg-brand-secondary border border-brand-main/10 text-brand-main focus:outline-none focus:border-brand-tertiary transition-colors" style={{ fontSize: "0.9rem" }}
                 required>
                 <option value="">Select category...</option>
-                {categories.map((c) => <option key={c} value={c}>{c}</option>)}
+                {categories.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
               </select>
             </div>
 
@@ -84,17 +164,81 @@ export default function AdminPortfolioNew() {
           </div>
 
           {/* Upload area */}
-          <div className="bg-white border-2 border-dashed border-brand-main/15 p-10 text-center hover:border-brand-tertiary/40 transition-colors cursor-pointer">
+          <input
+            ref={fileInputRef}
+            type="file"
+            multiple
+            accept="image/*"
+            onChange={handleFileSelect}
+            className="hidden"
+          />
+
+          <div
+            onClick={() => fileInputRef.current?.click()}
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={handleDrop}
+            className="bg-white border-2 border-dashed border-brand-main/15 p-10 text-center hover:border-brand-tertiary/40 transition-colors cursor-pointer"
+          >
             <Upload className="w-10 h-10 text-brand-main/20 mx-auto mb-3" />
-            <p className="text-brand-main/50 mb-1" style={{ fontSize: "0.9rem" }}>Upload Collection Photos</p>
+            <p className="text-brand-main/50 mb-1" style={{ fontSize: "0.9rem" }}>
+              {selectedFiles.length > 0
+                ? `${selectedFiles.length} photo${selectedFiles.length === 1 ? "" : "s"} selected — click to add more`
+                : "Upload Collection Photos"}
+            </p>
             <p className="text-brand-main/30" style={{ fontSize: "0.75rem" }}>Drag & drop or click to browse · JPG, PNG up to 20MB each</p>
           </div>
 
+          {/* Preview thumbnails */}
+          {previews.length > 0 && (
+            <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
+              {previews.map((src, i) => (
+                <div key={i} className="relative group aspect-square bg-brand-secondary border border-brand-main/8 overflow-hidden">
+                  <img src={src} alt={`Preview ${i + 1}`} className="w-full h-full object-cover" />
+                  <button
+                    type="button"
+                    onClick={() => removeFile(i)}
+                    className="absolute top-1 right-1 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Upload progress */}
+          {isUploading && uploadProgress.total > 0 && (
+            <div className="bg-white border border-brand-main/8 p-4">
+              <div className="flex items-center gap-3 mb-2">
+                <Loader2 className="w-4 h-4 text-brand-tertiary animate-spin" />
+                <span className="text-brand-main" style={{ fontSize: "0.85rem" }}>
+                  Uploading photo {uploadProgress.current} of {uploadProgress.total}...
+                </span>
+              </div>
+              <div className="w-full bg-brand-main/5 h-1.5">
+                <div
+                  className="bg-brand-tertiary h-1.5 transition-all"
+                  style={{ width: `${(uploadProgress.current / uploadProgress.total) * 100}%` }}
+                />
+              </div>
+            </div>
+          )}
+
+          {error && (
+            <div className="p-4 bg-red-50 border border-red-200 text-red-700" style={{ fontSize: "0.85rem" }}>
+              {error}
+            </div>
+          )}
+
           <div className="flex items-center gap-3">
             <button type="submit"
-              disabled={createPortfolioItem.isPending}
+              disabled={isPending}
               className="inline-flex items-center gap-2 px-6 py-3 bg-brand-main text-brand-secondary hover:bg-brand-main-light transition-colors tracking-[0.1em] uppercase disabled:opacity-50" style={{ fontSize: "0.65rem" }}>
-              <Save className="w-3.5 h-3.5" /> {createPortfolioItem.isPending ? "Saving..." : "Save Collection"}
+              {isPending ? (
+                <><Loader2 className="w-3.5 h-3.5 animate-spin" /> {isUploading ? "Uploading..." : "Saving..."}</>
+              ) : (
+                <><Save className="w-3.5 h-3.5" /> Save Collection</>
+              )}
             </button>
             <Link href="/admin/portfolio" className="text-brand-main/40 hover:text-brand-main transition-colors" style={{ fontSize: "0.8rem" }}>Cancel</Link>
           </div>

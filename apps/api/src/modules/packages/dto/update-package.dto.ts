@@ -21,8 +21,23 @@ export class UpdatePackageDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(255)
+  subtitle?: string;
+
+  @IsOptional()
+  @IsString()
   @MaxLength(5000)
   description?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  categoryLabel?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(5000)
+  categoryDescription?: string;
 
   @IsOptional()
   @IsNumber({ maxDecimalPlaces: 2 })

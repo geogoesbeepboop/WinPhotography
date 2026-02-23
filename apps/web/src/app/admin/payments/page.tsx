@@ -2,17 +2,27 @@
 
 import { useState } from "react";
 import { motion } from "motion/react";
-import { CreditCard, DollarSign, TrendingUp, AlertCircle } from "lucide-react";
+import { CreditCard, DollarSign, TrendingUp, AlertCircle, Search } from "lucide-react";
 import { paymentStatusConfig } from "@/lib/mock-data/admin-data";
 import { usePayments } from "@/services/payments";
 
 export default function AdminPayments() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [search, setSearch] = useState("");
   const { data: payments, isLoading } = usePayments();
 
   const allPayments = payments ?? [];
 
-  const filtered = statusFilter === "all" ? allPayments : allPayments.filter((p: any) => p.status === statusFilter);
+  const filtered = allPayments.filter((p: any) => {
+    if (statusFilter !== "all" && p.status !== statusFilter) return false;
+    if (search) {
+      const q = search.toLowerCase();
+      const clientName = (p.clientName || p.booking?.client?.fullName || "").toLowerCase();
+      const description = (p.label || p.paymentType || "").toLowerCase();
+      if (!clientName.includes(q) && !description.includes(q)) return false;
+    }
+    return true;
+  });
 
   const totalPaid = allPayments.filter((p: any) => p.status === "paid").reduce((s: number, p: any) => s + (p.amount || 0), 0);
   const totalPending = allPayments.filter((p: any) => p.status === "pending").reduce((s: number, p: any) => s + (p.amount || 0), 0);
@@ -65,7 +75,12 @@ export default function AdminPayments() {
         </div>
       )}
 
-      {/* Filters */}
+      {/* Search + Filters */}
+      <div className="relative max-w-sm mb-4">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-brand-main/30" />
+        <input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search by client or description..."
+          className="w-full pl-10 pr-4 py-2.5 bg-white border border-brand-main/10 text-brand-main focus:outline-none focus:border-brand-tertiary transition-colors" style={{ fontSize: "0.85rem" }} />
+      </div>
       <div className="flex items-center gap-1 mb-6 flex-wrap">
         {(["all", "paid", "pending", "overdue", "refunded"] as const).map((s) => (
           <button key={s} onClick={() => setStatusFilter(s)}

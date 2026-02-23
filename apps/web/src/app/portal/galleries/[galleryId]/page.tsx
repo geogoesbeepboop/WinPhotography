@@ -42,67 +42,6 @@ interface ApiGallery {
   estimatedDelivery?: string;
 }
 
-const mockGalleries: Record<
-  string,
-  {
-    title: string;
-    date: string;
-    status: "ready" | "editing";
-    estimatedDelivery?: string;
-    photos: { id: string; url: string; favorite: boolean; filename: string }[];
-  }
-> = {
-  g1: {
-    title: "Engagement Session",
-    date: "January 15, 2026",
-    status: "ready",
-    photos: [
-      {
-        id: "p1",
-        url: "https://images.unsplash.com/photo-1542810185-a9c0362dcff4?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxlbmdhZ2VtZW50JTIwcmluZyUyMHByb3Bvc2FsJTIwcm9tYW50aWN8ZW58MXx8fHwxNzcxNjk5MzY1fDA&ixlib=rb-4.1.0&q=80&w=1080",
-        favorite: true,
-        filename: "engagement-001.jpg",
-      },
-      {
-        id: "p2",
-        url: "https://images.unsplash.com/photo-1667565454350-fd0484baaa2c?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxzdW5zZXQlMjBjb3VwbGUlMjBzaWxob3VldHRlJTIwb3V0ZG9vciUyMHBvcnRyYWl0fGVufDF8fHx8MTc3MTczODY3N3ww&ixlib=rb-4.1.0&q=80&w=1080",
-        favorite: false,
-        filename: "engagement-002.jpg",
-      },
-      {
-        id: "p3",
-        url: "https://images.unsplash.com/photo-1637537791710-a78698013174?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxjb3VwbGUlMjB3YWxraW5nJTIwbmF0dXJlJTIwdHJhaWwlMjBmb3Jlc3R8ZW58MXx8fHwxNzcxNzM4Njc4fDA&ixlib=rb-4.1.0&q=80&w=1080",
-        favorite: false,
-        filename: "engagement-003.jpg",
-      },
-      {
-        id: "p4",
-        url: "https://images.unsplash.com/photo-1768039376092-70e587cb7b94?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxicmlkZSUyMGdldHRpbmclMjByZWFkeSUyMHByZXBhcmF0aW9uJTIwY2FuZGlkfGVufDF8fHx8MTc3MTczODY3N3ww&ixlib=rb-4.1.0&q=80&w=1080",
-        favorite: true,
-        filename: "engagement-004.jpg",
-      },
-      {
-        id: "p5",
-        url: "https://images.unsplash.com/photo-1677768061409-3d4fbd0250d1?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHx3ZWRkaW5nJTIwcmVjZXB0aW9uJTIwdGFibGUlMjBkZWNvciUyMGZsb3dlcnN8ZW58MXx8fHwxNzcxNzM4Njc4fDA&ixlib=rb-4.1.0&q=80&w=1080",
-        favorite: false,
-        filename: "engagement-005.jpg",
-      },
-      {
-        id: "p6",
-        url: "https://images.unsplash.com/photo-1649191717256-d4a81a6df923?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHx3ZWRkaW5nJTIwY291cGxlJTIwZ29sZGVuJTIwaG91ciUyMHBvcnRyYWl0fGVufDF8fHx8MTc3MTczODYzNnww&ixlib=rb-4.1.0&q=80&w=1080",
-        favorite: false,
-        filename: "engagement-006.jpg",
-      },
-    ],
-  },
-  g2: {
-    title: "Wedding Day",
-    date: "March 22, 2026",
-    status: "editing",
-    estimatedDelivery: "April 20, 2026",
-    photos: [],
-  },
-};
 
 function mapGalleryStatus(status: string): "ready" | "editing" {
   if (status === "published") return "ready";
@@ -116,7 +55,7 @@ export default function PortalGallery() {
   // Try fetching from API
   const { data: apiGallery, isLoading, isError } = useGallery(id);
 
-  // Determine the gallery data: API first, then mock fallback
+  // Determine the gallery data from API
   const gallery = useMemo(() => {
     if (apiGallery && (apiGallery as ApiGallery).id) {
       const g = apiGallery as ApiGallery;
@@ -128,26 +67,19 @@ export default function PortalGallery() {
         filename: p.filename,
       }));
 
-      // If published but no photos available yet (R2 not set up), show editing state
-      const effectiveStatus = status === "ready" && photos.length === 0 ? "editing" : status;
-
       return {
         title: g.title,
         date: g.publishedAt
           ? format(new Date(g.publishedAt), "MMMM d, yyyy")
           : format(new Date(g.createdAt), "MMMM d, yyyy"),
-        status: effectiveStatus,
+        status,
         estimatedDelivery: g.estimatedDelivery,
         photos,
       };
     }
 
-    // Fall back to mock data
-    if (!isLoading) {
-      return mockGalleries[id || ""] || null;
-    }
     return null;
-  }, [apiGallery, isLoading, id]);
+  }, [apiGallery]);
 
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const [filter, setFilter] = useState<"all" | "favorites">("all");

@@ -30,7 +30,7 @@ function AdminGalleryNewContent() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     createGallery.mutate(
-      { bookingId: form.bookingId, title: form.title, notes: form.notes },
+      { bookingId: form.bookingId, title: form.title, description: form.notes },
       {
         onSuccess: () => {
           router.push("/admin/galleries");

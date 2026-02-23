@@ -4,55 +4,72 @@ import Link from "next/link";
 import { motion } from "motion/react";
 import { ArrowRight, Clock } from "lucide-react";
 import { ImageWithFallback } from "@/components/shared/image-with-fallback";
+import { useBlogPosts } from "@/services/blog";
 
-const blogPosts = [
-  {
-    slug: "planning-your-pacific-northwest-elopement",
-    title: "A Complete Guide to Planning Your Pacific Northwest Elopement",
-    excerpt:
-      "From permits and seasons to the most breathtaking locations, everything you need to know to plan an unforgettable PNW elopement.",
-    image:
-      "https://images.unsplash.com/photo-1578251133581-bf5e671b97fd?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxjb3VwbGUlMjBlbG9wZW1lbnQlMjBtb3VudGFpbiUyMGdvbGRlbiUyMGhvdXJ8ZW58MXx8fHwxNzcxNzIxNjEwfDA&ixlib=rb-4.1.0&q=80&w=1080",
-    date: "February 10, 2026",
-    readTime: "8 min read",
-    category: "Elopements",
-  },
-  {
-    slug: "what-to-wear-engagement-session",
-    title: "What to Wear to Your Engagement Session: A Styling Guide",
-    excerpt:
-      "Styling tips, color palette suggestions, and practical advice to help you feel confident and camera-ready for your engagement photos.",
-    image:
-      "https://images.unsplash.com/photo-1768772918151-2d0100b534b1?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxlbmdhZ2VtZW50JTIwY291cGxlJTIwY2l0eSUyMHVyYmFufGVufDF8fHx8MTc3MTcyMTYxOXww&ixlib=rb-4.1.0&q=80&w=1080",
-    date: "January 28, 2026",
-    readTime: "5 min read",
-    category: "Tips & Advice",
-  },
-  {
-    slug: "golden-hour-photography-tips",
-    title: "Why Golden Hour Makes All the Difference in Your Photos",
-    excerpt:
-      "Discover why photographers are obsessed with golden hour and how to plan your session to take advantage of this magical light.",
-    image:
-      "https://images.unsplash.com/photo-1752824062296-8e9b1a8162a1?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxjb3VwbGUlMjBsYXVnaGluZyUyMGNhbmRpZCUyMGhhcHB5fGVufDF8fHx8MTc3MTcyMTYxOHww&ixlib=rb-4.1.0&q=80&w=1080",
-    date: "January 15, 2026",
-    readTime: "4 min read",
-    category: "Photography",
-  },
-  {
-    slug: "wedding-timeline-guide",
-    title: "How to Build the Perfect Wedding Day Timeline",
-    excerpt:
-      "A photographer's perspective on creating a stress-free timeline that gives you the best possible images and the most enjoyable day.",
-    image:
-      "https://images.unsplash.com/photo-1719223852076-6981754ebf76?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHx3ZWRkaW5nJTIwcmVjZXB0aW9uJTIwdGFibGUlMjBkZWNvcmF0aW9ufGVufDF8fHx8MTc3MTcyMTYxM3ww&ixlib=rb-4.1.0&q=80&w=1080",
-    date: "December 30, 2025",
-    readTime: "6 min read",
-    category: "Weddings",
-  },
-];
+const formatDate = (dateStr: string) => {
+  if (!dateStr) return "";
+  return new Date(dateStr).toLocaleDateString("en-US", {
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  });
+};
 
 export default function BlogPage() {
+  const { data: posts, isLoading } = useBlogPosts();
+  const blogPosts = (posts ?? []).map((p: any): { slug: string; title: string; excerpt: string; image: string; date: string; readTime: string; category: string } => ({
+    slug: p.slug,
+    title: p.title,
+    excerpt: p.excerpt,
+    image: p.coverImageUrl || p.image,
+    date: formatDate(p.publishedAt || p.createdAt),
+    readTime: p.readTime,
+    category: p.category,
+  }));
+
+  if (isLoading) {
+    return (
+      <div>
+        <section className="pt-32 pb-12 lg:pt-40 lg:pb-16 bg-brand-secondary">
+          <div className="max-w-7xl mx-auto px-6 lg:px-8 text-center">
+            <p className="tracking-[0.3em] uppercase text-brand-tertiary mb-4" style={{ fontSize: "0.7rem" }}>Journal</p>
+            <h1 className="font-serif text-brand-main mb-6" style={{ fontSize: "clamp(2rem, 5vw, 3.5rem)", lineHeight: "1.1" }}>Stories & Guides</h1>
+          </div>
+        </section>
+        <section className="py-16 bg-brand-warm">
+          <div className="max-w-7xl mx-auto px-6 lg:px-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="animate-pulse">
+                  <div className="aspect-[4/3] bg-brand-main/10 mb-4" />
+                  <div className="h-4 bg-brand-main/10 rounded w-1/4 mb-3" />
+                  <div className="h-5 bg-brand-main/10 rounded w-3/4 mb-2" />
+                  <div className="h-4 bg-brand-main/10 rounded w-full" />
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+      </div>
+    );
+  }
+
+  if (blogPosts.length === 0) {
+    return (
+      <div>
+        <section className="pt-32 pb-12 lg:pt-40 lg:pb-16 bg-brand-secondary">
+          <div className="max-w-7xl mx-auto px-6 lg:px-8 text-center">
+            <p className="tracking-[0.3em] uppercase text-brand-tertiary mb-4" style={{ fontSize: "0.7rem" }}>Journal</p>
+            <h1 className="font-serif text-brand-main mb-6" style={{ fontSize: "clamp(2rem, 5vw, 3.5rem)", lineHeight: "1.1" }}>Stories & Guides</h1>
+            <p className="text-brand-main/60 max-w-xl mx-auto" style={{ fontSize: "0.95rem", lineHeight: "1.8" }}>
+              New stories coming soon. Check back for tips, inspiration, and real love stories.
+            </p>
+          </div>
+        </section>
+      </div>
+    );
+  }
+
   return (
     <div>
       {/* Hero */}
@@ -151,67 +168,69 @@ export default function BlogPage() {
       </section>
 
       {/* Post Grid */}
-      <section className="py-16 lg:py-24 bg-brand-warm">
-        <div className="max-w-7xl mx-auto px-6 lg:px-8">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {blogPosts.slice(1).map((post, i) => (
-              <motion.div
-                key={post.slug}
-                initial={{ opacity: 0, y: 30 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: i * 0.1 }}
-              >
-                <Link
-                  href={`/blog/${post.slug}`}
-                  className="group block"
+      {blogPosts.length > 1 && (
+        <section className="py-16 lg:py-24 bg-brand-warm">
+          <div className="max-w-7xl mx-auto px-6 lg:px-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+              {blogPosts.slice(1).map((post, i) => (
+                <motion.div
+                  key={post.slug}
+                  initial={{ opacity: 0, y: 30 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ delay: i * 0.1 }}
                 >
-                  <div className="aspect-[4/3] overflow-hidden mb-4">
-                    <ImageWithFallback
-                      src={post.image}
-                      alt={post.title}
-                      className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
-                    />
-                  </div>
-                  <div className="flex items-center gap-3 mb-3">
-                    <span
-                      className="px-3 py-1 bg-brand-secondary text-brand-tertiary-dark tracking-[0.1em] uppercase"
-                      style={{ fontSize: "0.6rem" }}
+                  <Link
+                    href={`/blog/${post.slug}`}
+                    className="group block"
+                  >
+                    <div className="aspect-[4/3] overflow-hidden mb-4">
+                      <ImageWithFallback
+                        src={post.image}
+                        alt={post.title}
+                        className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                      />
+                    </div>
+                    <div className="flex items-center gap-3 mb-3">
+                      <span
+                        className="px-3 py-1 bg-brand-secondary text-brand-tertiary-dark tracking-[0.1em] uppercase"
+                        style={{ fontSize: "0.6rem" }}
+                      >
+                        {post.category}
+                      </span>
+                      <span
+                        className="text-brand-main/40 flex items-center gap-1"
+                        style={{ fontSize: "0.7rem" }}
+                      >
+                        <Clock className="w-3 h-3" />
+                        {post.readTime}
+                      </span>
+                    </div>
+                    <h3
+                      className="font-serif text-brand-main mb-2 group-hover:text-brand-tertiary-dark transition-colors"
+                      style={{ fontSize: "1.15rem", lineHeight: "1.3" }}
                     >
-                      {post.category}
-                    </span>
-                    <span
-                      className="text-brand-main/40 flex items-center gap-1"
-                      style={{ fontSize: "0.7rem" }}
+                      {post.title}
+                    </h3>
+                    <p
+                      className="text-brand-main/50 mb-3"
+                      style={{ fontSize: "0.85rem", lineHeight: "1.6" }}
                     >
-                      <Clock className="w-3 h-3" />
-                      {post.readTime}
+                      {post.excerpt}
+                    </p>
+                    <span
+                      className="text-brand-main/40"
+                      style={{ fontSize: "0.75rem" }}
+                    >
+                      {post.date}
                     </span>
-                  </div>
-                  <h3
-                    className="font-serif text-brand-main mb-2 group-hover:text-brand-tertiary-dark transition-colors"
-                    style={{ fontSize: "1.15rem", lineHeight: "1.3" }}
-                  >
-                    {post.title}
-                  </h3>
-                  <p
-                    className="text-brand-main/50 mb-3"
-                    style={{ fontSize: "0.85rem", lineHeight: "1.6" }}
-                  >
-                    {post.excerpt}
-                  </p>
-                  <span
-                    className="text-brand-main/40"
-                    style={{ fontSize: "0.75rem" }}
-                  >
-                    {post.date}
-                  </span>
-                </Link>
-              </motion.div>
-            ))}
+                  </Link>
+                </motion.div>
+              ))}
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
+      )}
 
       {/* CTA */}
       <section className="py-20 bg-brand-secondary text-center">

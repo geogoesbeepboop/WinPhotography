@@ -5,127 +5,52 @@ import Link from "next/link";
 import { motion, AnimatePresence } from "motion/react";
 import { ImageWithFallback } from "@/components/shared/image-with-fallback";
 import { usePortfolio } from "@/services/portfolio";
+import { Camera } from "lucide-react";
 
-const defaultCategories = [
-  "All",
-  "Weddings",
-  "Elopements",
-  "Proposals",
-  "Engagements",
-  "Graduation",
-  "Headshots",
-  "Events",
-];
-
-const portfolioItems = [
-  {
-    slug: "sarah-james-elopement",
-    title: "Sarah & James",
-    category: "Elopements",
-    location: "Mt. Hood, Oregon",
-    image:
-      "https://images.unsplash.com/photo-1764773965414-7a0aa9c2a656?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxjb3VwbGUlMjB3YWxraW5nJTIwZm9yZXN0JTIwcm9tYW50aWN8ZW58MXx8fHwxNzcxNzIxNjE0fDA&ixlib=rb-4.1.0&q=80&w=1080",
-    aspect: "portrait" as const,
-  },
-  {
-    slug: "emily-david-wedding",
-    title: "Emily & David",
-    category: "Weddings",
-    location: "Bend, Oregon",
-    image:
-      "https://images.unsplash.com/photo-1634040616805-bfe7066251ac?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHx3ZWRkaW5nJTIwY291cGxlJTIwZmlyc3QlMjBkYW5jZXxlbnwxfHx8fDE3NzE3MjE2MTR8MA&ixlib=rb-4.1.0&q=80&w=1080",
-    aspect: "landscape" as const,
-  },
-  {
-    slug: "marco-surprise-proposal",
-    title: "Marco & Alicia",
-    category: "Proposals",
-    location: "Cannon Beach, Oregon",
-    image:
-      "https://images.unsplash.com/photo-1771570991164-efcc1a23be19?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxwcm9wb3NhbCUyMGNvdXBsZSUyMHN1bnNldCUyMHJvbWFudGljfGVufDF8fHx8MTc3MTcyMTYxMXww&ixlib=rb-4.1.0&q=80&w=1080",
-    aspect: "portrait" as const,
-  },
-  {
-    slug: "outdoor-ceremony",
-    title: "Rachel & Thomas",
-    category: "Weddings",
-    location: "Columbia River Gorge",
-    image:
-      "https://images.unsplash.com/photo-1769812344337-ec16a1b7cef8?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHx3ZWRkaW5nJTIwY2VyZW1vbnklMjBvdXRkb29yJTIwZWxlZ2FudHxlbnwxfHx8fDE3NzE3MjE2MTB8MA&ixlib=rb-4.1.0&q=80&w=1080",
-    aspect: "landscape" as const,
-  },
-  {
-    slug: "graduation-maya",
-    title: "Maya's Graduation",
-    category: "Graduation",
-    location: "University of Oregon",
-    image:
-      "https://images.unsplash.com/photo-1641335339082-f59be37f758d?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxncmFkdWF0aW9uJTIwcG9ydHJhaXQlMjBjZWxlYnJhdGlvbnxlbnwxfHx8fDE3NzE3MjE2MTF8MA&ixlib=rb-4.1.0&q=80&w=1080",
-    aspect: "portrait" as const,
-  },
-  {
-    slug: "headshot-professional",
-    title: "Executive Portraits",
-    category: "Headshots",
-    location: "Studio, San Francisco",
-    image:
-      "https://images.unsplash.com/photo-1769636929388-99eff95d3bf1?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxwcm9mZXNzaW9uYWwlMjBoZWFkc2hvdCUyMHN0dWRpbyUyMHBvcnRyYWl0fGVufDF8fHx8MTc3MTY4ODA1N3ww&ixlib=rb-4.1.0&q=80&w=1080",
-    aspect: "portrait" as const,
-  },
-  {
-    slug: "corporate-event",
-    title: "Annual Gala",
-    category: "Events",
-    location: "San Francisco Art Museum",
-    image:
-      "https://images.unsplash.com/photo-1767070806009-152054f6edd5?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxlbGVnYW50JTIwZXZlbnQlMjBjZWxlYnJhdGlvbiUyMHBhcnR5fGVufDF8fHx8MTc3MTcyMTYxMnww&ixlib=rb-4.1.0&q=80&w=1080",
-    aspect: "landscape" as const,
-  },
-  {
-    slug: "urban-engagement",
-    title: "Nadia & Kevin",
-    category: "Engagements",
-    location: "Mission District, San Francisco",
-    image:
-      "https://images.unsplash.com/photo-1768772918151-2d0100b534b1?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxlbmdhZ2VtZW50JTIwY291cGxlJTIwY2l0eSUyMHVyYmFufGVufDF8fHx8MTc3MTcyMTYxOXww&ixlib=rb-4.1.0&q=80&w=1080",
-    aspect: "portrait" as const,
-  },
-  {
-    slug: "reception-details",
-    title: "Lauren & Chris",
-    category: "Weddings",
-    location: "Wine Country, Willamette",
-    image:
-      "https://images.unsplash.com/photo-1719223852076-6981754ebf76?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHx3ZWRkaW5nJTIwcmVjZXB0aW9uJTIwdGFibGUlMjBkZWNvcmF0aW9ufGVufDF8fHx8MTc3MTcyMTYxM3ww&ixlib=rb-4.1.0&q=80&w=1080",
-    aspect: "landscape" as const,
-  },
-];
+const categoryLabels: Record<string, string> = {
+  wedding: "Weddings",
+  engagement: "Engagements",
+  event: "Events",
+  portrait: "Portraits",
+  corporate: "Corporate",
+  other: "Other",
+};
 
 export default function PortfolioPage() {
   const [activeCategory, setActiveCategory] = useState("All");
-  const { data: apiItems } = usePortfolio();
+  const { data: apiItems, isLoading } = usePortfolio();
 
   const items = useMemo(() => {
-    if (apiItems?.length > 0) {
-      return apiItems.map((item: any) => ({
+    if (!apiItems) return [];
+    return (apiItems as any[]).map((item: any, index: number) => {
+      // Determine aspect from cover photo dimensions if available
+      const coverPhoto = item.photos?.[0];
+      let aspect: "portrait" | "landscape" = "portrait";
+      if (coverPhoto?.width && coverPhoto?.height) {
+        aspect = coverPhoto.width > coverPhoto.height ? "landscape" : "portrait";
+      } else {
+        // Alternate for mock data / items without dimensions
+        const pattern = [0, 1, 0, 1, 1, 0]; // mixed pattern
+        aspect = pattern[index % pattern.length] ? "landscape" : "portrait";
+      }
+
+      return {
         slug: item.slug,
         title: item.title,
         category: item.category,
-        location: item.description?.split(',').pop()?.trim() || 'Pacific Northwest',
-        image: item.coverImageKey || item.photos?.[0]?.r2Key || '',
-        aspect: 'portrait' as const,
-      }));
-    }
-    return portfolioItems; // fallback to hardcoded
+        categoryLabel: categoryLabels[item.category] || item.category,
+        location: item.description?.split(",").pop()?.trim() || "Pacific Northwest",
+        image: item.coverImageUrl || item.coverImageKey || coverPhoto?.url || coverPhoto?.r2Key || "",
+        aspect,
+      };
+    });
   }, [apiItems]);
 
   const categories = useMemo(() => {
-    if (apiItems?.length > 0) {
-      const uniqueCategories = [...new Set(apiItems.map((item: any) => item.category))].filter(Boolean) as string[];
-      return ["All", ...uniqueCategories];
-    }
-    return defaultCategories;
-  }, [apiItems]);
+    if (!items.length) return ["All"];
+    const unique = [...new Set(items.map((i) => i.category))].filter(Boolean) as string[];
+    return ["All", ...unique];
+  }, [items]);
 
   const filteredItems =
     activeCategory === "All"
@@ -169,80 +94,96 @@ export default function PortfolioPage() {
       </section>
 
       {/* Filter */}
-      <section className="pb-8 bg-brand-secondary">
-        <div className="max-w-7xl mx-auto px-6 lg:px-8">
-          <div className="flex flex-wrap justify-center gap-2">
-            {categories.map((cat) => (
-              <button
-                key={cat}
-                onClick={() => setActiveCategory(cat)}
-                className={`px-5 py-2 tracking-[0.15em] uppercase transition-all duration-300 ${
-                  activeCategory === cat
-                    ? "bg-brand-main text-brand-secondary"
-                    : "bg-brand-warm text-brand-main/60 hover:text-brand-main hover:bg-brand-cream-dark"
-                }`}
-                style={{ fontSize: "0.65rem" }}
-              >
-                {cat}
-              </button>
-            ))}
+      {categories.length > 1 && (
+        <section className="pb-8 bg-brand-secondary">
+          <div className="max-w-7xl mx-auto px-6 lg:px-8">
+            <div className="flex flex-wrap justify-center gap-2">
+              {categories.map((cat) => (
+                <button
+                  key={cat}
+                  onClick={() => setActiveCategory(cat)}
+                  className={`px-5 py-2 tracking-[0.15em] uppercase transition-all duration-300 ${
+                    activeCategory === cat
+                      ? "bg-brand-main text-brand-secondary"
+                      : "bg-brand-warm text-brand-main/60 hover:text-brand-main hover:bg-brand-cream-dark"
+                  }`}
+                  style={{ fontSize: "0.65rem" }}
+                >
+                  {categoryLabels[cat] || cat}
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
+      )}
 
       {/* Gallery Grid */}
       <section className="py-12 lg:py-16 bg-brand-secondary">
         <div className="max-w-7xl mx-auto px-6 lg:px-8">
-          <div className="columns-1 sm:columns-2 lg:columns-3 gap-4 space-y-4">
-            <AnimatePresence mode="popLayout">
-              {filteredItems.map((item: any) => (
-                <motion.div
-                  key={item.slug}
-                  layout
-                  initial={{ opacity: 0, scale: 0.95 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.95 }}
-                  transition={{ duration: 0.4 }}
-                  className="break-inside-avoid"
-                >
-                  <Link
-                    href={`/portfolio/${item.slug}`}
-                    className="group block relative overflow-hidden"
+          {isLoading ? (
+            <div className="columns-1 sm:columns-2 lg:columns-3 gap-4 space-y-4">
+              {[1, 2, 3, 4, 5, 6].map((i) => (
+                <div key={i} className="break-inside-avoid aspect-[3/4] bg-brand-main/5 animate-pulse" />
+              ))}
+            </div>
+          ) : filteredItems.length > 0 ? (
+            <div className="columns-1 sm:columns-2 lg:columns-3 gap-4 space-y-4">
+              <AnimatePresence mode="popLayout">
+                {filteredItems.map((item: any) => (
+                  <motion.div
+                    key={item.slug}
+                    layout
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.95 }}
+                    transition={{ duration: 0.4 }}
+                    className="break-inside-avoid"
                   >
-                    <div
-                      className={
-                        item.aspect === "portrait"
-                          ? "aspect-[3/4]"
-                          : "aspect-[4/3]"
-                      }
+                    <Link
+                      href={`/portfolio/${item.slug}`}
+                      className="group block relative overflow-hidden"
                     >
-                      <ImageWithFallback
-                        src={item.image}
-                        alt={item.title}
-                        className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
-                      />
-                      <div className="absolute inset-0 bg-brand-main/0 group-hover:bg-brand-main/40 transition-all duration-500 flex items-end">
-                        <div className="p-6 translate-y-4 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-500">
-                          <p
-                            className="tracking-[0.2em] uppercase text-brand-tertiary-light mb-1"
-                            style={{ fontSize: "0.6rem" }}
-                          >
-                            {item.category} &middot; {item.location}
-                          </p>
-                          <h3
-                            className="font-serif text-brand-secondary"
-                            style={{ fontSize: "1.3rem" }}
-                          >
-                            {item.title}
-                          </h3>
+                      <div
+                        className={
+                          item.aspect === "portrait"
+                            ? "aspect-[3/4]"
+                            : "aspect-[4/3]"
+                        }
+                      >
+                        <ImageWithFallback
+                          src={item.image}
+                          alt={item.title}
+                          className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                        />
+                        <div className="absolute inset-0 bg-brand-main/0 group-hover:bg-brand-main/40 transition-all duration-500 flex items-end">
+                          <div className="p-6 translate-y-4 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-500">
+                            <p
+                              className="tracking-[0.2em] uppercase text-brand-tertiary-light mb-1"
+                              style={{ fontSize: "0.6rem" }}
+                            >
+                              {categoryLabels[item.category] || item.category} &middot; {item.location}
+                            </p>
+                            <h3
+                              className="font-serif text-brand-secondary"
+                              style={{ fontSize: "1.3rem" }}
+                            >
+                              {item.title}
+                            </h3>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  </Link>
-                </motion.div>
-              ))}
-            </AnimatePresence>
-          </div>
+                    </Link>
+                  </motion.div>
+                ))}
+              </AnimatePresence>
+            </div>
+          ) : (
+            <div className="text-center py-24">
+              <Camera className="w-12 h-12 text-brand-main/15 mx-auto mb-4" />
+              <p className="font-serif text-brand-main/50 mb-2" style={{ fontSize: "1.3rem" }}>Portfolio Coming Soon</p>
+              <p className="text-brand-main/30" style={{ fontSize: "0.9rem" }}>Beautiful collections are being curated. Check back soon!</p>
+            </div>
+          )}
         </div>
       </section>
 

@@ -15,14 +15,14 @@
   --brand-main-light: #073b24;
   --brand-secondary: #ffffff;
   --brand-tertiary: #d18b8f;
-  --brand-warm: #f8ede1;
+  --brand-warm: #faf5f9;
   --brand-tertiary-light: #e0adb0;
   --brand-tertiary-dark: #b87074;
   --brand-cream-dark: #f0e5c8;
 
   --background: var(--brand-secondary);
   --foreground: var(--brand-main);
-  --card: #fffced;
+  --card: #fcfcf5;
   --card-foreground: var(--brand-main);
   --popover: #fffced;
   --popover-foreground: var(--brand-main);

@@ -5,9 +5,10 @@ import { useParams } from "next/navigation";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { motion } from "motion/react";
-import { ArrowLeft, Mail, Phone, Calendar, Tag, MessageSquare, Send, CalendarPlus, Archive, CheckCircle2 } from "lucide-react";
+import { ArrowLeft, Mail, Phone, Calendar, Tag, MessageSquare, Send, CalendarPlus, Archive, CheckCircle2, X, Loader2 } from "lucide-react";
 import { inquiryStatusConfig } from "@/lib/mock-data/admin-data";
-import { useInquiry, useUpdateInquiry } from "@/services/inquiries";
+import { useInquiry, useUpdateInquiry, useConvertInquiry } from "@/services/inquiries";
+import { useClients, useCreateClient } from "@/services/clients";
 
 const defaultStatusCfg = { label: "Unknown", color: "bg-gray-100 text-gray-500" };
 
@@ -28,9 +29,22 @@ export default function AdminInquiryDetail() {
   const { data: inquiry, isLoading } = useInquiry(id as string);
   const updateInquiry = useUpdateInquiry();
 
+  const convertInquiry = useConvertInquiry();
+  const { data: clients } = useClients();
+  const createClient = useCreateClient();
+
   const [status, setStatus] = useState<string>("new");
   const [reply, setReply] = useState("");
   const [notes, setNotes] = useState("");
+  const [showConvertModal, setShowConvertModal] = useState(false);
+  const [creatingNewClient, setCreatingNewClient] = useState(false);
+  const [newClientForm, setNewClientForm] = useState({ fullName: "", email: "", phone: "" });
+  const [convertForm, setConvertForm] = useState({
+    clientId: "",
+    packageName: "",
+    packagePrice: "",
+    depositAmount: "",
+  });
 
   // Sync local state when inquiry data arrives
   useEffect(() => {
@@ -61,6 +75,45 @@ export default function AdminInquiryDetail() {
 
   const handleArchive = () => {
     handleStatusChange("archived");
+  };
+
+  const handleConvert = async () => {
+    if (!inquiry?.id || !convertForm.packageName || !convertForm.packagePrice || !convertForm.depositAmount) return;
+
+    let clientId = convertForm.clientId;
+
+    // If creating a new client, do that first
+    if (creatingNewClient) {
+      if (!newClientForm.fullName || !newClientForm.email) return;
+      try {
+        const newClient = await createClient.mutateAsync({
+          fullName: newClientForm.fullName,
+          email: newClientForm.email,
+          phone: newClientForm.phone || undefined,
+        });
+        clientId = newClient.id;
+      } catch {
+        return; // createClient error will show via isError
+      }
+    }
+
+    if (!clientId) return;
+
+    convertInquiry.mutate(
+      {
+        id: inquiry.id,
+        clientId,
+        packageName: convertForm.packageName,
+        packagePrice: Number(convertForm.packagePrice),
+        depositAmount: Number(convertForm.depositAmount),
+      },
+      {
+        onSuccess: () => {
+          setShowConvertModal(false);
+          router.push("/admin/bookings");
+        },
+      },
+    );
   };
 
   if (isLoading) {
@@ -239,7 +292,12 @@ export default function AdminInquiryDetail() {
               <p className="tracking-[0.1em] uppercase text-brand-main/40 mb-3" style={{ fontSize: "0.65rem" }}>Actions</p>
               <div className="space-y-2">
                 <button
-                  onClick={() => router.push("/admin/bookings")}
+                  onClick={() => {
+                    setConvertForm({ clientId: "", packageName: category || "", packagePrice: "", depositAmount: "" });
+                    setCreatingNewClient(false);
+                    setNewClientForm({ fullName: name, email, phone });
+                    setShowConvertModal(true);
+                  }}
                   className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-brand-tertiary text-white hover:bg-brand-tertiary-dark transition-colors tracking-[0.1em] uppercase"
                   style={{ fontSize: "0.65rem" }}
                 >
@@ -257,6 +315,164 @@ export default function AdminInquiryDetail() {
           </div>
         </div>
       </motion.div>
+
+      {/* Convert to Booking Modal */}
+      {showConvertModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setShowConvertModal(false)}>
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="bg-white border border-brand-main/10 w-full max-w-md mx-4 p-6"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-5">
+              <h2 className="font-serif text-brand-main" style={{ fontSize: "1.2rem" }}>Convert to Booking</h2>
+              <button onClick={() => setShowConvertModal(false)} className="text-brand-main/30 hover:text-brand-main">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              {/* Client Select or Create */}
+              <div>
+                <label className="block text-brand-main/50 mb-1" style={{ fontSize: "0.75rem" }}>Client *</label>
+                <div className="flex items-center gap-2 mb-2">
+                  <button
+                    type="button"
+                    onClick={() => setCreatingNewClient(false)}
+                    className={`px-3 py-1.5 transition-colors ${!creatingNewClient ? "bg-brand-main text-brand-secondary" : "bg-brand-secondary border border-brand-main/10 text-brand-main/50"}`}
+                    style={{ fontSize: "0.7rem" }}
+                  >
+                    Existing Client
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCreatingNewClient(true)}
+                    className={`px-3 py-1.5 transition-colors ${creatingNewClient ? "bg-brand-main text-brand-secondary" : "bg-brand-secondary border border-brand-main/10 text-brand-main/50"}`}
+                    style={{ fontSize: "0.7rem" }}
+                  >
+                    New Client
+                  </button>
+                </div>
+                {creatingNewClient ? (
+                  <div className="space-y-2 p-3 bg-brand-secondary border border-brand-main/10">
+                    <input
+                      type="text"
+                      placeholder="Full Name *"
+                      value={newClientForm.fullName}
+                      onChange={(e) => setNewClientForm((f) => ({ ...f, fullName: e.target.value }))}
+                      className="w-full px-3 py-2 bg-white border border-brand-main/10 text-brand-main focus:outline-none focus:border-brand-tertiary"
+                      style={{ fontSize: "0.85rem" }}
+                    />
+                    <input
+                      type="email"
+                      placeholder="Email *"
+                      value={newClientForm.email}
+                      onChange={(e) => setNewClientForm((f) => ({ ...f, email: e.target.value }))}
+                      className="w-full px-3 py-2 bg-white border border-brand-main/10 text-brand-main focus:outline-none focus:border-brand-tertiary"
+                      style={{ fontSize: "0.85rem" }}
+                    />
+                    <input
+                      type="tel"
+                      placeholder="Phone"
+                      value={newClientForm.phone}
+                      onChange={(e) => setNewClientForm((f) => ({ ...f, phone: e.target.value }))}
+                      className="w-full px-3 py-2 bg-white border border-brand-main/10 text-brand-main focus:outline-none focus:border-brand-tertiary"
+                      style={{ fontSize: "0.85rem" }}
+                    />
+                    {createClient.isError && (
+                      <p className="text-red-600" style={{ fontSize: "0.75rem" }}>Failed to create client.</p>
+                    )}
+                  </div>
+                ) : (
+                  <select
+                    value={convertForm.clientId}
+                    onChange={(e) => setConvertForm((f) => ({ ...f, clientId: e.target.value }))}
+                    className="w-full px-3 py-2.5 bg-brand-secondary border border-brand-main/10 text-brand-main focus:outline-none focus:border-brand-tertiary"
+                    style={{ fontSize: "0.85rem" }}
+                  >
+                    <option value="">Select a client...</option>
+                    {(clients || []).map((c: any) => (
+                      <option key={c.id} value={c.id}>
+                        {c.fullName || c.name || c.email}
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </div>
+
+              {/* Package Name */}
+              <div>
+                <label className="block text-brand-main/50 mb-1" style={{ fontSize: "0.75rem" }}>Package Name *</label>
+                <input
+                  type="text"
+                  value={convertForm.packageName}
+                  onChange={(e) => setConvertForm((f) => ({ ...f, packageName: e.target.value }))}
+                  placeholder="e.g. Wedding Premium"
+                  className="w-full px-3 py-2.5 bg-brand-secondary border border-brand-main/10 text-brand-main focus:outline-none focus:border-brand-tertiary"
+                  style={{ fontSize: "0.85rem" }}
+                />
+              </div>
+
+              {/* Package Price */}
+              <div>
+                <label className="block text-brand-main/50 mb-1" style={{ fontSize: "0.75rem" }}>Package Price ($) *</label>
+                <input
+                  type="number"
+                  value={convertForm.packagePrice}
+                  onChange={(e) => setConvertForm((f) => ({ ...f, packagePrice: e.target.value }))}
+                  placeholder="3500"
+                  min="0"
+                  className="w-full px-3 py-2.5 bg-brand-secondary border border-brand-main/10 text-brand-main focus:outline-none focus:border-brand-tertiary"
+                  style={{ fontSize: "0.85rem" }}
+                />
+              </div>
+
+              {/* Deposit Amount */}
+              <div>
+                <label className="block text-brand-main/50 mb-1" style={{ fontSize: "0.75rem" }}>Deposit Amount ($) *</label>
+                <input
+                  type="number"
+                  value={convertForm.depositAmount}
+                  onChange={(e) => setConvertForm((f) => ({ ...f, depositAmount: e.target.value }))}
+                  placeholder="1000"
+                  min="0"
+                  className="w-full px-3 py-2.5 bg-brand-secondary border border-brand-main/10 text-brand-main focus:outline-none focus:border-brand-tertiary"
+                  style={{ fontSize: "0.85rem" }}
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3 mt-6">
+              <button
+                onClick={handleConvert}
+                disabled={convertInquiry.isPending || createClient.isPending || (!creatingNewClient && !convertForm.clientId) || (creatingNewClient && (!newClientForm.fullName || !newClientForm.email)) || !convertForm.packageName || !convertForm.packagePrice || !convertForm.depositAmount}
+                className="flex-1 inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-brand-tertiary text-white hover:bg-brand-tertiary-dark transition-colors tracking-[0.1em] uppercase disabled:opacity-50 disabled:cursor-not-allowed"
+                style={{ fontSize: "0.65rem" }}
+              >
+                {(convertInquiry.isPending || createClient.isPending) ? (
+                  <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Converting...</>
+                ) : (
+                  <><CheckCircle2 className="w-3.5 h-3.5" /> Create Booking</>
+                )}
+              </button>
+              <button
+                onClick={() => setShowConvertModal(false)}
+                className="px-5 py-2.5 border border-brand-main/15 text-brand-main/50 hover:text-brand-main hover:border-brand-main/30 transition-colors"
+                style={{ fontSize: "0.7rem" }}
+              >
+                Cancel
+              </button>
+            </div>
+
+            {convertInquiry.isError && (
+              <p className="mt-3 text-red-600" style={{ fontSize: "0.8rem" }}>
+                Failed to convert inquiry. Please try again.
+              </p>
+            )}
+          </motion.div>
+        </div>
+      )}
     </div>
   );
 }

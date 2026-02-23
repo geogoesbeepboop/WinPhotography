@@ -60,6 +60,7 @@
     "react-dom": "^19.1.0",
     "react-dropzone": "^14.3.8",
     "react-hook-form": "^7.55.0",
+    "react-markdown": "^10.1.0",
     "react-resizable-panels": "^2.1.9",
     "react-responsive-masonry": "^2.7.1",
     "react-slick": "^0.31.0",

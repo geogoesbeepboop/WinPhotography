@@ -86,3 +86,57 @@ export function usePublishGallery() {
     },
   });
 }
+
+export function useAddGalleryPhotos() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      id,
+      photos,
+    }: {
+      id: string;
+      photos: Array<{
+        filename: string;
+        r2Key: string;
+        mimeType: string;
+        fileSizeBytes: number;
+        width?: number;
+        height?: number;
+      }>;
+    }) => {
+      const { data } = await apiClient.post(`/galleries/${id}/photos`, {
+        photos,
+      });
+      return data;
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: galleryKeys.detail(variables.id),
+      });
+      queryClient.invalidateQueries({ queryKey: galleryKeys.list() });
+    },
+  });
+}
+
+export function useDeleteGalleryPhoto() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      galleryId,
+      photoId,
+    }: {
+      galleryId: string;
+      photoId: string;
+    }) => {
+      await apiClient.delete(`/galleries/${galleryId}/photos/${photoId}`);
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: galleryKeys.detail(variables.galleryId),
+      });
+      queryClient.invalidateQueries({ queryKey: galleryKeys.list() });
+    },
+  });
+}

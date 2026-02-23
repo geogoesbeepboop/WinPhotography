@@ -20,8 +20,17 @@ export class PackageEntity {
   @Column({ type: 'varchar', length: 100, unique: true })
   slug: string;
 
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  subtitle: string | null;
+
   @Column({ type: 'text', nullable: true })
   description: string | null;
+
+  @Column({ type: 'varchar', length: 100, nullable: true, name: 'category_label' })
+  categoryLabel: string | null;
+
+  @Column({ type: 'text', nullable: true, name: 'category_description' })
+  categoryDescription: string | null;
 
   @Column({ type: 'decimal', precision: 10, scale: 2 })
   price: number;

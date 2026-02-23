@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { motion } from "motion/react";
-import { Search, CalendarCheck, Clock, MapPin, DollarSign } from "lucide-react";
+import { Search, CalendarCheck, Clock, MapPin, DollarSign, Plus } from "lucide-react";
 import { bookingStatusConfig } from "@/lib/mock-data/admin-data";
 import { useBookings } from "@/services/bookings";
 
@@ -32,9 +32,19 @@ export default function AdminBookings() {
 
   return (
     <div>
-      <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} className="mb-6">
-        <h1 className="font-serif text-brand-main mb-1" style={{ fontSize: "1.8rem" }}>Bookings</h1>
-        <p className="text-brand-main/50" style={{ fontSize: "0.9rem" }}>Manage all client bookings and sessions.</p>
+      <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} className="flex items-start justify-between mb-6">
+        <div>
+          <h1 className="font-serif text-brand-main mb-1" style={{ fontSize: "1.8rem" }}>Bookings</h1>
+          <p className="text-brand-main/50" style={{ fontSize: "0.9rem" }}>Manage all client bookings and sessions.</p>
+        </div>
+        <Link
+          href="/admin/bookings/new"
+          className="flex items-center gap-2 px-5 py-2.5 bg-brand-main text-brand-secondary tracking-[0.1em] uppercase hover:bg-brand-main/90 transition-colors"
+          style={{ fontSize: "0.7rem" }}
+        >
+          <Plus className="w-4 h-4" />
+          New Booking
+        </Link>
       </motion.div>
 
       {/* Filters */}

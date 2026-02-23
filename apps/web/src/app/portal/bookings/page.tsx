@@ -111,58 +111,6 @@ interface DisplayBooking {
   nextPaymentDue?: string;
 }
 
-const fallbackBookings: DisplayBooking[] = [
-  {
-    id: "b1",
-    type: "Wedding - Signature",
-    category: "Weddings",
-    date: "March 22, 2026",
-    time: "2:00 PM",
-    location: "Golden Gate Park, San Francisco",
-    status: "confirmed",
-    contract: true,
-    contractSigned: true,
-    contractSignedDate: "Nov 10, 2025",
-    contractId: "MW-2026-0322",
-    totalAmount: 6800,
-    paidAmount: 2040,
-    nextPaymentAmount: 4760,
-    nextPaymentDue: "March 8, 2026",
-  },
-  {
-    id: "b2",
-    type: "Engagement - Full Story",
-    category: "Proposals",
-    date: "January 15, 2026",
-    time: "4:30 PM",
-    location: "Baker Beach, San Francisco",
-    status: "completed",
-    contract: true,
-    contractSigned: true,
-    contractSignedDate: "Nov 25, 2025",
-    contractId: "MW-2026-0115",
-    totalAmount: 2200,
-    paidAmount: 2200,
-    nextPaymentAmount: 0,
-    nextPaymentDue: undefined,
-  },
-  {
-    id: "b3",
-    type: "Headshots - Professional",
-    category: "Headshots",
-    date: "April 10, 2026",
-    time: "10:00 AM",
-    location: "Studio, San Francisco",
-    status: "pending",
-    contract: false,
-    contractSigned: false,
-    contractId: "MW-2026-0410",
-    totalAmount: 650,
-    paidAmount: 0,
-    nextPaymentAmount: 195,
-    nextPaymentDue: undefined,
-  },
-];
 
 function mapApiBookings(apiBookings: ApiBooking[]): DisplayBooking[] {
   return apiBookings.map((b) => {
@@ -201,12 +149,9 @@ export default function PortalBookings() {
 
   const { data: apiBookings, isLoading, isError } = useMyBookings();
 
-  const bookings: DisplayBooking[] =
-    apiBookings && (apiBookings as ApiBooking[]).length > 0
-      ? mapApiBookings(apiBookings as ApiBooking[])
-      : isError || !apiBookings
-        ? fallbackBookings
-        : [];
+  const bookings: DisplayBooking[] = apiBookings
+    ? mapApiBookings(apiBookings as ApiBooking[])
+    : [];
 
   const activeBooking = bookings.find((b) => b.id === contractModal);
 

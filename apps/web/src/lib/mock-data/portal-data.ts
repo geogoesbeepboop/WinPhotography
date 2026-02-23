@@ -129,7 +129,7 @@ export const mockPublicPortfolio = [
     id: "port-1",
     slug: "sarah-james-elopement",
     title: "Sarah & James",
-    category: "elopement",
+    category: "wedding",
     description: "An intimate sunrise elopement on the slopes of Mt. Hood.",
     coverImageKey:
       "https://images.unsplash.com/photo-1764773965414-7a0aa9c2a656?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxjb3VwbGUlMjB3YWxraW5nJTIwZm9yZXN0JTIwcm9tYW50aWN8ZW58MXx8fHwxNzcxNzIxNjE0fDA&ixlib=rb-4.1.0&q=80&w=1080",
@@ -211,7 +211,7 @@ export const mockPublicPortfolio = [
     id: "port-3",
     slug: "marco-surprise-proposal",
     title: "Marco & Alicia",
-    category: "proposal",
+    category: "engagement",
     description: "A sunset proposal at Cannon Beach with Haystack Rock. Cannon Beach, Oregon",
     coverImageKey:
       "https://images.unsplash.com/photo-1771570991164-efcc1a23be19?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxwcm9wb3NhbCUyMGNvdXBsZSUyMHN1bnNldCUyMHJvbWFudGljfGVufDF8fHx8MTc3MTcyMTYxMXww&ixlib=rb-4.1.0&q=80&w=1080",

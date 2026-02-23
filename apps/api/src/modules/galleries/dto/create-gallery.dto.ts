@@ -4,8 +4,9 @@ export class CreateGalleryDto {
   @IsUUID()
   bookingId: string;
 
+  @IsOptional()
   @IsUUID()
-  clientId: string;
+  clientId?: string;
 
   @IsString()
   @MinLength(1)

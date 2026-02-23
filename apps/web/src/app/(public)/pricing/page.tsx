@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { Check, ArrowRight } from "lucide-react";
 import { ImageWithFallback } from "@/components/shared/image-with-fallback";
 import { usePackages } from "@/services/packages";
+import { useDataSourceStore } from "@/stores/admin-settings-store";
 
 type Category = {
   id: string;
@@ -20,7 +21,7 @@ type Category = {
   }[];
 };
 
-const categories: Category[] = [
+const mockCategories: Category[] = [
   {
     id: "elopements",
     label: "Elopements",
@@ -354,13 +355,41 @@ const addOns = [
   { name: "Print Collection (10 prints)", price: "$450" },
 ];
 
-export default function PricingPage() {
-  const [activeCategory, setActiveCategory] = useState("elopements");
-  const currentCategory = categories.find((c) => c.id === activeCategory)!;
+function buildCategoriesFromApi(apiPackages: any[]): Category[] {
+  const grouped: Record<string, { description: string; tiers: any[] }> = {};
+  for (const pkg of apiPackages) {
+    const label = pkg.categoryLabel || "Other";
+    if (!grouped[label]) {
+      grouped[label] = { description: pkg.categoryDescription || "", tiers: [] };
+    }
+    grouped[label].tiers.push({
+      name: pkg.name,
+      subtitle: pkg.subtitle || "",
+      price: `$${Number(pkg.price).toLocaleString()}`,
+      features: pkg.features || [],
+      popular: pkg.isPopular,
+      sortOrder: pkg.sortOrder ?? 0,
+    });
+  }
+  return Object.entries(grouped).map(([label, { description, tiers }]) => ({
+    id: label.toLowerCase().replace(/\s+/g, "-"),
+    label,
+    description,
+    tiers: tiers.sort((a: any, b: any) => a.sortOrder - b.sortOrder),
+  }));
+}
 
-  // Fetch packages from API — currently unused while hardcoded data is primary
-  // TODO: When packages are managed via admin, transform API data to match Category[] structure
-  const { data: _apiPackages } = usePackages();
+export default function PricingPage() {
+  const { dataSource } = useDataSourceStore();
+  const { data: apiPackages } = usePackages();
+
+  const categories =
+    dataSource === "api" && apiPackages && apiPackages.length > 0
+      ? buildCategoriesFromApi(apiPackages)
+      : mockCategories;
+
+  const [activeCategory, setActiveCategory] = useState(categories[0]?.id || "elopements");
+  const currentCategory = categories.find((c) => c.id === activeCategory) || categories[0];
 
   return (
     <div>
@@ -457,7 +486,7 @@ export default function PricingPage() {
                   initial={{ opacity: 0, y: 30 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: i * 0.1 }}
-                  className={`relative p-8 lg:p-10 ${
+                  className={`relative p-8 lg:p-10 flex flex-col ${
                     tier.popular
                       ? "bg-brand-main text-brand-secondary"
                       : "bg-card text-brand-main"
@@ -510,7 +539,7 @@ export default function PricingPage() {
 
                   <div className="w-full h-[1px] bg-current opacity-10 mb-8" />
 
-                  <ul className="space-y-3 mb-10">
+                  <ul className="space-y-3 mb-10 flex-1">
                     {tier.features.map((feature) => (
                       <li
                         key={feature}
@@ -664,9 +693,9 @@ export default function PricingPage() {
       {/* Full Width Image Break */}
       <section className="relative h-[40vh] min-h-[300px]">
         <ImageWithFallback
-          src="https://images.unsplash.com/photo-1752824062296-8e9b1a8162a1?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxjb3VwbGUlMjBsYXVnaGluZyUyMGNhbmRpZCUyMGhhcHB5fGVufDF8fHx8MTc3MTcyMTYxOHww&ixlib=rb-4.1.0&q=80&w=1080"
-          alt="Happy couple"
-          className="w-full h-full object-cover"
+          src="https://images.unsplash.com/photo-1578251133581-bf5e671b97fd?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1920"
+          alt="Couple in mountain landscape"
+          className="w-full h-full object-cover object-center"
         />
         <div className="absolute inset-0 bg-brand-main/20" />
       </section>

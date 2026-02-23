@@ -15,6 +15,7 @@ import { PackagesModule } from './modules/packages/packages.module';
 import { TestimonialsModule } from './modules/testimonials/testimonials.module';
 import { StorageModule } from './modules/storage/storage.module';
 import { EmailModule } from './modules/email/email.module';
+import { BlogModule } from './modules/blog/blog.module';
 import configuration from './config/configuration';
 
 @Module({
@@ -58,6 +59,7 @@ import configuration from './config/configuration';
     TestimonialsModule,
     StorageModule,
     EmailModule,
+    BlogModule,
   ],
 })
 export class AppModule {}

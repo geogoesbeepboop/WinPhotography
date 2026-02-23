@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api-client';
 import { useDataSourceStore } from '@/stores/admin-settings-store';
 import { mockClients } from '@/lib/mock-data/admin-data';
@@ -20,6 +20,20 @@ export function useClients() {
       return data;
     },
     staleTime: 60 * 1000,
+  });
+}
+
+export function useCreateClient() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (data: { fullName: string; email: string; phone?: string }) => {
+      const { data: result } = await apiClient.post('/users', data);
+      return result;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: clientKeys.all });
+    },
   });
 }
 

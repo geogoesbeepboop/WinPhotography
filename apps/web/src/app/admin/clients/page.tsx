@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { Search, Users, Mail, Phone, Calendar, DollarSign, CalendarCheck, X } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useClients } from "@/services/clients";
 import { useBookings } from "@/services/bookings";
 
@@ -10,6 +11,7 @@ export default function AdminClients() {
   const { data: clients = [], isLoading: clientsLoading } = useClients();
   const { data: bookings = [] } = useBookings();
 
+  const router = useRouter();
   const [search, setSearch] = useState("");
   const [selectedClient, setSelectedClient] = useState<any | null>(null);
 
@@ -196,10 +198,18 @@ export default function AdminClients() {
 
                   {/* Quick Actions */}
                   <div className="space-y-2 pt-4 border-t border-brand-main/8">
-                    <button className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-brand-main text-brand-secondary hover:bg-brand-main-light transition-colors tracking-[0.1em] uppercase" style={{ fontSize: "0.65rem" }}>
+                    <a
+                      href={`mailto:${selectedClient.email}`}
+                      className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-brand-main text-brand-secondary hover:bg-brand-main-light transition-colors tracking-[0.1em] uppercase"
+                      style={{ fontSize: "0.65rem" }}
+                    >
                       <Mail className="w-3.5 h-3.5" /> Send Email
-                    </button>
-                    <button className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 border border-brand-main/15 text-brand-main/60 hover:text-brand-main hover:border-brand-main/30 transition-colors" style={{ fontSize: "0.7rem" }}>
+                    </a>
+                    <button
+                      onClick={() => router.push(`/admin/bookings?newBooking=true&clientId=${selectedClient.id}`)}
+                      className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 border border-brand-main/15 text-brand-main/60 hover:text-brand-main hover:border-brand-main/30 transition-colors"
+                      style={{ fontSize: "0.7rem" }}
+                    >
                       <CalendarCheck className="w-3.5 h-3.5" /> Create New Booking
                     </button>
                   </div>

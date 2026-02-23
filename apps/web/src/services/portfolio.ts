@@ -97,3 +97,49 @@ export function useDeletePortfolioItem() {
     },
   });
 }
+
+export function useAddPortfolioPhotos() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      id,
+      photos,
+    }: {
+      id: string;
+      photos: Array<{
+        r2Key: string;
+        mimeType: string;
+        width?: number;
+        height?: number;
+      }>;
+    }) => {
+      const { data } = await apiClient.post(`/portfolio/${id}/photos`, {
+        photos,
+      });
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: portfolioKeys.all });
+    },
+  });
+}
+
+export function useDeletePortfolioPhoto() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      itemId,
+      photoId,
+    }: {
+      itemId: string;
+      photoId: string;
+    }) => {
+      await apiClient.delete(`/portfolio/${itemId}/photos/${photoId}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: portfolioKeys.all });
+    },
+  });
+}

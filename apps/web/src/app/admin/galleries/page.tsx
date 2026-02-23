@@ -2,11 +2,21 @@
 
 import Link from "next/link";
 import { motion } from "motion/react";
-import { Image, PlusCircle, Eye, EyeOff, Calendar, User } from "lucide-react";
+import { useState } from "react";
+import { Image, PlusCircle, Eye, EyeOff, Calendar, User, Search } from "lucide-react";
 import { useGalleries } from "@/services/galleries";
 
 export default function AdminGalleries() {
   const { data: galleries = [], isLoading } = useGalleries();
+  const [search, setSearch] = useState("");
+
+  const filtered = (galleries as any[]).filter((gal) => {
+    if (!search) return true;
+    const q = search.toLowerCase();
+    const title = (gal.title || "").toLowerCase();
+    const clientName = (gal.clientName || gal.client?.fullName || "").toLowerCase();
+    return title.includes(q) || clientName.includes(q);
+  });
 
   if (isLoading) {
     return (
@@ -43,8 +53,15 @@ export default function AdminGalleries() {
         </Link>
       </motion.div>
 
+      {/* Search */}
+      <div className="relative max-w-sm mb-6">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-brand-main/30" />
+        <input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search galleries..."
+          className="w-full pl-10 pr-4 py-2.5 bg-white border border-brand-main/10 text-brand-main focus:outline-none focus:border-brand-tertiary transition-colors" style={{ fontSize: "0.85rem" }} />
+      </div>
+
       <div className="space-y-3">
-        {galleries.map((gal: any, i: number) => (
+        {filtered.map((gal: any, i: number) => (
           <motion.div key={gal.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}>
             <Link href={`/admin/galleries/${gal.id}`} className="block bg-white border border-brand-main/8 p-5 hover:border-brand-tertiary/30 transition-colors">
               <div className="flex flex-wrap items-start justify-between gap-3">
@@ -71,7 +88,7 @@ export default function AdminGalleries() {
           </motion.div>
         ))}
 
-        {galleries.length === 0 && (
+        {filtered.length === 0 && (
           <div className="text-center py-16">
             <Image className="w-8 h-8 text-brand-main/15 mx-auto mb-3" />
             <p className="text-brand-main/40" style={{ fontSize: "0.9rem" }}>No galleries yet.</p>

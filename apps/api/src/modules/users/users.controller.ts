@@ -1,6 +1,7 @@
 import {
   Controller,
   Get,
+  Post,
   Patch,
   Delete,
   Param,
@@ -14,6 +15,7 @@ import { UsersService } from './users.service';
 import { SupabaseAuthGuard } from '../../common/guards/supabase-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
+import { randomUUID } from 'crypto';
 
 @ApiTags('Users')
 @Controller('users')
@@ -25,6 +27,19 @@ export class UsersController {
   @Get()
   async findAll() {
     return this.usersService.findAll();
+  }
+
+  @Post()
+  async createClient(
+    @Body() body: { fullName: string; email: string; phone?: string },
+  ) {
+    return this.usersService.create({
+      fullName: body.fullName,
+      email: body.email,
+      phone: body.phone || null,
+      role: UserRole.CLIENT,
+      supabaseId: `placeholder-${randomUUID()}`,
+    });
   }
 
   @Get('clients')

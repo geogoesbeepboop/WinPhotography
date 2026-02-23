@@ -39,6 +39,20 @@ export class PortfolioController {
     return this.portfolioService.findAll();
   }
 
+  // Admin: generate presigned upload URL for R2
+  @Post('upload-url')
+  @UseGuards(SupabaseAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  async getUploadUrl(
+    @Body() body: { portfolioItemId: string; filename: string; contentType: string },
+  ) {
+    return this.portfolioService.generateUploadUrl(
+      body.portfolioItemId,
+      body.filename,
+      body.contentType,
+    );
+  }
+
   // Public: return single item by slug
   @Get(':slug')
   async findBySlug(@Param('slug') slug: string) {

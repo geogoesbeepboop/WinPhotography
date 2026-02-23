@@ -4,9 +4,13 @@ import { PortfolioItemEntity } from './entities/portfolio-item.entity';
 import { PortfolioPhotoEntity } from './entities/portfolio-photo.entity';
 import { PortfolioService } from './portfolio.service';
 import { PortfolioController } from './portfolio.controller';
+import { StorageModule } from '../storage/storage.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([PortfolioItemEntity, PortfolioPhotoEntity])],
+  imports: [
+    TypeOrmModule.forFeature([PortfolioItemEntity, PortfolioPhotoEntity]),
+    StorageModule,
+  ],
   controllers: [PortfolioController],
   providers: [PortfolioService],
   exports: [PortfolioService],

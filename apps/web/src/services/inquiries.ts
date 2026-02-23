@@ -77,3 +77,35 @@ export function useDeleteInquiry() {
     },
   });
 }
+
+export function useConvertInquiry() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      id,
+      clientId,
+      packageName,
+      packagePrice,
+      depositAmount,
+    }: {
+      id: string;
+      clientId: string;
+      packageName: string;
+      packagePrice: number;
+      depositAmount: number;
+    }) => {
+      const { data } = await apiClient.post(`/inquiries/${id}/convert`, {
+        clientId,
+        packageName,
+        packagePrice,
+        depositAmount,
+      });
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: inquiryKeys.all });
+      queryClient.invalidateQueries({ queryKey: ['bookings'] });
+    },
+  });
+}

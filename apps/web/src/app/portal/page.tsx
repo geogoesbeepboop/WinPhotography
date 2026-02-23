@@ -45,45 +45,6 @@ interface ApiBooking {
   client?: { id: string };
 }
 
-const fallbackGalleries = [
-  {
-    id: "g1",
-    title: "Engagement Session",
-    date: "January 15, 2026",
-    coverImage:
-      "https://images.unsplash.com/photo-1542810185-a9c0362dcff4?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxlbmdhZ2VtZW50JTIwcmluZyUyMHByb3Bvc2FsJTIwcm9tYW50aWN8ZW58MXx8fHwxNzcxNjk5MzY1fDA&ixlib=rb-4.1.0&q=80&w=1080",
-    photoCount: 142,
-    status: "ready" as const,
-  },
-  {
-    id: "g2",
-    title: "Wedding Day",
-    date: "March 22, 2026",
-    coverImage:
-      "https://images.unsplash.com/photo-1649191717256-d4a81a6df923?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHx3ZWRkaW5nJTIwY291cGxlJTIwZ29sZGVuJTIwaG91ciUyMHBvcnRyYWl0fGVufDF8fHx8MTc3MTczODYzNnww&ixlib=rb-4.1.0&q=80&w=1080",
-    photoCount: 0,
-    status: "editing" as const,
-  },
-];
-
-const fallbackBookings = [
-  {
-    id: "b1",
-    type: "Wedding - Signature",
-    date: "March 22, 2026",
-    status: "confirmed" as const,
-    paidAmount: 2040,
-    totalAmount: 6800,
-  },
-  {
-    id: "b2",
-    type: "Engagement - Full Story",
-    date: "January 15, 2026",
-    status: "completed" as const,
-    paidAmount: 2200,
-    totalAmount: 2200,
-  },
-];
 
 function mapGalleryStatus(status: string): "ready" | "editing" {
   if (status === "published") return "ready";
@@ -128,8 +89,8 @@ export default function PortalDashboard() {
 
   const isLoading = galleriesLoading || bookingsLoading;
 
-  // Map API galleries to display format, fall back to mock data
-  const galleries = (apiGalleries && (apiGalleries as ApiGallery[]).length > 0)
+  // Map API galleries to display format
+  const galleries = apiGalleries
     ? (apiGalleries as ApiGallery[]).map((g) => ({
         id: g.id,
         title: g.title,
@@ -140,32 +101,32 @@ export default function PortalDashboard() {
         photoCount: g.photoCount || 0,
         status: mapGalleryStatus(g.status),
       }))
-    : fallbackGalleries;
+    : [];
 
-  // Map API bookings to display format, fall back to mock data
-  const bookings = (apiBookings && (apiBookings as ApiBooking[]).length > 0)
+  // Map API bookings to display format
+  const bookings = apiBookings
     ? (apiBookings as ApiBooking[]).map((b) => {
         const paidAmount = (b.payments || [])
           .filter((p) => p.status === "succeeded")
-          .reduce((sum, p) => sum + p.amount, 0);
+          .reduce((sum, p) => sum + Number(p.amount), 0);
         return {
           id: b.id,
           type: b.packageName,
           date: format(new Date(b.eventDate), "MMMM d, yyyy"),
           status: mapBookingStatus(b.status) as keyof typeof statusConfig,
           paidAmount,
-          totalAmount: b.packagePrice,
+          totalAmount: Number(b.packagePrice),
         };
       })
-    : fallbackBookings;
+    : [];
 
   // Compute stats from real data
   const activeGalleries = galleries.length;
-  const upcomingSessions = (apiBookings && (apiBookings as ApiBooking[]).length > 0)
+  const upcomingSessions = apiBookings
     ? (apiBookings as ApiBooking[]).filter(
         (b) => b.status === "confirmed" && isFuture(new Date(b.eventDate))
       ).length
-    : 1;
+    : 0;
   const photosAvailable = galleries
     .filter((g) => g.status === "ready")
     .reduce((sum, g) => sum + g.photoCount, 0);

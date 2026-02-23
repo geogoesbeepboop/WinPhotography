@@ -10,7 +10,9 @@ import {
   NotFoundException,
   ForbiddenException,
   ParseUUIDPipe,
+  Res,
 } from '@nestjs/common';
+import { Response } from 'express';
 import { ApiTags } from '@nestjs/swagger';
 import { UserRole } from '@winphotography/shared';
 import { GalleriesService } from './galleries.service';
@@ -47,6 +49,21 @@ export class GalleriesController {
   @Get('my')
   async findMyGalleries(@CurrentUser() user: UserEntity) {
     return this.galleriesService.findByClientId(user.id);
+  }
+
+  // Admin: generate presigned upload URL for R2
+  // NOTE: Must be before :id to avoid "upload-url" being parsed as UUID
+  @Post('upload-url')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.ADMIN)
+  async getUploadUrl(
+    @Body() body: { galleryId: string; filename: string; contentType: string },
+  ) {
+    return this.galleriesService.generateUploadUrl(
+      body.galleryId,
+      body.filename,
+      body.contentType,
+    );
   }
 
   @Get(':id')
@@ -88,9 +105,22 @@ export class GalleriesController {
   @Post(':id/photos')
   @UseGuards(RolesGuard)
   @Roles(UserRole.ADMIN)
-  async addPhotos(@Param('id', ParseUUIDPipe) id: string, @Body() body: any) {
-    // TODO: Implement when R2/storage integration is set up
-    throw new Error('Not implemented - requires R2/storage integration');
+  async addPhotos(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() body: { photos: any[] },
+  ) {
+    return this.galleriesService.addPhotos(id, body.photos);
+  }
+
+  @Delete(':id/photos/:photoId')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.ADMIN)
+  async removePhoto(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('photoId', ParseUUIDPipe) photoId: string,
+  ) {
+    await this.galleriesService.removePhoto(id, photoId);
+    return { message: 'Photo deleted successfully' };
   }
 
   @Post(':id/publish')
@@ -104,14 +134,14 @@ export class GalleriesController {
   async downloadPhoto(
     @Param('id', ParseUUIDPipe) id: string,
     @Param('photoId', ParseUUIDPipe) photoId: string,
+    @Res() res: Response,
   ) {
-    // TODO: Implement when R2/storage integration is set up
-    throw new Error('Not implemented - requires R2/storage integration');
+    const url = await this.galleriesService.generateDownloadUrl(id, photoId);
+    res.redirect(url);
   }
 
   @Post(':id/download-all')
   async downloadAll(@Param('id', ParseUUIDPipe) id: string) {
-    // TODO: Implement when R2/storage integration is set up
-    throw new Error('Not implemented - requires R2/storage integration');
+    return this.galleriesService.generateBulkDownloadUrl(id);
   }
 }
