@@ -8,6 +8,8 @@ import ReactMarkdown from "react-markdown";
 import { useCreateBlogPost, useUpdateBlogPost, useAdminBlogPosts } from "@/services/blog";
 import { uploadBlogCoverImage } from "@/services/upload";
 import { resolveMediaUrl } from "@/lib/media";
+import { ImageWithFallback } from "@/components/shared/image-with-fallback";
+import { imageUploadAcceptList, isSupportedImageUpload } from "@/lib/image-upload";
 
 function BlogEditor() {
   const router = useRouter();
@@ -47,7 +49,12 @@ function BlogEditor() {
   }, [editId, posts]);
 
   const handleCoverUpload = async (file: File) => {
-    if (!file.type.startsWith("image/")) return;
+    if (!isSupportedImageUpload(file)) {
+      setError(
+        "Unsupported image format. Use JPG, PNG, WEBP, GIF, AVIF, or HEIC/HEIF/TIFF/BMP (auto-converted to JPG).",
+      );
+      return;
+    }
     setUploading(true);
     setError("");
     try {
@@ -71,7 +78,7 @@ function BlogEditor() {
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     const file = e.dataTransfer.files[0];
-    if (file && file.type.startsWith("image/")) handleCoverUpload(file);
+    if (file) handleCoverUpload(file);
   };
 
   const handlePaste = (e: React.ClipboardEvent) => {
@@ -300,7 +307,7 @@ function BlogEditor() {
             <input
               ref={fileInputRef}
               type="file"
-              accept="image/*"
+              accept={imageUploadAcceptList()}
               onChange={handleFileSelect}
               className="hidden"
             />
@@ -308,13 +315,10 @@ function BlogEditor() {
             {form.coverImageUrl ? (
               <div className="relative group">
                 <div className="aspect-video overflow-hidden bg-brand-main/5">
-                  <img
+                  <ImageWithFallback
                     src={resolveMediaUrl(form.coverImageUrl)}
                     alt="Cover preview"
                     className="w-full h-full object-cover"
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).style.display = "none";
-                    }}
                   />
                 </div>
                 <button
@@ -337,6 +341,9 @@ function BlogEditor() {
                 )}
                 <p className="text-brand-main/40" style={{ fontSize: "0.8rem" }}>
                   {uploading ? "Uploading..." : "Drop image, click to browse, or paste"}
+                </p>
+                <p className="text-brand-main/30 mt-1" style={{ fontSize: "0.7rem" }}>
+                  HEIC/HEIF images are converted to JPG when supported.
                 </p>
               </div>
             )}

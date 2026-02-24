@@ -10,9 +10,31 @@ import {
   useAddPortfolioPhotos,
   useAdminPortfolio,
   useUpdatePortfolioItem,
+  useDeletePortfolioPhoto,
 } from "@/services/portfolio";
 import { uploadPortfolioPhoto } from "@/services/upload";
 import { EventTypeItem, useEventTypes } from "@/services/event-types";
+import { resolveMediaUrl } from "@/lib/media";
+import { imageUploadAcceptList, isSupportedImageUpload } from "@/lib/image-upload";
+import { ImageWithFallback } from "@/components/shared/image-with-fallback";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+
+interface PortfolioPhotoOption {
+  id: string;
+  url?: string;
+  r2Key?: string;
+  thumbnailUrl?: string;
+  r2ThumbnailKey?: string;
+}
 
 interface PortfolioItemOption {
   id: string;
@@ -21,6 +43,22 @@ interface PortfolioItemOption {
   description?: string;
   isFeatured?: boolean;
   featured?: boolean;
+  coverImageUrl?: string;
+  coverImageKey?: string;
+  photos?: PortfolioPhotoOption[];
+}
+
+interface ExistingPhotoView {
+  id: string;
+  src: string;
+}
+
+function resolveExistingPhotoSrc(photo: PortfolioPhotoOption): string {
+  const rawSource = photo.url || photo.r2Key || "";
+  if (!rawSource || !rawSource.trim()) {
+    return "";
+  }
+  return resolveMediaUrl(rawSource);
 }
 
 export default function AdminPortfolioNew() {
@@ -30,6 +68,7 @@ export default function AdminPortfolioNew() {
   const createPortfolioItem = useCreatePortfolioItem();
   const updatePortfolioItem = useUpdatePortfolioItem();
   const addPhotos = useAddPortfolioPhotos();
+  const deletePortfolioPhoto = useDeletePortfolioPhoto();
   const { data: portfolioItems = [] } = useAdminPortfolio();
   const { data: eventTypes = [] } = useEventTypes();
   const eventTypeOptions = eventTypes as EventTypeItem[];
@@ -49,6 +88,19 @@ export default function AdminPortfolioNew() {
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState({ current: 0, total: 0 });
   const [error, setError] = useState("");
+  const [removedExistingPhotoIds, setRemovedExistingPhotoIds] = useState<string[]>([]);
+  const [deleteTargetPhoto, setDeleteTargetPhoto] = useState<ExistingPhotoView | null>(null);
+  const existingPhotos: ExistingPhotoView[] =
+    existingItem?.photos
+      ?.filter((photo) => {
+        if (!photo.id) return false;
+        return !removedExistingPhotoIds.includes(photo.id);
+      })
+      .map((photo) => ({
+        id: photo.id,
+        src: resolveExistingPhotoSrc(photo),
+      }))
+      .filter((photo) => Boolean(photo.src)) || [];
 
   useEffect(() => {
     if (!editId || !existingItem) return;
@@ -60,9 +112,28 @@ export default function AdminPortfolioNew() {
     });
   }, [editId, existingItem]);
 
+  useEffect(() => {
+    setRemovedExistingPhotoIds([]);
+    setDeleteTargetPhoto(null);
+  }, [editId, existingItem?.id]);
+
+  const extractSupportedFiles = (files: File[]): File[] => {
+    const supported = files.filter(isSupportedImageUpload);
+    if (supported.length !== files.length) {
+      setError(
+        "Some files were skipped. Supported formats: JPG, PNG, WEBP, GIF, AVIF. HEIC/HEIF/TIFF/BMP are converted to JPG when supported.",
+      );
+    }
+    return supported;
+  };
+
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || []);
+    const selected = Array.from(e.target.files || []);
+    const files = extractSupportedFiles(selected);
     if (files.length === 0) return;
+    if (files.length === selected.length) {
+      setError("");
+    }
     setSelectedFiles((prev) => [...prev, ...files]);
     // Generate previews
     files.forEach((file) => {
@@ -83,10 +154,12 @@ export default function AdminPortfolioNew() {
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
-    const files = Array.from(e.dataTransfer.files).filter((f) =>
-      f.type.startsWith("image/")
-    );
+    const dropped = Array.from(e.dataTransfer.files || []);
+    const files = extractSupportedFiles(dropped);
     if (files.length === 0) return;
+    if (files.length === dropped.length) {
+      setError("");
+    }
     setSelectedFiles((prev) => [...prev, ...files]);
     files.forEach((file) => {
       const reader = new FileReader();
@@ -152,6 +225,26 @@ export default function AdminPortfolioNew() {
     }
   };
 
+  const confirmDeleteExistingPhoto = () => {
+    if (!editId || !deleteTargetPhoto) return;
+    setError("");
+    deletePortfolioPhoto.mutate(
+      { itemId: editId, photoId: deleteTargetPhoto.id },
+      {
+        onSuccess: () => {
+          setRemovedExistingPhotoIds((prev) => [...prev, deleteTargetPhoto.id]);
+          setDeleteTargetPhoto(null);
+        },
+        onError: (err: any) => {
+          const msg =
+            err?.response?.data?.message ||
+            "Failed to delete existing photo. Please try again.";
+          setError(Array.isArray(msg) ? msg.join(", ") : msg);
+        },
+      },
+    );
+  };
+
   const isPending =
     createPortfolioItem.isPending ||
     updatePortfolioItem.isPending ||
@@ -209,32 +302,77 @@ export default function AdminPortfolioNew() {
             </label>
           </div>
 
-          {/* Upload area */}
-          <input
-            ref={fileInputRef}
-            type="file"
-            multiple
-            accept="image/*"
-            onChange={handleFileSelect}
-            className="hidden"
-          />
+          {editId && (
+            <div className="space-y-3">
+              <p className="text-brand-main/50 uppercase tracking-[0.08em]" style={{ fontSize: "0.65rem" }}>
+                Existing Photos
+              </p>
+              {existingPhotos.length > 0 ? (
+                <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2">
+                  {existingPhotos.map((photo, i) => (
+                    <div key={photo.id} className="relative group aspect-square bg-brand-secondary border border-brand-main/8 overflow-hidden">
+                      <ImageWithFallback
+                        src={photo.src}
+                        alt={`Existing photo ${i + 1}`}
+                        className="w-full h-full object-cover"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setDeleteTargetPhoto(photo)}
+                        className="absolute top-1 right-1 w-5 h-5 bg-red-600 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                        title="Delete existing photo"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-brand-main/40" style={{ fontSize: "0.8rem" }}>
+                  No existing photos on this collection yet.
+                </p>
+              )}
+            </div>
+          )}
 
-          <div
-            onClick={() => fileInputRef.current?.click()}
-            onDragOver={(e) => e.preventDefault()}
-            onDrop={handleDrop}
-            className="bg-white border-2 border-dashed border-brand-main/15 p-10 text-center hover:border-brand-tertiary/40 transition-colors cursor-pointer"
-          >
-            <Upload className="w-10 h-10 text-brand-main/20 mx-auto mb-3" />
-            <p className="text-brand-main/50 mb-1" style={{ fontSize: "0.9rem" }}>
-              {selectedFiles.length > 0
-                ? `${selectedFiles.length} photo${selectedFiles.length === 1 ? "" : "s"} selected — click to add more`
-                : "Upload Collection Photos"}
+          <div className="space-y-3">
+            <p className="text-brand-main/50 uppercase tracking-[0.08em]" style={{ fontSize: "0.65rem" }}>
+              New Photos
             </p>
-            <p className="text-brand-main/30" style={{ fontSize: "0.75rem" }}>Drag & drop or click to browse · JPG, PNG up to 20MB each</p>
+            {/* Upload area */}
+            <input
+              ref={fileInputRef}
+              type="file"
+              multiple
+              accept={imageUploadAcceptList()}
+              onChange={handleFileSelect}
+              className="hidden"
+            />
+
+            <div
+              onClick={() => fileInputRef.current?.click()}
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={handleDrop}
+              className="bg-white border-2 border-dashed border-brand-main/15 p-10 text-center hover:border-brand-tertiary/40 transition-colors cursor-pointer"
+            >
+              <Upload className="w-10 h-10 text-brand-main/20 mx-auto mb-3" />
+              <p className="text-brand-main/50 mb-1" style={{ fontSize: "0.9rem" }}>
+                {selectedFiles.length > 0
+                  ? `${selectedFiles.length} photo${selectedFiles.length === 1 ? "" : "s"} selected — click to add more`
+                  : editId
+                    ? "Upload New Photos"
+                    : "Upload Collection Photos"}
+              </p>
+              <p className="text-brand-main/30" style={{ fontSize: "0.75rem" }}>
+                Drag & drop or click to browse · JPG, PNG, WEBP, GIF, AVIF up to 20MB each
+              </p>
+              <p className="text-brand-main/30 mt-1" style={{ fontSize: "0.7rem" }}>
+                HEIC/HEIF uploads are converted to JPG automatically when supported.
+              </p>
+            </div>
           </div>
 
-          {/* Preview thumbnails */}
+          {/* New photo previews */}
           {previews.length > 0 && (
             <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
               {previews.map((src, i) => (
@@ -290,6 +428,26 @@ export default function AdminPortfolioNew() {
           </div>
         </form>
       </motion.div>
+
+      <AlertDialog open={!!deleteTargetPhoto} onOpenChange={() => setDeleteTargetPhoto(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Existing Photo</AlertDialogTitle>
+            <AlertDialogDescription>
+              Remove this photo from the portfolio collection? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDeleteExistingPhoto}
+              className="bg-red-600 hover:bg-red-700 text-white"
+            >
+              {deletePortfolioPhoto.isPending ? "Deleting..." : "Delete Photo"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

@@ -8,33 +8,47 @@ function toProxyUrl(key: string): string {
   return `${API_URL}/storage/image?key=${encodeURIComponent(key)}`;
 }
 
+function isStorageProxyPath(value: string): boolean {
+  return value.includes("/storage/image");
+}
+
+function extractStorageKeyFromUrl(value: string): string | null {
+  try {
+    const url = new URL(value);
+    if (!isStorageProxyPath(url.pathname)) {
+      return null;
+    }
+    const key = url.searchParams.get("key");
+    return key?.trim() || null;
+  } catch {
+    return null;
+  }
+}
+
+function extractStorageKeyFromRelativeUrl(value: string): string | null {
+  try {
+    const url = new URL(value, "http://localhost");
+    if (!isStorageProxyPath(url.pathname)) {
+      return null;
+    }
+    const key = url.searchParams.get("key");
+    return key?.trim() || null;
+  } catch {
+    return null;
+  }
+}
+
 function normalizeStorageKey(input: string): string | null {
   const value = input.trim();
   if (!value) return null;
 
   if (isAbsoluteUrl(value)) {
-    try {
-      const url = new URL(value);
-      if (!url.pathname.includes("/storage/image")) {
-        return null;
-      }
-      const key = url.searchParams.get("key");
-      if (key) return key;
-      return null;
-    } catch {
-      return null;
-    }
+    return extractStorageKeyFromUrl(value);
   }
 
   if (value.startsWith("/")) {
-    if (value.includes("/storage/image")) {
-      try {
-        const url = new URL(value, "http://localhost");
-        const key = url.searchParams.get("key");
-        if (key) return key;
-      } catch {
-        return null;
-      }
+    if (isStorageProxyPath(value)) {
+      return extractStorageKeyFromRelativeUrl(value);
     }
     return null;
   }
@@ -49,8 +63,17 @@ function normalizeStorageKey(input: string): string | null {
  */
 export function resolveMediaUrl(input?: string | null): string {
   if (!input) return "";
-  const key = normalizeStorageKey(input);
+  const trimmed = input.trim();
+  if (!trimmed) return "";
+
+  // Guard against malformed proxy URLs like "/storage/image?key="
+  if (isStorageProxyPath(trimmed)) {
+    const key = normalizeStorageKey(trimmed);
+    return key ? toProxyUrl(key) : "";
+  }
+
+  const key = normalizeStorageKey(trimmed);
   if (key) return toProxyUrl(key);
-  if (isAbsoluteUrl(input) || input.startsWith("/")) return input;
-  return toProxyUrl(input);
+  if (isAbsoluteUrl(trimmed) || trimmed.startsWith("/")) return trimmed;
+  return toProxyUrl(trimmed);
 }

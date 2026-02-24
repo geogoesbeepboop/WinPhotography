@@ -73,6 +73,7 @@ export class PortfolioService {
         this.storageService.generatePublicUrl(item.coverThumbnailKey);
     }
     if (item.photos) {
+      item.photos = item.photos.filter((photo) => Boolean(photo.r2Key?.trim()));
       for (const photo of item.photos) {
         (photo as any).url = this.storageService.generatePublicUrl(photo.r2Key);
         (photo as any).thumbnailUrl = photo.r2ThumbnailKey
@@ -220,9 +221,19 @@ export class PortfolioService {
 
     // Set cover from first photo if not already set
     if (!item.coverImageKey && saved.length > 0) {
-      item.coverImageKey = saved[0].r2Key;
-      item.coverThumbnailKey = saved[0].r2ThumbnailKey;
-      await this.portfolioRepository.save(item);
+      try {
+        await this.portfolioRepository.update(item.id, {
+          coverImageKey: saved[0].r2Key,
+          coverThumbnailKey: saved[0].r2ThumbnailKey,
+        });
+        item.coverImageKey = saved[0].r2Key;
+        item.coverThumbnailKey = saved[0].r2ThumbnailKey;
+      } catch (error) {
+        // Do not fail the entire request when photo records were already saved.
+        this.logger.warn(
+          `Failed to set cover image for portfolio item ${item.id}: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      }
     }
 
     // Generate thumbnails in background
@@ -264,9 +275,10 @@ export class PortfolioService {
     });
     if (item && item.coverImageKey === photo.r2Key) {
       const remaining = item.photos || [];
-      item.coverImageKey = remaining[0]?.r2Key ?? '';
-      item.coverThumbnailKey = remaining[0]?.r2ThumbnailKey ?? '';
-      await this.portfolioRepository.save(item);
+      await this.portfolioRepository.update(item.id, {
+        coverImageKey: remaining[0]?.r2Key ?? '',
+        coverThumbnailKey: remaining[0]?.r2ThumbnailKey ?? '',
+      });
     }
   }
 

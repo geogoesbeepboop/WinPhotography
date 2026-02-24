@@ -1,23 +1,30 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "motion/react";
 import { Check, ArrowRight } from "lucide-react";
 import { ImageWithFallback } from "@/components/shared/image-with-fallback";
-import { usePackages } from "@/services/packages";
+import {
+  PackageItem,
+  PricingAddOnItem,
+  usePackages,
+  usePricingAddOns,
+} from "@/services/packages";
 import { useDataSourceStore } from "@/stores/admin-settings-store";
 
 type Category = {
   id: string;
   label: string;
   description: string;
+  eventTypes?: string[];
   tiers: {
     name: string;
     subtitle: string;
     price: string;
     features: string[];
     popular?: boolean;
+    sortOrder?: number;
   }[];
 };
 
@@ -346,21 +353,31 @@ const mockCategories: Category[] = [
   },
 ];
 
-const addOns = [
-  { name: "Additional Hour", price: "$400/hr" },
-  { name: "Second Photographer", price: "$600" },
-  { name: "Rush Delivery (1 week)", price: "$500" },
-  { name: "Fine Art Album (30 pages)", price: "$1,200" },
-  { name: "Canvas Gallery Wrap (16x24)", price: "$350" },
-  { name: "Print Collection (10 prints)", price: "$450" },
+const mockAddOns: PricingAddOnItem[] = [
+  { id: "mock-addon-1", name: "Additional Hour", price: 400, priceSuffix: "/hr", sortOrder: 0 },
+  { id: "mock-addon-2", name: "Second Photographer", price: 600, sortOrder: 1 },
+  { id: "mock-addon-3", name: "Rush Delivery (1 week)", price: 500, sortOrder: 2 },
+  { id: "mock-addon-4", name: "Fine Art Album (30 pages)", price: 1200, sortOrder: 3 },
+  { id: "mock-addon-5", name: "Canvas Gallery Wrap (16x24)", price: 350, sortOrder: 4 },
+  { id: "mock-addon-6", name: "Print Collection (10 prints)", price: 450, sortOrder: 5 },
 ];
 
-function buildCategoriesFromApi(apiPackages: any[]): Category[] {
-  const grouped: Record<string, { description: string; tiers: any[] }> = {};
+function buildCategoriesFromApi(apiPackages: PackageItem[]): Category[] {
+  const grouped: Record<
+    string,
+    { description: string; tiers: Category["tiers"]; eventTypes: Set<string> }
+  > = {};
   for (const pkg of apiPackages) {
     const label = pkg.categoryLabel || "Other";
     if (!grouped[label]) {
-      grouped[label] = { description: pkg.categoryDescription || "", tiers: [] };
+      grouped[label] = {
+        description: pkg.categoryDescription || "",
+        tiers: [],
+        eventTypes: new Set<string>(),
+      };
+    }
+    if (pkg.eventType) {
+      grouped[label].eventTypes.add(pkg.eventType);
     }
     grouped[label].tiers.push({
       name: pkg.name,
@@ -371,25 +388,75 @@ function buildCategoriesFromApi(apiPackages: any[]): Category[] {
       sortOrder: pkg.sortOrder ?? 0,
     });
   }
-  return Object.entries(grouped).map(([label, { description, tiers }]) => ({
+  return Object.entries(grouped).map(([label, { description, tiers, eventTypes }]) => ({
     id: label.toLowerCase().replace(/\s+/g, "-"),
     label,
     description,
-    tiers: tiers.sort((a: any, b: any) => a.sortOrder - b.sortOrder),
+    eventTypes: Array.from(eventTypes),
+    tiers: [...tiers].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0)),
   }));
+}
+
+function formatPrice(price: number | string, priceSuffix?: string | null): string {
+  const numericValue =
+    typeof price === "number" ? price : Number.parseFloat(String(price));
+
+  let formatted = "";
+  if (Number.isFinite(numericValue)) {
+    const hasDecimals = Math.round(numericValue * 100) % 100 !== 0;
+    formatted = `$${numericValue.toLocaleString("en-US", {
+      maximumFractionDigits: hasDecimals ? 2 : 0,
+      minimumFractionDigits: hasDecimals ? 2 : 0,
+    })}`;
+  } else {
+    formatted = String(price);
+  }
+
+  return `${formatted}${priceSuffix || ""}`;
 }
 
 export default function PricingPage() {
   const { dataSource } = useDataSourceStore();
-  const { data: apiPackages } = usePackages();
+  const { data: apiPackages = [] } = usePackages();
 
   const isLive = dataSource === "api";
-  const categories = isLive
-    ? (apiPackages && apiPackages.length > 0 ? buildCategoriesFromApi(apiPackages) : [])
-    : mockCategories;
+  const categories = useMemo(
+    () =>
+      isLive
+        ? apiPackages.length > 0
+          ? buildCategoriesFromApi(apiPackages)
+          : []
+        : mockCategories,
+    [apiPackages, isLive],
+  );
 
   const [activeCategory, setActiveCategory] = useState(categories[0]?.id || "elopements");
+
+  useEffect(() => {
+    if (categories.length === 0) return;
+    if (!categories.some((category) => category.id === activeCategory)) {
+      setActiveCategory(categories[0].id);
+    }
+  }, [activeCategory, categories]);
+
   const currentCategory = categories.find((c) => c.id === activeCategory) || categories[0];
+  const currentCategoryEventTypes = currentCategory?.eventTypes || [];
+  const primaryEventType = currentCategoryEventTypes.length === 1 ? currentCategoryEventTypes[0] : undefined;
+  const { data: apiAddOns = [] } = usePricingAddOns(primaryEventType);
+  const visibleAddOns = (isLive ? apiAddOns : mockAddOns)
+    .filter((addon) => {
+      if (!isLive) return true;
+      if (!addon.isActive) return false;
+      if (!addon.eventType) return true;
+      if (currentCategoryEventTypes.length === 0) return true;
+      return currentCategoryEventTypes.includes(addon.eventType);
+    })
+    .sort((a, b) => {
+      const sortA = a.sortOrder ?? 0;
+      const sortB = b.sortOrder ?? 0;
+      if (sortA !== sortB) return sortA - sortB;
+      return a.name.localeCompare(b.name);
+    });
 
   return (
     <div>
@@ -687,27 +754,40 @@ export default function PricingPage() {
               Add-Ons & Extras
             </h2>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {addOns.map((addon) => (
-              <div
-                key={addon.name}
-                className="flex items-center justify-between p-5 bg-card/60"
-              >
-                <span
-                  className="text-brand-main"
-                  style={{ fontSize: "0.9rem" }}
+          {visibleAddOns.length > 0 ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {visibleAddOns.map((addon) => (
+                <div
+                  key={addon.id}
+                  className="flex items-center justify-between gap-3 p-5 bg-card/60"
                 >
-                  {addon.name}
-                </span>
-                <span
-                  className="text-brand-tertiary font-serif"
-                  style={{ fontSize: "1.05rem" }}
-                >
-                  {addon.price}
-                </span>
-              </div>
-            ))}
-          </div>
+                  <div>
+                    <p
+                      className="text-brand-main"
+                      style={{ fontSize: "0.9rem" }}
+                    >
+                      {addon.name}
+                    </p>
+                    {addon.description && (
+                      <p className="text-brand-main/45 mt-1" style={{ fontSize: "0.75rem" }}>
+                        {addon.description}
+                      </p>
+                    )}
+                  </div>
+                  <span
+                    className="text-brand-tertiary font-serif shrink-0"
+                    style={{ fontSize: "1.05rem" }}
+                  >
+                    {formatPrice(addon.price, addon.priceSuffix)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-center text-brand-main/50" style={{ fontSize: "0.9rem" }}>
+              No add-ons are available for this event type yet.
+            </p>
+          )}
         </div>
       </section>
 

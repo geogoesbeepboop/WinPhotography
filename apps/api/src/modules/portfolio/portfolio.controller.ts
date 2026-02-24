@@ -100,7 +100,17 @@ export class PortfolioController {
     @Param('id', ParseUUIDPipe) id: string,
     @Body() body: any,
   ) {
-    return this.portfolioService.addPhotos(id, body.photos);
+    const photos = await this.portfolioService.addPhotos(id, body.photos);
+    return {
+      count: photos.length,
+      photos: photos.map((photo) => ({
+        id: photo.id,
+        r2Key: photo.r2Key,
+        r2ThumbnailKey: photo.r2ThumbnailKey,
+        mimeType: photo.mimeType,
+        sortOrder: photo.sortOrder,
+      })),
+    };
   }
 
   // Admin: remove photo (stub - needs R2 storage)

@@ -251,6 +251,24 @@ CREATE TABLE IF NOT EXISTS packages (
     updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+-- pricing_addons
+CREATE TABLE IF NOT EXISTS pricing_addons (
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name            VARCHAR(120) NOT NULL,
+    description     VARCHAR(500),
+    price           DECIMAL(10, 2) NOT NULL,
+    price_suffix    VARCHAR(40),
+    event_type      VARCHAR(100),
+    is_active       BOOLEAN NOT NULL DEFAULT true,
+    sort_order      INTEGER NOT NULL DEFAULT 0,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_pricing_addons_active ON pricing_addons(is_active);
+CREATE INDEX IF NOT EXISTS idx_pricing_addons_event_type ON pricing_addons(event_type);
+CREATE INDEX IF NOT EXISTS idx_pricing_addons_sort_order ON pricing_addons(sort_order);
+
 -- testimonials
 CREATE TABLE IF NOT EXISTS testimonials (
     id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -286,3 +304,4 @@ DO $$ BEGIN CREATE TRIGGER update_payments_updated_at BEFORE UPDATE ON payments 
 DO $$ BEGIN CREATE TRIGGER update_portfolio_items_updated_at BEFORE UPDATE ON portfolio_items FOR EACH ROW EXECUTE FUNCTION update_updated_at_column(); EXCEPTION WHEN duplicate_object THEN null; END $$;
 DO $$ BEGIN CREATE TRIGGER update_testimonials_updated_at BEFORE UPDATE ON testimonials FOR EACH ROW EXECUTE FUNCTION update_updated_at_column(); EXCEPTION WHEN duplicate_object THEN null; END $$;
 DO $$ BEGIN CREATE TRIGGER update_packages_updated_at BEFORE UPDATE ON packages FOR EACH ROW EXECUTE FUNCTION update_updated_at_column(); EXCEPTION WHEN duplicate_object THEN null; END $$;
+DO $$ BEGIN CREATE TRIGGER update_pricing_addons_updated_at BEFORE UPDATE ON pricing_addons FOR EACH ROW EXECUTE FUNCTION update_updated_at_column(); EXCEPTION WHEN duplicate_object THEN null; END $$;

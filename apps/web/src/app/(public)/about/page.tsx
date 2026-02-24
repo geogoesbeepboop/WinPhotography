@@ -5,7 +5,7 @@ import { motion } from "motion/react";
 import { Camera, Heart, Mountain, Globe } from "lucide-react";
 import { ImageWithFallback } from "@/components/shared/image-with-fallback";
 
-const photographerImage = "/images/AboutMain.jpg";
+const photographerImage = "/images/IMG_7528.jpg";
 
 const detailImage =
   "https://images.unsplash.com/photo-1769566025603-2e694fb2ff68?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxjb3VwbGUlMjBpbnRpbWF0ZSUyMHBvcnRyYWl0JTIwbmF0dXJhbCUyMGxpZ2h0fGVufDF8fHx8MTc3MTcyMTYxM3ww&ixlib=rb-4.1.0&q=80&w=1080";

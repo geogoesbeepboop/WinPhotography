@@ -26,7 +26,11 @@ export default () => ({
 
   email: {
     resendApiKey: process.env.RESEND_API_KEY,
-    from: process.env.EMAIL_FROM || 'hello@winphotography.com',
+    from:
+      process.env.EMAIL_FROM ||
+      process.env.RESEND_FROM ||
+      'onboarding@resend.dev',
+    adminEmail: process.env.ADMIN_EMAIL,
   },
 
   redis: {

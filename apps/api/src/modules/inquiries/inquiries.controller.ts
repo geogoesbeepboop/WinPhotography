@@ -8,6 +8,8 @@ import {
   Body,
   UseGuards,
   NotFoundException,
+  InternalServerErrorException,
+  Logger,
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { UserRole, InquiryStatus } from '@winphotography/shared';
@@ -21,6 +23,8 @@ import { Roles } from '../../common/decorators/roles.decorator';
 @ApiTags('Inquiries')
 @Controller('inquiries')
 export class InquiriesController {
+  private readonly logger = new Logger(InquiriesController.name);
+
   constructor(
     private readonly inquiriesService: InquiriesService,
     private readonly emailService: EmailService,
@@ -69,10 +73,19 @@ export class InquiriesController {
       throw new NotFoundException(`Inquiry ${id} not found`);
     }
 
-    await this.emailService.sendInquiryReply(inquiry.contactEmail, {
-      clientName: inquiry.contactName,
-      replyMessage: body.message,
-    });
+    try {
+      await this.emailService.sendInquiryReply(inquiry.contactEmail, {
+        clientName: inquiry.contactName,
+        replyMessage: body.message,
+      });
+    } catch (error) {
+      this.logger.error(
+        `Failed to send inquiry reply to ${inquiry.contactEmail}: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      throw new InternalServerErrorException(
+        'Failed to send email reply. Check RESEND_API_KEY, RESEND_FROM, and your verified sender domain.',
+      );
+    }
 
     // Update status to responded if currently new
     if (inquiry.status === InquiryStatus.NEW) {

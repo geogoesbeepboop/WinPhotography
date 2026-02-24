@@ -24,6 +24,10 @@ interface AdminNotificationData {
   newStatus?: string;
 }
 
+interface SendOptions {
+  throwOnError?: boolean;
+}
+
 @Injectable()
 export class EmailService {
   private readonly logger = new Logger(EmailService.name);
@@ -36,7 +40,8 @@ export class EmailService {
     const apiKey = this.configService.get<string>('email.resendApiKey');
     this.fromAddress =
       this.configService.get<string>('email.from') ||
-      'hello@winphotography.com';
+      process.env.RESEND_FROM ||
+      'onboarding@resend.dev';
     this.adminEmail =
       this.configService.get<string>('email.adminEmail') ||
       'admin@maewinphoto.com';
@@ -142,16 +147,21 @@ export class EmailService {
     to: string,
     subject: string,
     html: string,
+    options: SendOptions = {},
   ): Promise<void> {
     if (!this.resend) {
-      this.logger.warn(
-        `Email not sent (no API key): to=${to}, subject="${subject}"`,
-      );
+      const reason = `Email not sent (no API key): to=${to}, subject="${subject}"`;
+      this.logger.warn(reason);
+      if (options.throwOnError) {
+        throw new Error(
+          'Email service is not configured. Set RESEND_API_KEY to send email replies.',
+        );
+      }
       return;
     }
 
     try {
-      const { error } = await this.resend.emails.send({
+      const { data, error } = await this.resend.emails.send({
         from: this.fromAddress,
         to,
         subject,
@@ -160,13 +170,20 @@ export class EmailService {
 
       if (error) {
         this.logger.error(`Failed to send email to ${to}: ${error.message}`);
+        if (options.throwOnError) {
+          throw new Error(error.message);
+        }
       } else {
-        this.logger.log(`Email sent to ${to}: "${subject}"`);
+        this.logger.log(
+          `Email sent to ${to}: "${subject}" (id=${data?.id ?? 'n/a'})`,
+        );
       }
     } catch (err) {
-      this.logger.error(
-        `Unexpected error sending email to ${to}: ${(err as Error).message}`,
-      );
+      const message = (err as Error).message;
+      this.logger.error(`Unexpected error sending email to ${to}: ${message}`);
+      if (options.throwOnError) {
+        throw err;
+      }
     }
   }
 
@@ -431,6 +448,7 @@ ${this.paragraph(
       to,
       `Message from Mae Win Photography`,
       this.wrapInLayout(body),
+      { throwOnError: true },
     );
   }
 

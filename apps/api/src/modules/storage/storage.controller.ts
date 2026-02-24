@@ -15,11 +15,50 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 import { Response } from 'express';
 import { randomUUID } from 'crypto';
+import * as sharp from 'sharp';
 import { UserRole } from '@winphotography/shared';
 import { StorageService } from './storage.service';
 import { SupabaseAuthGuard } from '../../common/guards/supabase-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
+
+interface ProcessedUpload {
+  buffer: Buffer;
+  extension: string;
+  contentType: string;
+}
+
+const WEB_IMAGE_CONTENT_TYPES = new Set([
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+  'image/gif',
+  'image/avif',
+]);
+
+const WEB_IMAGE_EXTENSIONS = new Set([
+  'jpg',
+  'jpeg',
+  'png',
+  'webp',
+  'gif',
+  'avif',
+]);
+
+const CONVERT_TO_JPEG_EXTENSIONS = new Set([
+  'heic',
+  'heif',
+  'tif',
+  'tiff',
+  'bmp',
+]);
+
+const CONVERT_TO_JPEG_CONTENT_TYPES = new Set([
+  'image/heic',
+  'image/heif',
+  'image/tiff',
+  'image/bmp',
+]);
 
 @Controller('storage')
 export class StorageController {
@@ -87,18 +126,18 @@ export class StorageController {
       throw new BadRequestException('No file provided');
     }
 
+    const processedUpload = await this.prepareUpload(file);
     const folder = this.normalizePathSegment(body.folder || 'uploads', 'uploads');
     const entityId = this.normalizePathSegment(body.entityId || '', '');
-    const ext = this.resolveFileExtension(file.originalname, file.mimetype);
+    const ext = processedUpload.extension;
     const key = entityId
       ? `${folder}/${entityId}/${randomUUID()}.${ext}`
       : `${folder}/${randomUUID()}.${ext}`;
-    const contentType = file.mimetype || this.guessContentTypeFromKey(key);
 
     await this.storageService.uploadBuffer(
       key,
-      file.buffer,
-      contentType,
+      processedUpload.buffer,
+      processedUpload.contentType,
     );
 
     const publicUrl = this.storageService.generatePublicUrl(key);
@@ -167,6 +206,73 @@ export class StorageController {
     };
 
     return byMime[mimeType] || 'jpg';
+  }
+
+  private async prepareUpload(file: Express.Multer.File): Promise<ProcessedUpload> {
+    const extension = this.resolveFileExtension(file.originalname, file.mimetype);
+    const guessedContentType = this.guessContentTypeFromKey(`file.${extension}`);
+    const sourceContentType =
+      file.mimetype && file.mimetype !== 'application/octet-stream'
+        ? file.mimetype
+        : guessedContentType;
+
+    const looksLikeImage =
+      sourceContentType.startsWith('image/') ||
+      WEB_IMAGE_EXTENSIONS.has(extension) ||
+      CONVERT_TO_JPEG_EXTENSIONS.has(extension);
+
+    if (!looksLikeImage) {
+      throw new BadRequestException(
+        'Unsupported file type. Please upload an image (JPG, PNG, WEBP, GIF, or AVIF).',
+      );
+    }
+
+    const shouldConvertToJpeg =
+      CONVERT_TO_JPEG_CONTENT_TYPES.has(sourceContentType) ||
+      CONVERT_TO_JPEG_EXTENSIONS.has(extension);
+
+    if (shouldConvertToJpeg) {
+      try {
+        const convertedBuffer = await sharp(file.buffer, { failOn: 'none' })
+          .rotate()
+          .jpeg({ quality: 90, mozjpeg: true })
+          .toBuffer();
+
+        return {
+          buffer: convertedBuffer,
+          extension: 'jpg',
+          contentType: 'image/jpeg',
+        };
+      } catch (error) {
+        this.logger.warn(
+          `Image conversion failed for "${file.originalname}" (${sourceContentType}): ${error instanceof Error ? error.message : String(error)}`,
+        );
+        throw new BadRequestException(
+          'This image format is not supported. Please convert it to JPG or PNG and try again.',
+        );
+      }
+    }
+
+    const finalContentType =
+      WEB_IMAGE_CONTENT_TYPES.has(sourceContentType)
+        ? sourceContentType
+        : guessedContentType;
+
+    if (!WEB_IMAGE_CONTENT_TYPES.has(finalContentType)) {
+      throw new BadRequestException(
+        'Unsupported image format. Please upload JPG, PNG, WEBP, GIF, or AVIF.',
+      );
+    }
+
+    const finalExtension = WEB_IMAGE_EXTENSIONS.has(extension)
+      ? extension
+      : this.resolveFileExtension(`file.${extension}`, finalContentType);
+
+    return {
+      buffer: file.buffer,
+      extension: finalExtension,
+      contentType: finalContentType,
+    };
   }
 
   private guessContentTypeFromKey(key: string): string {

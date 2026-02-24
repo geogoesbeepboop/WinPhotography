@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { Plus, Search, FileText, Eye, EyeOff, Trash2, Edit2, Clock, Calendar } from "lucide-react";
 import { useAdminBlogPosts, useDeleteBlogPost, useUpdateBlogPost } from "@/services/blog";
 import { resolveMediaUrl } from "@/lib/media";
+import { ImageWithFallback } from "@/components/shared/image-with-fallback";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -146,7 +147,7 @@ export default function AdminBlogPage() {
               {/* Cover thumbnail */}
               {post.coverImageUrl && (
                 <div className="w-16 h-16 shrink-0 overflow-hidden bg-brand-main/5">
-                  <img
+                  <ImageWithFallback
                     src={resolveMediaUrl(post.coverImageUrl)}
                     alt=""
                     className="w-full h-full object-cover"

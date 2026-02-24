@@ -5,6 +5,8 @@ import Link from "next/link";
 import { motion } from "motion/react";
 import { PlusCircle, Eye, EyeOff, Star, Image, Trash2, Edit2 } from "lucide-react";
 import { useAdminPortfolio, useUpdatePortfolioItem, useDeletePortfolioItem } from "@/services/portfolio";
+import { EventTypeItem, useEventTypes } from "@/services/event-types";
+import { getEventTypeLabel } from "@/lib/event-type-label";
 import { ImageWithFallback } from "@/components/shared/image-with-fallback";
 import { resolveMediaUrl } from "@/lib/media";
 import {
@@ -23,7 +25,7 @@ interface PortfolioAdminItem {
   title: string;
   category: string;
   imageCount?: number;
-  photos?: Array<{ id?: string }>;
+  photos?: Array<{ id?: string; url?: string; r2Key?: string; thumbnailUrl?: string; r2ThumbnailKey?: string }>;
   published?: boolean;
   isPublished?: boolean;
   featured?: boolean;
@@ -35,6 +37,7 @@ interface PortfolioAdminItem {
 
 export default function AdminPortfolio() {
   const { data: portfolioData = [], isLoading } = useAdminPortfolio();
+  const { data: eventTypes = [] } = useEventTypes();
   const updateItem = useUpdatePortfolioItem();
   const deleteItem = useDeletePortfolioItem();
 
@@ -42,6 +45,7 @@ export default function AdminPortfolio() {
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; title: string } | null>(null);
 
   const items = portfolioData as PortfolioAdminItem[];
+  const eventTypeOptions = eventTypes as EventTypeItem[];
 
   const togglePublish = (item: PortfolioAdminItem) => {
     const isPublished = item.published ?? item.isPublished ?? false;
@@ -113,7 +117,7 @@ export default function AdminPortfolio() {
           <button key={cat} onClick={() => setActiveCategory(cat)}
             className={`px-3 py-1.5 transition-colors capitalize ${activeCategory === cat ? "bg-brand-main text-brand-secondary" : "bg-white border border-brand-main/10 text-brand-main/50 hover:text-brand-main"}`}
             style={{ fontSize: "0.7rem" }}>
-            {cat}
+            {cat === "All" ? cat : getEventTypeLabel(cat, eventTypeOptions)}
           </button>
         ))}
       </div>
@@ -123,10 +127,19 @@ export default function AdminPortfolio() {
         {filtered.map((item, i) => {
           const isPublished = item.published ?? item.isPublished ?? false;
           const isFeatured = item.featured ?? item.isFeatured ?? false;
+          const firstPhoto = item.photos?.[0];
           const coverImage = resolveMediaUrl(
-            item.coverImageUrl || item.coverImage || item.coverImageKey || "",
+            item.coverImageUrl ||
+              item.coverImageKey ||
+              item.coverImage ||
+              firstPhoto?.url ||
+              firstPhoto?.r2Key ||
+              firstPhoto?.thumbnailUrl ||
+              firstPhoto?.r2ThumbnailKey ||
+              "",
           );
           const imageCount = item.imageCount ?? item.photos?.length ?? 0;
+          const categoryLabel = getEventTypeLabel(item.category, eventTypeOptions) || item.category;
 
           return (
             <motion.div key={item.id} initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}
@@ -146,7 +159,7 @@ export default function AdminPortfolio() {
               </div>
               <div className="p-4">
                 <h3 className="font-serif text-brand-main mb-0.5" style={{ fontSize: "1rem" }}>{item.title}</h3>
-                <p className="text-brand-main/40 mb-3" style={{ fontSize: "0.75rem" }}>{item.category} · {imageCount} images</p>
+                <p className="text-brand-main/40 mb-3" style={{ fontSize: "0.75rem" }}>{categoryLabel} · {imageCount} images</p>
                 <div className="flex items-center gap-2">
                   <button onClick={() => togglePublish(item)}
                     className={`inline-flex items-center gap-1 px-2.5 py-1.5 transition-colors ${isPublished ? "text-amber-600 hover:bg-amber-50" : "text-green-600 hover:bg-green-50"}`}
