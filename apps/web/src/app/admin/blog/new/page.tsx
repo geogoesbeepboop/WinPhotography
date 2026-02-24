@@ -3,19 +3,42 @@
 import { useState, useEffect, useRef, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Eye, Save, Send, Upload, X, Loader2 } from "lucide-react";
+import {
+  ArrowLeft,
+  Eye,
+  Save,
+  Send,
+  Upload,
+  X,
+  Loader2,
+  Bold,
+  Italic,
+  Heading1,
+  Heading2,
+  List,
+  ListOrdered,
+  Quote,
+  Link2,
+  Pilcrow,
+} from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { useCreateBlogPost, useUpdateBlogPost, useAdminBlogPosts } from "@/services/blog";
 import { uploadBlogCoverImage } from "@/services/upload";
 import { resolveMediaUrl } from "@/lib/media";
 import { ImageWithFallback } from "@/components/shared/image-with-fallback";
 import { imageUploadAcceptList, isSupportedImageUpload } from "@/lib/image-upload";
+import {
+  htmlToMarkdown,
+  isLikelyMarkdown,
+  markdownToHtml,
+} from "@/lib/rich-text-markdown";
 
 function BlogEditor() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const editId = searchParams.get("edit");
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const editorRef = useRef<HTMLDivElement>(null);
 
   const { data: posts } = useAdminBlogPosts();
   const createBlog = useCreateBlogPost();
@@ -24,6 +47,8 @@ function BlogEditor() {
   const [preview, setPreview] = useState(false);
   const [error, setError] = useState("");
   const [uploading, setUploading] = useState(false);
+  const [editorHtml, setEditorHtml] = useState("");
+  const [hasInitializedEditData, setHasInitializedEditData] = useState(false);
   const [form, setForm] = useState({
     title: "",
     category: "",
@@ -34,19 +59,83 @@ function BlogEditor() {
 
   // Load post data when editing
   useEffect(() => {
+    if (!editId) {
+      setHasInitializedEditData(false);
+      return;
+    }
+
+    if (hasInitializedEditData || !posts) return;
+
     if (editId && posts) {
       const post = posts.find((p: any) => p.id === editId);
       if (post) {
+        const markdownContent = post.content || "";
         setForm({
           title: post.title || "",
           category: post.category || "",
           excerpt: post.excerpt || "",
           coverImageUrl: post.coverImageUrl || "",
-          content: post.content || "",
+          content: markdownContent,
         });
+        setEditorHtml(markdownToHtml(markdownContent));
+        setHasInitializedEditData(true);
       }
     }
-  }, [editId, posts]);
+  }, [editId, hasInitializedEditData, posts]);
+
+  useEffect(() => {
+    if (!editorRef.current) return;
+    if (editorRef.current.innerHTML !== editorHtml) {
+      editorRef.current.innerHTML = editorHtml;
+    }
+  }, [editorHtml]);
+
+  const syncEditorToMarkdown = () => {
+    if (!editorRef.current) {
+      return form.content;
+    }
+
+    const html = editorRef.current?.innerHTML || "";
+    const markdown = htmlToMarkdown(html);
+    setEditorHtml(html);
+    setForm((prev) => ({ ...prev, content: markdown }));
+    return markdown;
+  };
+
+  const runEditorCommand = (command: string, value?: string) => {
+    if (!editorRef.current) return;
+    editorRef.current.focus();
+    document.execCommand(command, false, value);
+    syncEditorToMarkdown();
+  };
+
+  const setBlockType = (blockType: "H1" | "H2" | "P" | "BLOCKQUOTE") => {
+    runEditorCommand("formatBlock", blockType);
+  };
+
+  const handleEditorInput = () => {
+    syncEditorToMarkdown();
+  };
+
+  const handleEditorPaste = (e: React.ClipboardEvent<HTMLDivElement>) => {
+    const pastedHtml = e.clipboardData.getData("text/html");
+    const pastedText = e.clipboardData.getData("text/plain");
+
+    // Let native behavior handle already-rich HTML paste.
+    if (pastedHtml?.trim()) return;
+
+    if (pastedText && isLikelyMarkdown(pastedText)) {
+      e.preventDefault();
+      runEditorCommand("insertHTML", markdownToHtml(pastedText));
+    }
+  };
+
+  const togglePreview = () => {
+    if (!preview) {
+      syncEditorToMarkdown();
+    }
+    setPreview((prev) => !prev);
+  };
 
   const handleCoverUpload = async (file: File) => {
     if (!isSupportedImageUpload(file)) {
@@ -96,11 +185,13 @@ function BlogEditor() {
 
   const handleSave = async (publish: boolean) => {
     setError("");
+    const currentMarkdown = syncEditorToMarkdown();
+
     if (!form.title.trim()) {
       setError("Title is required");
       return;
     }
-    if (!form.content.trim()) {
+    if (!currentMarkdown.trim()) {
       setError("Content is required");
       return;
     }
@@ -110,7 +201,7 @@ function BlogEditor() {
       category: form.category.trim() || undefined,
       excerpt: form.excerpt.trim() || undefined,
       coverImageUrl: form.coverImageUrl.trim() || undefined,
-      content: form.content,
+      content: currentMarkdown,
       isPublished: publish,
     };
 
@@ -148,13 +239,13 @@ function BlogEditor() {
               {editId ? "Edit Post" : "New Post"}
             </h1>
             <p className="text-brand-main/50 mt-1" style={{ fontSize: "0.8rem" }}>
-              Write in Markdown for rich formatting
+              Write with the visual editor, markdown supported on paste
             </p>
           </div>
         </div>
         <div className="flex items-center gap-2">
           <button
-            onClick={() => setPreview(!preview)}
+            onClick={togglePreview}
             className={`flex items-center gap-2 px-4 py-2.5 border transition-colors ${
               preview
                 ? "border-brand-tertiary text-brand-tertiary"
@@ -251,13 +342,107 @@ function BlogEditor() {
               </ReactMarkdown>
             </div>
           ) : (
-            <textarea
-              placeholder="Write your post content in Markdown..."
-              value={form.content}
-              onChange={(e) => setForm({ ...form, content: e.target.value })}
-              className="w-full px-4 py-3 bg-card border border-brand-main/10 text-brand-main placeholder:text-brand-main/30 focus:outline-none focus:border-brand-main/30 min-h-[500px] resize-y font-mono"
-              style={{ fontSize: "0.85rem", lineHeight: "1.8" }}
-            />
+            <div className="bg-card border border-brand-main/10">
+              <div className="flex flex-wrap items-center gap-1 border-b border-brand-main/10 p-2">
+                <button
+                  type="button"
+                  onClick={() => runEditorCommand("bold")}
+                  className="p-2 text-brand-main/60 hover:text-brand-main hover:bg-brand-main/5 transition-colors"
+                  title="Bold"
+                >
+                  <Bold className="w-4 h-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => runEditorCommand("italic")}
+                  className="p-2 text-brand-main/60 hover:text-brand-main hover:bg-brand-main/5 transition-colors"
+                  title="Italic"
+                >
+                  <Italic className="w-4 h-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setBlockType("H1")}
+                  className="p-2 text-brand-main/60 hover:text-brand-main hover:bg-brand-main/5 transition-colors"
+                  title="Heading"
+                >
+                  <Heading1 className="w-4 h-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setBlockType("H2")}
+                  className="p-2 text-brand-main/60 hover:text-brand-main hover:bg-brand-main/5 transition-colors"
+                  title="Subtitle"
+                >
+                  <Heading2 className="w-4 h-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setBlockType("P")}
+                  className="p-2 text-brand-main/60 hover:text-brand-main hover:bg-brand-main/5 transition-colors"
+                  title="Paragraph"
+                >
+                  <Pilcrow className="w-4 h-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => runEditorCommand("insertUnorderedList")}
+                  className="p-2 text-brand-main/60 hover:text-brand-main hover:bg-brand-main/5 transition-colors"
+                  title="Bullet List"
+                >
+                  <List className="w-4 h-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => runEditorCommand("insertOrderedList")}
+                  className="p-2 text-brand-main/60 hover:text-brand-main hover:bg-brand-main/5 transition-colors"
+                  title="Numbered List"
+                >
+                  <ListOrdered className="w-4 h-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setBlockType("BLOCKQUOTE")}
+                  className="p-2 text-brand-main/60 hover:text-brand-main hover:bg-brand-main/5 transition-colors"
+                  title="Quote"
+                >
+                  <Quote className="w-4 h-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const url = window.prompt("Enter URL");
+                    if (url?.trim()) {
+                      runEditorCommand("createLink", url.trim());
+                    }
+                  }}
+                  className="p-2 text-brand-main/60 hover:text-brand-main hover:bg-brand-main/5 transition-colors"
+                  title="Link"
+                >
+                  <Link2 className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="relative min-h-[500px]">
+                {!form.content.trim() && (
+                  <p
+                    className="absolute top-4 left-4 text-brand-main/30 pointer-events-none"
+                    style={{ fontSize: "0.9rem" }}
+                  >
+                    Start writing here. You can also paste markdown and it will auto-format.
+                  </p>
+                )}
+                <div
+                  ref={editorRef}
+                  contentEditable
+                  suppressContentEditableWarning
+                  onInput={handleEditorInput}
+                  onPaste={handleEditorPaste}
+                  className="w-full min-h-[500px] px-4 py-3 text-brand-main focus:outline-none [&_h1]:font-serif [&_h1]:text-[2rem] [&_h1]:leading-[1.2] [&_h1]:mb-4 [&_h2]:font-serif [&_h2]:text-[1.5rem] [&_h2]:leading-[1.3] [&_h2]:mb-3 [&_h2]:mt-2 [&_blockquote]:border-l-4 [&_blockquote]:border-brand-tertiary [&_blockquote]:pl-4 [&_blockquote]:italic [&_blockquote]:text-brand-main/60 [&_ul]:list-disc [&_ol]:list-decimal [&_ul]:pl-6 [&_ol]:pl-6 [&_ul]:my-3 [&_ol]:my-3 [&_p]:my-3"
+                  style={{ fontSize: "0.95rem", lineHeight: "1.8" }}
+                />
+              </div>
+            </div>
           )}
         </div>
 
@@ -359,20 +544,15 @@ function BlogEditor() {
             />
           </div>
 
-          {/* Markdown Help */}
+          {/* Editor Tips */}
           <div className="bg-card border border-brand-main/10 p-5">
             <label className="block text-brand-main/50 tracking-[0.1em] uppercase mb-3" style={{ fontSize: "0.6rem" }}>
-              Markdown Guide
+              Editor Tips
             </label>
-            <div className="space-y-2 text-brand-main/40 font-mono" style={{ fontSize: "0.75rem" }}>
-              <p># Heading 1</p>
-              <p>## Heading 2</p>
-              <p>**bold text**</p>
-              <p>*italic text*</p>
-              <p>- bullet point</p>
-              <p>1. numbered list</p>
-              <p>&gt; blockquote</p>
-              <p>[link text](url)</p>
+            <div className="space-y-2 text-brand-main/45" style={{ fontSize: "0.78rem", lineHeight: "1.6" }}>
+              <p>Use the toolbar for bold, italic, headings, lists, quotes, and links.</p>
+              <p>Paste markdown directly and it will auto-convert to rich formatting.</p>
+              <p>Save and publish still store markdown for public rendering compatibility.</p>
             </div>
           </div>
         </div>

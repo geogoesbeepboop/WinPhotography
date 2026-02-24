@@ -4,8 +4,10 @@ import Link from "next/link";
 import { motion } from "motion/react";
 import { ArrowRight, Clock } from "lucide-react";
 import { ImageWithFallback } from "@/components/shared/image-with-fallback";
+import { BrandWaveLoader } from "@/components/shared/brand-wave-loader";
 import { useBlogPosts } from "@/services/blog";
 import { resolveMediaUrl } from "@/lib/media";
+import { useDataSourceStore } from "@/stores/admin-settings-store";
 
 type BlogPost = {
   slug: string;
@@ -27,7 +29,10 @@ const formatDate = (dateStr: string) => {
 };
 
 export default function BlogPage() {
+  const { dataSource, hasHydrated } = useDataSourceStore();
   const { data: posts, isLoading } = useBlogPosts();
+  const showInitialLoader =
+    !hasHydrated || (dataSource === "api" && isLoading);
   const blogPosts: BlogPost[] = (posts ?? []).map((p: any) => ({
     slug: p.slug,
     title: p.title,
@@ -37,33 +42,6 @@ export default function BlogPage() {
     readTime: p.readTime,
     category: p.category,
   }));
-
-  if (isLoading) {
-    return (
-      <div>
-        <section className="pt-32 pb-12 lg:pt-40 lg:pb-16 bg-brand-secondary">
-          <div className="max-w-7xl mx-auto px-6 lg:px-8 text-center">
-            <p className="tracking-[0.3em] uppercase text-brand-tertiary mb-4" style={{ fontSize: "0.7rem" }}>Journal</p>
-            <h1 className="font-serif text-brand-main mb-6" style={{ fontSize: "clamp(2rem, 5vw, 3.5rem)", lineHeight: "1.1" }}>Stories & Guides</h1>
-          </div>
-        </section>
-        <section className="py-16 bg-brand-warm">
-          <div className="max-w-7xl mx-auto px-6 lg:px-8">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-              {[1, 2, 3].map((i) => (
-                <div key={i} className="animate-pulse">
-                  <div className="aspect-[4/3] bg-brand-main/10 mb-4" />
-                  <div className="h-4 bg-brand-main/10 rounded w-1/4 mb-3" />
-                  <div className="h-5 bg-brand-main/10 rounded w-3/4 mb-2" />
-                  <div className="h-4 bg-brand-main/10 rounded w-full" />
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
-      </div>
-    );
-  }
 
   if (blogPosts.length === 0) {
     return (
@@ -77,6 +55,10 @@ export default function BlogPage() {
             </p>
           </div>
         </section>
+
+        {showInitialLoader && (
+          <BrandWaveLoader subtitle="Loading the journal..." />
+        )}
       </div>
     );
   }
@@ -269,6 +251,10 @@ export default function BlogPage() {
           </Link>
         </div>
       </section>
+
+      {showInitialLoader && (
+        <BrandWaveLoader subtitle="Loading the journal..." />
+      )}
     </div>
   );
 }

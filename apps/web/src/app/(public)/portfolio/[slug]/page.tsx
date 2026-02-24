@@ -6,9 +6,11 @@ import Link from "next/link";
 import { motion, AnimatePresence } from "motion/react";
 import { ArrowLeft, X, ChevronLeft, ChevronRight, Camera } from "lucide-react";
 import { ImageWithFallback } from "@/components/shared/image-with-fallback";
+import { BrandWaveLoader } from "@/components/shared/brand-wave-loader";
 import { usePortfolioBySlug } from "@/services/portfolio";
 import { format } from "date-fns";
 import { resolveMediaUrl } from "@/lib/media";
+import { useDataSourceStore } from "@/stores/admin-settings-store";
 
 interface PortfolioPhoto {
   url?: string;
@@ -25,7 +27,10 @@ interface PortfolioDetailApi {
 
 export default function PortfolioDetailPage() {
   const { slug } = useParams();
+  const { dataSource, hasHydrated } = useDataSourceStore();
   const { data: apiData, isLoading } = usePortfolioBySlug(slug as string);
+  const showInitialLoader =
+    !hasHydrated || (dataSource === "api" && isLoading);
 
   const data = useMemo(() => {
     if (!apiData) return null;
@@ -59,19 +64,7 @@ export default function PortfolioDetailPage() {
     }
   };
 
-  if (isLoading) {
-    return (
-      <div className="pt-32 pb-12 lg:pt-40 lg:pb-16 bg-brand-secondary min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <p className="text-brand-main/50" style={{ fontSize: "0.9rem" }}>
-            Loading gallery...
-          </p>
-        </div>
-      </div>
-    );
-  }
-
-  if (!data) {
+  if (!data && !showInitialLoader) {
     return (
       <div className="pt-32 pb-12 lg:pt-40 lg:pb-16 bg-brand-secondary min-h-screen">
         <div className="max-w-4xl mx-auto px-6 lg:px-8 text-center py-24">
@@ -80,6 +73,16 @@ export default function PortfolioDetailPage() {
           <p className="text-brand-main/40 mb-6" style={{ fontSize: "0.9rem" }}>This portfolio collection doesn't exist or has been removed.</p>
           <Link href="/portfolio" className="text-brand-tertiary hover:underline" style={{ fontSize: "0.85rem" }}>Back to Portfolio</Link>
         </div>
+      </div>
+    );
+  }
+
+  if (!data) {
+    return (
+      <div className="min-h-screen bg-brand-secondary">
+        {showInitialLoader && (
+          <BrandWaveLoader subtitle="Loading this gallery..." />
+        )}
       </div>
     );
   }
@@ -251,6 +254,10 @@ export default function PortfolioDetailPage() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {showInitialLoader && (
+        <BrandWaveLoader subtitle="Loading this gallery..." />
+      )}
     </div>
   );
 }

@@ -6,12 +6,17 @@ import { motion } from "motion/react";
 import { ArrowLeft, Clock, Calendar } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { ImageWithFallback } from "@/components/shared/image-with-fallback";
+import { BrandWaveLoader } from "@/components/shared/brand-wave-loader";
 import { useBlogPost } from "@/services/blog";
 import { resolveMediaUrl } from "@/lib/media";
+import { useDataSourceStore } from "@/stores/admin-settings-store";
 
 export default function BlogPostPage() {
   const { slug } = useParams();
+  const { dataSource, hasHydrated } = useDataSourceStore();
   const { data: post, isLoading } = useBlogPost(slug as string || "");
+  const showInitialLoader =
+    !hasHydrated || (dataSource === "api" && isLoading);
 
   const formatDate = (dateStr: string) => {
     if (!dateStr) return "";
@@ -22,28 +27,7 @@ export default function BlogPostPage() {
     });
   };
 
-  if (isLoading) {
-    return (
-      <div className="bg-brand-secondary">
-        <section className="pt-20">
-          <div className="h-[50vh] min-h-[350px] bg-brand-main/10 animate-pulse" />
-        </section>
-        <section className="py-16 lg:py-24">
-          <div className="max-w-3xl mx-auto px-6 lg:px-8">
-            <div className="animate-pulse space-y-4">
-              <div className="h-4 bg-brand-main/10 rounded w-1/4" />
-              <div className="h-8 bg-brand-main/10 rounded w-3/4" />
-              <div className="h-4 bg-brand-main/10 rounded w-full" />
-              <div className="h-4 bg-brand-main/10 rounded w-full" />
-              <div className="h-4 bg-brand-main/10 rounded w-2/3" />
-            </div>
-          </div>
-        </section>
-      </div>
-    );
-  }
-
-  if (!post) {
+  if (!post && !showInitialLoader) {
     return (
       <div className="bg-brand-secondary pt-32 pb-24 text-center">
         <div className="max-w-3xl mx-auto px-6">
@@ -62,6 +46,14 @@ export default function BlogPostPage() {
             Back to Journal
           </Link>
         </div>
+      </div>
+    );
+  }
+
+  if (!post) {
+    return (
+      <div className="min-h-screen bg-brand-secondary">
+        {showInitialLoader && <BrandWaveLoader subtitle="Loading story..." />}
       </div>
     );
   }
@@ -238,6 +230,8 @@ export default function BlogPostPage() {
           </div>
         </div>
       </section>
+
+      {showInitialLoader && <BrandWaveLoader subtitle="Loading story..." />}
     </div>
   );
 }

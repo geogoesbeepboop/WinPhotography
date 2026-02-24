@@ -7,6 +7,8 @@ import { motion } from "motion/react";
 import { Calendar, Mail, Heart, Send, Loader2 } from "lucide-react";
 import { apiClient } from "@/lib/api-client";
 import { useEventTypes } from "@/services/event-types";
+import { BrandWaveLoader } from "@/components/shared/brand-wave-loader";
+import { useDataSourceStore } from "@/stores/admin-settings-store";
 
 const howFoundOptions = [
   "Instagram",
@@ -20,7 +22,10 @@ const howFoundOptions = [
 
 export default function InquirePage() {
   const router = useRouter();
-  const { data: eventTypes = [] } = useEventTypes();
+  const { dataSource, hasHydrated } = useDataSourceStore();
+  const { data: eventTypes = [], isLoading: eventTypesLoading } = useEventTypes();
+  const showInitialLoader =
+    !hasHydrated || (dataSource === "api" && eventTypesLoading);
   const [formData, setFormData] = useState({
     firstName: "",
     lastName: "",
@@ -479,6 +484,10 @@ export default function InquirePage() {
           </motion.form>
         </div>
       </section>
+
+      {showInitialLoader && (
+        <BrandWaveLoader subtitle="Loading inquiry form..." />
+      )}
     </div>
   );
 }

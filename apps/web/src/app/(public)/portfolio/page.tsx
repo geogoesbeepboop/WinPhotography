@@ -4,9 +4,11 @@ import { useState, useMemo } from "react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "motion/react";
 import { ImageWithFallback } from "@/components/shared/image-with-fallback";
+import { BrandWaveLoader } from "@/components/shared/brand-wave-loader";
 import { usePortfolio } from "@/services/portfolio";
 import { Camera } from "lucide-react";
 import { resolveMediaUrl } from "@/lib/media";
+import { useDataSourceStore } from "@/stores/admin-settings-store";
 
 interface PortfolioPhoto {
   url?: string;
@@ -36,7 +38,10 @@ interface PortfolioViewItem {
 
 export default function PortfolioPage() {
   const [activeCategory, setActiveCategory] = useState("All");
+  const { dataSource, hasHydrated } = useDataSourceStore();
   const { data: apiItems = [], isLoading } = usePortfolio();
+  const showInitialLoader =
+    !hasHydrated || (dataSource === "api" && isLoading);
 
   const items = useMemo<PortfolioViewItem[]>(() => {
     return (apiItems as PortfolioApiItem[]).map((item, index) => {
@@ -240,6 +245,10 @@ export default function PortfolioPage() {
           </Link>
         </div>
       </section>
+
+      {showInitialLoader && (
+        <BrandWaveLoader subtitle="Loading portfolio highlights..." />
+      )}
     </div>
   );
 }

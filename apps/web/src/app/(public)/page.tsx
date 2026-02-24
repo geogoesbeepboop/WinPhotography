@@ -5,9 +5,11 @@ import Link from "next/link";
 import { motion } from "motion/react";
 import { ArrowRight, Star, Heart, Sparkles } from "lucide-react";
 import { ImageWithFallback } from "@/components/shared/image-with-fallback";
+import { BrandWaveLoader } from "@/components/shared/brand-wave-loader";
 import { useFeaturedTestimonials } from "@/services/testimonials";
 import { usePortfolio } from "@/services/portfolio";
 import { resolveMediaUrl } from "@/lib/media";
+import { useDataSourceStore } from "@/stores/admin-settings-store";
 
 const heroImage =
   "https://images.unsplash.com/photo-1578251133581-bf5e671b97fd?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxjb3VwbGUlMjBlbG9wZW1lbnQlMjBtb3VudGFpbiUyMGdvbGRlbiUyMGhvdXJ8ZW58MXx8fHwxNzcxNzIxNjEwfDA&ixlib=rb-4.1.0&q=80&w=1080";
@@ -79,8 +81,13 @@ const testimonials = [
 ];
 
 export default function HomePage() {
-  const { data: apiTestimonials } = useFeaturedTestimonials();
-  const { data: apiPortfolio } = usePortfolio();
+  const { dataSource, hasHydrated } = useDataSourceStore();
+  const { data: apiTestimonials, isLoading: testimonialsLoading } = useFeaturedTestimonials();
+  const { data: apiPortfolio, isLoading: portfolioLoading } = usePortfolio();
+
+  const showInitialLoader =
+    !hasHydrated ||
+    (dataSource === "api" && (testimonialsLoading || portfolioLoading));
 
   const displayTestimonials = useMemo(() => {
     if (apiTestimonials?.length > 0) {
@@ -432,6 +439,10 @@ export default function HomePage() {
           </motion.div>
         </div>
       </section>
+
+      {showInitialLoader && (
+        <BrandWaveLoader subtitle="Loading featured stories..." />
+      )}
     </div>
   );
 }

@@ -3,6 +3,8 @@ import { persist } from 'zustand/middleware';
 
 interface DataSourceState {
   dataSource: 'api' | 'mock';
+  hasHydrated: boolean;
+  setHasHydrated: (hasHydrated: boolean) => void;
   setDataSource: (source: 'api' | 'mock') => void;
   toggleDataSource: () => void;
 }
@@ -11,6 +13,8 @@ export const useDataSourceStore = create<DataSourceState>()(
   persist(
     (set) => ({
       dataSource: 'mock',
+      hasHydrated: false,
+      setHasHydrated: (hasHydrated) => set({ hasHydrated }),
       setDataSource: (dataSource) => set({ dataSource }),
       toggleDataSource: () =>
         set((state) => ({
@@ -19,6 +23,10 @@ export const useDataSourceStore = create<DataSourceState>()(
     }),
     {
       name: 'win-data-source',
+      partialize: (state) => ({ dataSource: state.dataSource }),
+      onRehydrateStorage: () => (state) => {
+        state?.setHasHydrated(true);
+      },
     },
   ),
 );

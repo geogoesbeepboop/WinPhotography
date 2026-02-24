@@ -5,6 +5,7 @@ import Link from "next/link";
 import { motion, AnimatePresence } from "motion/react";
 import { Check, ArrowRight } from "lucide-react";
 import { ImageWithFallback } from "@/components/shared/image-with-fallback";
+import { BrandWaveLoader } from "@/components/shared/brand-wave-loader";
 import {
   PackageItem,
   PricingAddOnItem,
@@ -416,8 +417,8 @@ function formatPrice(price: number | string, priceSuffix?: string | null): strin
 }
 
 export default function PricingPage() {
-  const { dataSource } = useDataSourceStore();
-  const { data: apiPackages = [] } = usePackages();
+  const { dataSource, hasHydrated } = useDataSourceStore();
+  const { data: apiPackages = [], isLoading: packagesLoading } = usePackages();
 
   const isLive = dataSource === "api";
   const categories = useMemo(
@@ -442,7 +443,9 @@ export default function PricingPage() {
   const currentCategory = categories.find((c) => c.id === activeCategory) || categories[0];
   const currentCategoryEventTypes = currentCategory?.eventTypes || [];
   const primaryEventType = currentCategoryEventTypes.length === 1 ? currentCategoryEventTypes[0] : undefined;
-  const { data: apiAddOns = [] } = usePricingAddOns(primaryEventType);
+  const { data: apiAddOns = [], isLoading: addOnsLoading } = usePricingAddOns(primaryEventType);
+  const showInitialLoader =
+    !hasHydrated || (isLive && (packagesLoading || addOnsLoading));
   const visibleAddOns = (isLive ? apiAddOns : mockAddOns)
     .filter((addon) => {
       if (!isLive) return true;
@@ -899,6 +902,10 @@ export default function PricingPage() {
           </Link>
         </div>
       </section>
+
+      {showInitialLoader && (
+        <BrandWaveLoader subtitle="Loading collections and pricing..." />
+      )}
     </div>
   );
 }
