@@ -5,13 +5,21 @@ import { motion } from "motion/react";
 import { User, Mail, Phone, Lock, Save, Loader2, CheckCircle2, AlertCircle } from "lucide-react";
 import { useAuthStore } from "@/stores/auth-store";
 import { createBrowserClient } from "@/lib/supabase/client";
+import {
+  NotificationPreferences,
+  useNotificationPreferences,
+  useUpdateNotificationPreferences,
+} from "@/services/user-preferences";
 
 export default function PortalSettings() {
   const { supabaseUser, setSupabaseUser } = useAuthStore();
   const [saving, setSaving] = useState(false);
   const [savingPassword, setSavingPassword] = useState(false);
+  const [savingPreferences, setSavingPreferences] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { data: notificationData } = useNotificationPreferences();
+  const updateNotificationPreferences = useUpdateNotificationPreferences();
 
   const fullName = (supabaseUser?.user_metadata?.full_name as string) || "";
   const nameParts = fullName.split(" ");
@@ -42,6 +50,19 @@ export default function PortalSettings() {
     newPassword: "",
     confirm: "",
   });
+  const [notificationPreferences, setNotificationPreferences] =
+    useState<NotificationPreferences>({
+      notifyGalleryReady: true,
+      notifyPaymentReminders: true,
+      notifySessionReminders: true,
+      notifyPromotions: false,
+    });
+
+  useEffect(() => {
+    if (notificationData) {
+      setNotificationPreferences(notificationData);
+    }
+  }, [notificationData]);
 
   const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -103,6 +124,27 @@ export default function PortalSettings() {
       setTimeout(() => setError(null), 5000);
     } finally {
       setSavingPassword(false);
+    }
+  };
+
+  const handleSaveNotificationPreferences = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSavingPreferences(true);
+    setError(null);
+
+    try {
+      await updateNotificationPreferences.mutateAsync(notificationPreferences);
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2500);
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error
+          ? err.message
+          : "Failed to save notification preferences. Please try again.";
+      setError(message);
+      setTimeout(() => setError(null), 5000);
+    } finally {
+      setSavingPreferences(false);
     }
   };
 
@@ -365,55 +407,78 @@ export default function PortalSettings() {
             >
               Notification Preferences
             </h3>
-            <div className="space-y-4">
-              {[
-                {
-                  label: "Gallery ready notifications",
-                  desc: "Email when a new gallery is available to view",
-                  checked: true,
-                },
-                {
-                  label: "Payment reminders",
-                  desc: "Reminders about upcoming payment due dates",
-                  checked: true,
-                },
-                {
-                  label: "Session reminders",
-                  desc: "Reminders leading up to your session date",
-                  checked: true,
-                },
-                {
-                  label: "Promotional updates",
-                  desc: "Occasional updates about mini sessions and specials",
-                  checked: false,
-                },
-              ].map((pref) => (
-                <label
-                  key={pref.label}
-                  className="flex items-start gap-3 cursor-pointer"
-                >
-                  <input
-                    type="checkbox"
-                    defaultChecked={pref.checked}
-                    className="mt-1 w-4 h-4 accent-brand-tertiary"
-                  />
-                  <div>
-                    <p
-                      className="text-brand-main"
-                      style={{ fontSize: "0.85rem" }}
-                    >
-                      {pref.label}
-                    </p>
-                    <p
-                      className="text-brand-main/40"
-                      style={{ fontSize: "0.75rem" }}
-                    >
-                      {pref.desc}
-                    </p>
-                  </div>
-                </label>
-              ))}
-            </div>
+            <form onSubmit={handleSaveNotificationPreferences}>
+              <div className="space-y-4">
+                {[
+                  {
+                    key: "notifyGalleryReady" as const,
+                    label: "Gallery ready notifications",
+                    desc: "Email when a new gallery is available to view",
+                  },
+                  {
+                    key: "notifyPaymentReminders" as const,
+                    label: "Payment reminders",
+                    desc: "Reminders about upcoming payment due dates",
+                  },
+                  {
+                    key: "notifySessionReminders" as const,
+                    label: "Session reminders",
+                    desc: "Reminders leading up to your session date",
+                  },
+                  {
+                    key: "notifyPromotions" as const,
+                    label: "Promotional updates",
+                    desc: "Occasional updates about mini sessions and specials",
+                  },
+                ].map((pref) => (
+                  <label
+                    key={pref.label}
+                    className="flex items-start gap-3 cursor-pointer"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={notificationPreferences[pref.key]}
+                      onChange={(event) =>
+                        setNotificationPreferences((prev) => ({
+                          ...prev,
+                          [pref.key]: event.target.checked,
+                        }))
+                      }
+                      className="mt-1 w-4 h-4 accent-brand-tertiary"
+                      disabled={savingPreferences}
+                    />
+                    <div>
+                      <p
+                        className="text-brand-main"
+                        style={{ fontSize: "0.85rem" }}
+                      >
+                        {pref.label}
+                      </p>
+                      <p
+                        className="text-brand-main/40"
+                        style={{ fontSize: "0.75rem" }}
+                      >
+                        {pref.desc}
+                      </p>
+                    </div>
+                  </label>
+                ))}
+              </div>
+
+              <button
+                type="submit"
+                disabled={savingPreferences}
+                className="inline-flex items-center gap-2 px-5 py-2.5 bg-brand-main text-brand-secondary hover:bg-brand-main-light transition-all duration-300 disabled:opacity-50 tracking-[0.1em] uppercase mt-5"
+                style={{ fontSize: "0.68rem" }}
+              >
+                {savingPreferences ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Save className="w-4 h-4" />
+                )}
+                Save Notification Preferences
+              </button>
+            </form>
           </div>
         </motion.div>
       </div>

@@ -9,6 +9,10 @@ export interface User {
   role: UserRole;
   avatarUrl: string | null;
   isActive: boolean;
+  notifyGalleryReady?: boolean;
+  notifyPaymentReminders?: boolean;
+  notifySessionReminders?: boolean;
+  notifyPromotions?: boolean;
   createdAt: string;
   updatedAt: string;
 }

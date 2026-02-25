@@ -39,6 +39,18 @@ export class UserEntity {
   @Column({ name: 'is_active', type: 'boolean', default: true })
   isActive: boolean;
 
+  @Column({ name: 'notify_gallery_ready', type: 'boolean', default: true })
+  notifyGalleryReady: boolean;
+
+  @Column({ name: 'notify_payment_reminders', type: 'boolean', default: true })
+  notifyPaymentReminders: boolean;
+
+  @Column({ name: 'notify_session_reminders', type: 'boolean', default: true })
+  notifySessionReminders: boolean;
+
+  @Column({ name: 'notify_promotions', type: 'boolean', default: false })
+  notifyPromotions: boolean;
+
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt: Date;
 

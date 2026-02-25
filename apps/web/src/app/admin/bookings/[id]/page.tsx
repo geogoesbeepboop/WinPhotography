@@ -15,14 +15,14 @@ export default function AdminBookingDetail() {
   const { data: booking, isLoading } = useBooking(id as string);
   const { data: eventTypes = [] } = useEventTypes();
   const updateBooking = useUpdateBooking();
-  const [status, setStatus] = useState("pending");
+  const [status, setStatus] = useState("pending_deposit");
   const [notes, setNotes] = useState("");
   const eventTypeOptions = eventTypes as EventTypeItem[];
 
   useEffect(() => {
     if (booking) {
-      setStatus(booking.status || "pending");
-      setNotes(booking.notes || "");
+      setStatus(booking.status || "pending_deposit");
+      setNotes(booking.adminNotes || "");
     }
   }, [booking]);
 
@@ -86,7 +86,19 @@ export default function AdminBookingDetail() {
 
   const cfg = bookingStatusConfig[status];
   const totalAmount = booking.totalAmount ?? booking.packagePrice ?? 0;
-  const paidAmount = booking.paidAmount ?? booking.depositAmount ?? 0;
+  const payments = (booking.payments || []) as Array<{
+    id: string;
+    label?: string;
+    paymentType?: string;
+    amount: number | string;
+    status: string;
+    date?: string;
+    paidAt?: string;
+    dueDate?: string;
+  }>;
+  const paidAmount = payments
+    .filter((payment) => payment.status === "succeeded" || payment.status === "paid")
+    .reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
   const progress = totalAmount > 0 ? Math.round((paidAmount / totalAmount) * 100) : 0;
   const clientName = booking.clientName || booking.client?.fullName || "Unknown";
   const clientEmail = booking.clientEmail || booking.client?.email || "";
@@ -96,7 +108,8 @@ export default function AdminBookingDetail() {
     booking.packageName ||
     "";
   const bookingDate = booking.date || booking.eventDate || "";
-  const payments = booking.payments || [];
+  const location = booking.location || booking.eventLocation || "";
+  const isContractSigned = Boolean(booking.contractSignedAt || booking.contractSigned);
 
   return (
     <div>
@@ -115,8 +128,11 @@ export default function AdminBookingDetail() {
           </div>
           <select value={status} onChange={(e) => handleStatusChange(e.target.value)}
             className="px-3 py-2 bg-white border border-brand-main/10 text-brand-main focus:outline-none focus:border-brand-tertiary" style={{ fontSize: "0.8rem" }}>
-            <option value="pending">Pending</option>
+            <option value="pending_deposit">Pending Deposit</option>
             <option value="confirmed">Confirmed</option>
+            <option value="in_progress">In Progress</option>
+            <option value="editing">Editing</option>
+            <option value="delivered">Delivered</option>
             <option value="completed">Completed</option>
             <option value="cancelled">Cancelled</option>
           </select>
@@ -136,9 +152,9 @@ export default function AdminBookingDetail() {
                     <Clock className="w-4 h-4 text-brand-tertiary shrink-0" /> {booking.time}
                   </div>
                 )}
-                {booking.location && (
+                {location && (
                   <div className="flex items-center gap-3 text-brand-main/70 sm:col-span-2" style={{ fontSize: "0.85rem" }}>
-                    <MapPin className="w-4 h-4 text-brand-tertiary shrink-0" /> {booking.location}
+                    <MapPin className="w-4 h-4 text-brand-tertiary shrink-0" /> {location}
                   </div>
                 )}
               </div>
@@ -172,14 +188,16 @@ export default function AdminBookingDetail() {
                       <div className="flex items-center gap-3">
                         <CreditCard className="w-4 h-4 text-brand-main/30" />
                         <div>
-                          <p className="text-brand-main" style={{ fontSize: "0.85rem" }}>{pay.label || pay.paymentType || "Payment"}</p>
-                          <p className="text-brand-main/40" style={{ fontSize: "0.7rem" }}>
-                            {pay.status === "paid" ? `Paid ${pay.date || pay.paidAt || ""}` : `Due ${pay.dueDate || ""}`}
+                        <p className="text-brand-main" style={{ fontSize: "0.85rem" }}>{pay.label || pay.paymentType || "Payment"}</p>
+                        <p className="text-brand-main/40" style={{ fontSize: "0.7rem" }}>
+                            {pay.status === "paid" || pay.status === "succeeded"
+                              ? `Paid ${pay.date || pay.paidAt || ""}`
+                              : `Due ${pay.dueDate || ""}`}
                           </p>
                         </div>
                       </div>
                       <div className="text-right flex items-center gap-3">
-                        <p className="text-brand-main" style={{ fontSize: "0.9rem" }}>${pay.amount.toLocaleString()}</p>
+                        <p className="text-brand-main" style={{ fontSize: "0.9rem" }}>${Number(pay.amount || 0).toLocaleString()}</p>
                         {payCfg && <span className={`px-2 py-0.5 ${payCfg.color}`} style={{ fontSize: "0.6rem" }}>{payCfg.label}</span>}
                       </div>
                     </div>
@@ -224,14 +242,30 @@ export default function AdminBookingDetail() {
 
             <div className="bg-white border border-brand-main/8 p-5">
               <p className="tracking-[0.1em] uppercase text-brand-main/40 mb-3" style={{ fontSize: "0.65rem" }}>Contract</p>
-              <div className="flex items-center gap-2 mb-3">
-                {booking.contractSigned ? (
+                <div className="flex items-center gap-2 mb-3">
+                {isContractSigned ? (
                   <span className="flex items-center gap-1.5 text-green-600" style={{ fontSize: "0.8rem" }}><CheckCircle2 className="w-4 h-4" /> Signed</span>
                 ) : (
                   <span className="flex items-center gap-1.5 text-amber-600" style={{ fontSize: "0.8rem" }}><FileText className="w-4 h-4" /> Not Signed</span>
                 )}
               </div>
-              {!booking.contractSigned && (
+              {booking.contractSignedAt && (
+                <p className="text-brand-main/50 mb-3" style={{ fontSize: "0.75rem" }}>
+                  Signed on {new Date(booking.contractSignedAt).toLocaleDateString()}
+                </p>
+              )}
+              {booking.contractUrl && (
+                <a
+                  href={booking.contractUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="mb-3 inline-flex text-brand-tertiary hover:text-brand-tertiary-dark transition-colors"
+                  style={{ fontSize: "0.75rem" }}
+                >
+                  View signed contract
+                </a>
+              )}
+              {!isContractSigned && (
                 <button className="w-full inline-flex items-center justify-center gap-2 px-4 py-2 bg-brand-main text-brand-secondary hover:bg-brand-main-light transition-colors tracking-[0.1em] uppercase" style={{ fontSize: "0.65rem" }}>
                   <Send className="w-3.5 h-3.5" /> Send Contract
                 </button>

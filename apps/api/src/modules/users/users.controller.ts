@@ -10,27 +10,31 @@ import {
   NotFoundException,
   ConflictException,
 } from '@nestjs/common';
-import { ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { UserRole } from '@winphotography/shared';
 import { UsersService } from './users.service';
 import { SupabaseAuthGuard } from '../../common/guards/supabase-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { UserEntity } from './entities/user.entity';
 import { randomUUID } from 'crypto';
+import { UpdateNotificationPreferencesDto } from './dto/update-notification-preferences.dto';
 
 @ApiTags('Users')
 @Controller('users')
 @UseGuards(SupabaseAuthGuard, RolesGuard)
-@Roles(UserRole.ADMIN)
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
   @Get()
+  @Roles(UserRole.ADMIN)
   async findAll() {
     return this.usersService.findAll();
   }
 
   @Post()
+  @Roles(UserRole.ADMIN)
   async createClient(
     @Body() body: { fullName: string; email: string; phone?: string },
   ) {
@@ -50,11 +54,28 @@ export class UsersController {
   }
 
   @Get('clients')
+  @Roles(UserRole.ADMIN)
   async findClients() {
     return this.usersService.findClients();
   }
 
+  @Get('me/preferences')
+  @ApiBearerAuth()
+  async getMyNotificationPreferences(@CurrentUser() user: UserEntity) {
+    return this.usersService.getNotificationPreferences(user.id);
+  }
+
+  @Patch('me/preferences')
+  @ApiBearerAuth()
+  async updateMyNotificationPreferences(
+    @CurrentUser() user: UserEntity,
+    @Body() dto: UpdateNotificationPreferencesDto,
+  ) {
+    return this.usersService.updateNotificationPreferences(user.id, dto);
+  }
+
   @Get(':id')
+  @Roles(UserRole.ADMIN)
   async findOne(@Param('id') id: string) {
     const user = await this.usersService.findById(id);
     if (!user) {
@@ -64,11 +85,13 @@ export class UsersController {
   }
 
   @Patch(':id')
+  @Roles(UserRole.ADMIN)
   async update(@Param('id') id: string, @Body() updateData: Partial<{ fullName: string; phone: string; isActive: boolean }>) {
     return this.usersService.update(id, updateData);
   }
 
   @Delete(':id')
+  @Roles(UserRole.ADMIN)
   async remove(@Param('id') id: string) {
     return this.usersService.remove(id);
   }

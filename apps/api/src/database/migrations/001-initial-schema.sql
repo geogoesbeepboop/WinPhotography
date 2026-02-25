@@ -58,6 +58,10 @@ CREATE TABLE IF NOT EXISTS users (
     role            user_role NOT NULL DEFAULT 'client',
     avatar_url      VARCHAR(500),
     is_active       BOOLEAN NOT NULL DEFAULT true,
+    notify_gallery_ready BOOLEAN NOT NULL DEFAULT true,
+    notify_payment_reminders BOOLEAN NOT NULL DEFAULT true,
+    notify_session_reminders BOOLEAN NOT NULL DEFAULT true,
+    notify_promotions BOOLEAN NOT NULL DEFAULT false,
     created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -272,8 +276,9 @@ CREATE INDEX IF NOT EXISTS idx_pricing_addons_sort_order ON pricing_addons(sort_
 -- testimonials
 CREATE TABLE IF NOT EXISTS testimonials (
     id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    booking_id      UUID REFERENCES bookings(id) ON DELETE SET NULL,
     client_name     VARCHAR(255) NOT NULL,
-    event_type      event_type,
+    event_type      VARCHAR(100),
     event_date      DATE,
     content         TEXT NOT NULL,
     rating          SMALLINT CHECK (rating >= 1 AND rating <= 5),
@@ -284,6 +289,8 @@ CREATE TABLE IF NOT EXISTS testimonials (
     created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_testimonials_booking_unique ON testimonials(booking_id) WHERE booking_id IS NOT NULL;
 
 -- ================================
 -- Auto-update trigger

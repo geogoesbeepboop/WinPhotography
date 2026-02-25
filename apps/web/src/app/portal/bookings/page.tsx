@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { motion } from "motion/react";
 import {
   CalendarCheck,
@@ -13,11 +13,20 @@ import {
   Loader2,
   XCircle,
   AlertCircle,
+  MessageSquareQuote,
+  Star,
+  X,
 } from "lucide-react";
 import { format } from "date-fns";
 import { ContractModal } from "@/components/portal/contract-modal";
 import { useAuthStore } from "@/stores/auth-store";
 import { useMyBookings } from "@/services/portal";
+import {
+  TestimonialItem,
+  useMyTestimonials,
+  useSubmitMyTestimonial,
+  useUpdateMyTestimonial,
+} from "@/services/testimonials";
 
 interface ApiPayment {
   amount: number;
@@ -97,6 +106,7 @@ interface DisplayBooking {
   id: string;
   type: string;
   category: string;
+  rawStatus: string;
   date: string;
   time: string;
   location: string;
@@ -124,6 +134,7 @@ function mapApiBookings(apiBookings: ApiBooking[]): DisplayBooking[] {
       id: b.id,
       type: b.packageName,
       category: b.eventType,
+      rawStatus: b.status,
       date: format(new Date(b.eventDate), "MMMM d, yyyy"),
       time: b.eventTime || "",
       location: b.eventLocation || "",
@@ -146,14 +157,101 @@ export default function PortalBookings() {
   const { supabaseUser } = useAuthStore();
   const clientName = (supabaseUser?.user_metadata?.full_name as string) || supabaseUser?.email || "Client";
   const [contractModal, setContractModal] = useState<string | null>(null);
+  const [testimonialModalBookingId, setTestimonialModalBookingId] = useState<string | null>(null);
+  const [testimonialForm, setTestimonialForm] = useState({
+    content: "",
+    rating: 5,
+  });
+  const [testimonialError, setTestimonialError] = useState("");
 
-  const { data: apiBookings, isLoading, isError } = useMyBookings();
+  const { data: apiBookings, isLoading } = useMyBookings();
+  const { data: myTestimonials = [] } = useMyTestimonials();
+  const submitTestimonial = useSubmitMyTestimonial();
+  const updateMyTestimonial = useUpdateMyTestimonial();
 
   const bookings: DisplayBooking[] = apiBookings
     ? mapApiBookings(apiBookings as ApiBooking[])
     : [];
 
+  const testimonialsByBooking = useMemo(() => {
+    const map = new Map<string, TestimonialItem>();
+    for (const testimonial of myTestimonials as TestimonialItem[]) {
+      if (testimonial.bookingId) {
+        map.set(testimonial.bookingId, testimonial);
+      }
+    }
+    return map;
+  }, [myTestimonials]);
+
   const activeBooking = bookings.find((b) => b.id === contractModal);
+  const testimonialBooking = bookings.find((b) => b.id === testimonialModalBookingId);
+  const activeTestimonial = testimonialModalBookingId
+    ? testimonialsByBooking.get(testimonialModalBookingId)
+    : undefined;
+  const testimonialPending = submitTestimonial.isPending || updateMyTestimonial.isPending;
+
+  const canLeaveFeedback = (booking: DisplayBooking): boolean =>
+    booking.rawStatus === "delivered" || booking.rawStatus === "completed";
+
+  const openTestimonialModal = (bookingId: string) => {
+    const existing = testimonialsByBooking.get(bookingId);
+    setTestimonialError("");
+    setTestimonialModalBookingId(bookingId);
+    setTestimonialForm({
+      content: existing?.content || "",
+      rating: existing?.rating ?? 5,
+    });
+  };
+
+  const closeTestimonialModal = () => {
+    if (testimonialPending) return;
+    setTestimonialModalBookingId(null);
+    setTestimonialError("");
+  };
+
+  const handleSubmitTestimonial = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!testimonialModalBookingId) return;
+
+    const trimmedContent = testimonialForm.content.trim();
+    if (trimmedContent.length < 10) {
+      setTestimonialError("Please enter at least 10 characters.");
+      return;
+    }
+
+    setTestimonialError("");
+    try {
+      if (activeTestimonial?.id) {
+        await updateMyTestimonial.mutateAsync({
+          id: activeTestimonial.id,
+          content: trimmedContent,
+          rating: testimonialForm.rating,
+        });
+      } else {
+        await submitTestimonial.mutateAsync({
+          bookingId: testimonialModalBookingId,
+          content: trimmedContent,
+          rating: testimonialForm.rating,
+        });
+      }
+      setTestimonialModalBookingId(null);
+    } catch (error: unknown) {
+      const message =
+        typeof error === "object" &&
+        error !== null &&
+        "response" in error &&
+        typeof (error as { response?: { data?: { message?: string | string[] } } }).response?.data?.message !==
+          "undefined"
+          ? (error as { response?: { data?: { message?: string | string[] } } }).response?.data?.message
+          : "Failed to submit testimonial. Please try again.";
+
+      if (Array.isArray(message)) {
+        setTestimonialError(message.join(", "));
+      } else {
+        setTestimonialError(message || "Failed to submit testimonial. Please try again.");
+      }
+    }
+  };
 
   return (
     <div>
@@ -194,10 +292,11 @@ export default function PortalBookings() {
             return (
               <motion.div
                 key={booking.id}
+                id={`booking-${booking.id}`}
                 initial={{ opacity: 0, y: 15 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: i * 0.08 }}
-                className="bg-card border border-brand-main/8 overflow-hidden"
+                className="bg-card border border-brand-main/8 overflow-hidden scroll-mt-24"
               >
                 {/* Booking Info */}
                 <div className="p-6">
@@ -287,6 +386,30 @@ export default function PortalBookings() {
                         <ArrowRight className="w-3.5 h-3.5" />
                       </button>
                     )}
+                    {canLeaveFeedback(booking) && (
+                      <button
+                        onClick={() => openTestimonialModal(booking.id)}
+                        className="inline-flex items-center gap-2 px-4 py-2 border border-brand-main/15 text-brand-main/60 hover:text-brand-main hover:border-brand-main/30 transition-colors"
+                        style={{ fontSize: "0.7rem" }}
+                      >
+                        <MessageSquareQuote className="w-3.5 h-3.5" />
+                        {testimonialsByBooking.get(booking.id) ? "Edit Feedback" : "Leave Feedback"}
+                      </button>
+                    )}
+                    {canLeaveFeedback(booking) && testimonialsByBooking.get(booking.id) && (
+                      <span
+                        className={`inline-flex items-center px-2.5 py-1 ${
+                          testimonialsByBooking.get(booking.id)?.isPublished
+                            ? "bg-green-50 text-green-700"
+                            : "bg-amber-50 text-amber-700"
+                        }`}
+                        style={{ fontSize: "0.65rem" }}
+                      >
+                        {testimonialsByBooking.get(booking.id)?.isPublished
+                          ? "Published"
+                          : "Pending Review"}
+                      </span>
+                    )}
                   </div>
                 </div>
 
@@ -342,6 +465,135 @@ export default function PortalBookings() {
               : undefined
           }
         />
+      )}
+
+      {testimonialBooking && (
+        <div
+          className="fixed inset-0 z-[120] bg-black/45 flex items-center justify-center p-4"
+          onClick={closeTestimonialModal}
+        >
+          <div
+            className="w-full max-w-2xl bg-card border border-brand-main/12 p-6"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-4 mb-5">
+              <div>
+                <h2 className="font-serif text-brand-main" style={{ fontSize: "1.35rem" }}>
+                  Share Your Experience
+                </h2>
+                <p className="text-brand-main/50 mt-1" style={{ fontSize: "0.82rem" }}>
+                  {testimonialBooking.type} · {testimonialBooking.date}
+                </p>
+              </div>
+              <button
+                onClick={closeTestimonialModal}
+                className="text-brand-main/30 hover:text-brand-main transition-colors"
+                disabled={testimonialPending}
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSubmitTestimonial} className="space-y-5">
+              <div>
+                <label className="block text-brand-main/60 mb-2" style={{ fontSize: "0.75rem" }}>
+                  Rating
+                </label>
+                <div className="flex items-center gap-1.5">
+                  {Array.from({ length: 5 }).map((_, index) => {
+                    const value = index + 1;
+                    const selected = value <= testimonialForm.rating;
+                    return (
+                      <button
+                        key={`rating-${value}`}
+                        type="button"
+                        onClick={() =>
+                          setTestimonialForm((prev) => ({
+                            ...prev,
+                            rating: value,
+                          }))
+                        }
+                        className="p-1"
+                        aria-label={`Set rating to ${value}`}
+                        disabled={testimonialPending}
+                      >
+                        <Star
+                          className={`w-5 h-5 ${
+                            selected
+                              ? "text-brand-tertiary fill-brand-tertiary"
+                              : "text-brand-main/20"
+                          }`}
+                        />
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-brand-main/60 mb-2" style={{ fontSize: "0.75rem" }}>
+                  Your Testimonial
+                </label>
+                <textarea
+                  value={testimonialForm.content}
+                  onChange={(event) =>
+                    setTestimonialForm((prev) => ({
+                      ...prev,
+                      content: event.target.value,
+                    }))
+                  }
+                  rows={7}
+                  className="w-full px-4 py-3 border border-brand-main/10 bg-brand-secondary text-brand-main focus:outline-none focus:border-brand-tertiary resize-none"
+                  style={{ fontSize: "0.9rem", lineHeight: "1.7" }}
+                  placeholder="Tell us about your experience..."
+                  disabled={testimonialPending}
+                />
+              </div>
+
+              {activeTestimonial && !activeTestimonial.isPublished && (
+                <p className="text-amber-700" style={{ fontSize: "0.78rem" }}>
+                  Your testimonial is pending admin review before it appears publicly.
+                </p>
+              )}
+
+              {testimonialError && (
+                <p className="text-red-600" style={{ fontSize: "0.8rem" }}>
+                  {testimonialError}
+                </p>
+              )}
+
+              <div className="flex items-center gap-3">
+                <button
+                  type="submit"
+                  disabled={testimonialPending}
+                  className="inline-flex items-center gap-2 px-5 py-2.5 bg-brand-main text-brand-secondary hover:bg-brand-main-light transition-colors tracking-[0.1em] uppercase disabled:opacity-60"
+                  style={{ fontSize: "0.68rem" }}
+                >
+                  {testimonialPending ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      <MessageSquareQuote className="w-3.5 h-3.5" />
+                      {activeTestimonial ? "Update Feedback" : "Submit Feedback"}
+                    </>
+                  )}
+                </button>
+                <button
+                  type="button"
+                  onClick={closeTestimonialModal}
+                  className="px-5 py-2.5 border border-brand-main/15 text-brand-main/50 hover:text-brand-main hover:border-brand-main/30 transition-colors"
+                  style={{ fontSize: "0.72rem" }}
+                  disabled={testimonialPending}
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
     </div>
   );

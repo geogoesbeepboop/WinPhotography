@@ -21,7 +21,7 @@ export class BookingsService {
 
   async findAll(): Promise<Booking[]> {
     return this.bookingsRepository.find({
-      relations: ['client'],
+      relations: ['client', 'payments'],
       order: { createdAt: 'DESC' },
     });
   }
@@ -36,7 +36,7 @@ export class BookingsService {
   async findByClientId(clientId: string): Promise<Booking[]> {
     return this.bookingsRepository.find({
       where: { clientId },
-      relations: ['client'],
+      relations: ['client', 'payments'],
       order: { createdAt: 'DESC' },
     });
   }

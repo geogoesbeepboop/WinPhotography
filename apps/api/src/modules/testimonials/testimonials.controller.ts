@@ -9,14 +9,18 @@ import {
   UseGuards,
   ParseUUIDPipe,
 } from '@nestjs/common';
-import { ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { UserRole } from '@winphotography/shared';
 import { TestimonialsService } from './testimonials.service';
 import { CreateTestimonialDto } from './dto/create-testimonial.dto';
 import { UpdateTestimonialDto } from './dto/update-testimonial.dto';
+import { SubmitTestimonialDto } from './dto/submit-testimonial.dto';
+import { UpdateMyTestimonialDto } from './dto/update-my-testimonial.dto';
 import { SupabaseAuthGuard } from '../../common/guards/supabase-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { UserEntity } from '../users/entities/user.entity';
 
 @ApiTags('Testimonials')
 @Controller('testimonials')
@@ -42,6 +46,37 @@ export class TestimonialsController {
   @Roles(UserRole.ADMIN)
   async findAll() {
     return this.testimonialsService.findAll();
+  }
+
+  // Client: return testimonials tied to the authenticated user's bookings
+  @Get('my')
+  @UseGuards(SupabaseAuthGuard, RolesGuard)
+  @ApiBearerAuth()
+  async findMine(@CurrentUser() user: UserEntity) {
+    return this.testimonialsService.findMine(user.id);
+  }
+
+  // Client: submit or update testimonial for one of the user's bookings
+  @Post('my')
+  @UseGuards(SupabaseAuthGuard, RolesGuard)
+  @ApiBearerAuth()
+  async submitMine(
+    @CurrentUser() user: UserEntity,
+    @Body() dto: SubmitTestimonialDto,
+  ) {
+    return this.testimonialsService.submitByClient(user.id, dto);
+  }
+
+  // Client: edit own testimonial
+  @Patch('my/:id')
+  @UseGuards(SupabaseAuthGuard, RolesGuard)
+  @ApiBearerAuth()
+  async updateMine(
+    @CurrentUser() user: UserEntity,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateMyTestimonialDto,
+  ) {
+    return this.testimonialsService.updateMine(user.id, id, dto);
   }
 
   // Admin: create testimonial

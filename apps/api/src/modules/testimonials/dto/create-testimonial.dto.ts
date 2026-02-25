@@ -1,6 +1,6 @@
 import {
   IsString,
-  IsEnum,
+  IsUUID,
   IsOptional,
   IsBoolean,
   IsInt,
@@ -9,7 +9,6 @@ import {
   MinLength,
   MaxLength,
 } from 'class-validator';
-import { EventType } from '@winphotography/shared';
 
 export class CreateTestimonialDto {
   @IsString()
@@ -18,8 +17,13 @@ export class CreateTestimonialDto {
   clientName: string;
 
   @IsOptional()
-  @IsEnum(EventType)
-  eventType?: EventType;
+  @IsString()
+  @MaxLength(100)
+  eventType?: string | null;
+
+  @IsOptional()
+  @IsUUID()
+  bookingId?: string | null;
 
   @IsOptional()
   @IsString()

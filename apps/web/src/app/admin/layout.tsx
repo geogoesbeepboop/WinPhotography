@@ -23,8 +23,11 @@ import {
   DollarSign,
   FileText,
   Tag,
+  MessageSquareQuote,
 } from "lucide-react";
 import { DataSourceToggle } from "@/components/admin/data-source-toggle";
+import { useAdminNetworkActivityStore } from "@/stores/network-activity-store";
+import { BrandWaveLoader } from "@/components/shared/brand-wave-loader";
 
 const navSections = [
   {
@@ -49,6 +52,7 @@ const navSections = [
       { path: "/admin/portfolio", label: "Portfolio", icon: FolderOpen },
       { path: "/admin/pricing", label: "Pricing", icon: DollarSign },
       { path: "/admin/blog", label: "Blog", icon: FileText },
+      { path: "/admin/testimonials", label: "Testimonials", icon: MessageSquareQuote },
     ],
   },
   {
@@ -64,6 +68,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { userRole, isLoading } = useAuthStore();
+  const mutatingRequests = useAdminNetworkActivityStore((state) => state.mutatingRequests);
 
   useEffect(() => {
     setSidebarOpen(false);
@@ -225,6 +230,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           {children}
         </div>
       </main>
+
+      {mutatingRequests > 0 && (
+        <BrandWaveLoader subtitle="Processing admin changes..." />
+      )}
     </div>
   );
 }

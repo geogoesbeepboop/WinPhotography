@@ -4,8 +4,10 @@ import {
   Column,
   CreateDateColumn,
   UpdateDateColumn,
+  ManyToOne,
+  JoinColumn,
 } from 'typeorm';
-import { EventType } from '@winphotography/shared';
+import { Booking } from '../../bookings/entities/booking.entity';
 
 @Entity('testimonials')
 export class TestimonialEntity {
@@ -15,8 +17,15 @@ export class TestimonialEntity {
   @Column({ name: 'client_name', type: 'varchar', length: 255 })
   clientName: string;
 
-  @Column({ name: 'event_type', type: 'enum', enum: EventType, nullable: true })
-  eventType: EventType | null;
+  @Column({ name: 'event_type', type: 'varchar', length: 100, nullable: true })
+  eventType: string | null;
+
+  @Column({ name: 'booking_id', type: 'uuid', nullable: true })
+  bookingId: string | null;
+
+  @ManyToOne(() => Booking, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'booking_id' })
+  booking: Booking | null;
 
   @Column({ name: 'event_date', type: 'date', nullable: true })
   eventDate: Date | null;

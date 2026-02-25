@@ -24,6 +24,21 @@ interface BookingListItem {
   packagePrice?: number;
   paidAmount?: number;
   depositAmount?: number;
+  eventLocation?: string;
+  payments?: Array<{ amount: number | string; status: string }>;
+}
+
+function isPendingStatus(status?: string): boolean {
+  return status === "pending" || status === "pending_deposit";
+}
+
+function getPaidAmount(booking: BookingListItem): number {
+  if (Array.isArray(booking.payments) && booking.payments.length > 0) {
+    return booking.payments
+      .filter((payment) => payment.status === "succeeded" || payment.status === "paid")
+      .reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
+  }
+  return Number(booking.paidAmount ?? 0);
 }
 
 export default function AdminBookings() {
@@ -36,7 +51,12 @@ export default function AdminBookings() {
   const eventTypeOptions = eventTypes as EventTypeItem[];
 
   const filtered = allBookings.filter((b) => {
-    if (statusFilter !== "all" && b.status !== statusFilter) return false;
+    if (statusFilter === "pending") {
+      if (!isPendingStatus(b.status)) return false;
+    } else if (statusFilter !== "all" && b.status !== statusFilter) {
+      return false;
+    }
+
     const name = (b.clientName || b.client?.fullName || "").toLowerCase();
     const displayEventType = getEventTypeLabel(b.eventType, eventTypeOptions).toLowerCase();
     const type = `${displayEventType} ${(b.eventType || "").toLowerCase()} ${(b.packageName || "").toLowerCase()}`;
@@ -46,7 +66,7 @@ export default function AdminBookings() {
 
   const counts = {
     all: allBookings.length,
-    pending: allBookings.filter((b) => b.status === "pending").length,
+    pending: allBookings.filter((b) => isPendingStatus(b.status)).length,
     confirmed: allBookings.filter((b) => b.status === "confirmed").length,
     completed: allBookings.filter((b) => b.status === "completed").length,
     cancelled: allBookings.filter((b) => b.status === "cancelled").length,
@@ -117,11 +137,12 @@ export default function AdminBookings() {
           {filtered.map((bk, i) => {
             const cfg = bookingStatusConfig[bk.status];
             const total = bk.totalAmount ?? bk.packagePrice ?? 0;
-            const paid = bk.paidAmount ?? bk.depositAmount ?? 0;
+            const paid = getPaidAmount(bk);
             const progress = total > 0 ? Math.round((paid / total) * 100) : 0;
             const clientName = bk.clientName || bk.client?.fullName || "Unknown";
             const bookingType = getEventTypeLabel(bk.eventType, eventTypeOptions) || bk.packageName || "";
             const bookingDate = bk.date || bk.eventDate || "";
+            const location = bk.location || bk.eventLocation || "";
             return (
               <motion.div key={bk.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.04 }}>
                 <Link href={`/admin/bookings/${bk.id}`} className="block bg-white border border-brand-main/8 p-5 hover:border-brand-tertiary/30 transition-colors">
@@ -134,7 +155,7 @@ export default function AdminBookings() {
                       <p className="text-brand-main/60" style={{ fontSize: "0.85rem" }}>{bookingType}</p>
                       <div className="flex flex-wrap items-center gap-3 text-brand-main/40 mt-1" style={{ fontSize: "0.75rem" }}>
                         <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{bookingDate}{bk.time ? ` at ${bk.time}` : ""}</span>
-                        {bk.location && <span className="flex items-center gap-1"><MapPin className="w-3 h-3" />{bk.location}</span>}
+                        {location && <span className="flex items-center gap-1"><MapPin className="w-3 h-3" />{location}</span>}
                       </div>
                     </div>
                     <div className="text-right">

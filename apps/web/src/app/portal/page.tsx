@@ -339,13 +339,15 @@ export default function PortalDashboard() {
           <div className="space-y-3">
             {bookings.map((booking) => {
               const config = statusConfig[booking.status];
-              const progress = Math.round(
-                (booking.paidAmount / booking.totalAmount) * 100
-              );
+              const progress =
+                booking.totalAmount > 0
+                  ? Math.round((booking.paidAmount / booking.totalAmount) * 100)
+                  : 0;
               return (
-                <div
+                <Link
                   key={booking.id}
-                  className="bg-card border border-brand-main/8 p-5"
+                  href={`/portal/bookings#booking-${booking.id}`}
+                  className="block bg-card border border-brand-main/8 p-5 hover:border-brand-tertiary/35 transition-colors"
                 >
                   <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
                     <div>
@@ -393,7 +395,7 @@ export default function PortalDashboard() {
                       />
                     </div>
                   </div>
-                </div>
+                </Link>
               );
             })}
           </div>

@@ -18,7 +18,8 @@ export interface Package {
 export interface Testimonial {
   id: string;
   clientName: string;
-  eventType: EventType | null;
+  eventType: string | null;
+  bookingId?: string | null;
   eventDate: string | null;
   content: string;
   rating: number | null;

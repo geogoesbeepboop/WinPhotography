@@ -11,6 +11,7 @@ import {
   ArrowRight,
   TrendingUp,
   Clock,
+  MessageSquareQuote,
 } from "lucide-react";
 import { inquiryStatusConfig, bookingStatusConfig } from "@/lib/mock-data/admin-data";
 import { useInquiries } from "@/services/inquiries";
@@ -20,6 +21,7 @@ import { useGalleries } from "@/services/galleries";
 import { useClients } from "@/services/clients";
 import { EventTypeItem, useEventTypes } from "@/services/event-types";
 import { getEventTypeLabel } from "@/lib/event-type-label";
+import { useAdminTestimonials } from "@/services/testimonials";
 
 export default function AdminOverview() {
   const { data: inquiriesData, isLoading: inquiriesLoading } = useInquiries();
@@ -27,6 +29,7 @@ export default function AdminOverview() {
   const { data: paymentsData, isLoading: paymentsLoading } = usePayments();
   const { data: galleriesData, isLoading: galleriesLoading } = useGalleries();
   const { data: clientsData, isLoading: clientsLoading } = useClients();
+  const { data: testimonialsData, isLoading: testimonialsLoading } = useAdminTestimonials();
   const { data: eventTypes = [] } = useEventTypes();
 
   const inquiries = inquiriesData ?? [];
@@ -34,14 +37,22 @@ export default function AdminOverview() {
   const payments = paymentsData ?? [];
   const galleries = galleriesData ?? [];
   const clients = clientsData ?? [];
+  const testimonials = testimonialsData ?? [];
   const eventTypeOptions = eventTypes as EventTypeItem[];
 
-  const isLoading = inquiriesLoading || bookingsLoading || paymentsLoading || galleriesLoading || clientsLoading;
+  const isLoading =
+    inquiriesLoading ||
+    bookingsLoading ||
+    paymentsLoading ||
+    galleriesLoading ||
+    clientsLoading ||
+    testimonialsLoading;
 
   const totalRevenue = payments.filter((p: any) => p.status === "paid").reduce((s: number, p: any) => s + p.amount, 0);
   const pendingPayments = payments.filter((p: any) => p.status === "pending" || p.status === "overdue").reduce((s: number, p: any) => s + p.amount, 0);
   const newInquiries = inquiries.filter((i: any) => i.status === "new").length;
   const confirmedBookings = bookings.filter((b: any) => b.status === "confirmed").length;
+  const publishedTestimonials = testimonials.filter((t: any) => t.isPublished).length;
 
   const stats = [
     { label: "Total Revenue", value: `$${totalRevenue.toLocaleString()}`, icon: DollarSign, color: "text-green-600", bg: "bg-green-50" },
@@ -50,6 +61,7 @@ export default function AdminOverview() {
     { label: "Active Bookings", value: String(confirmedBookings), icon: CalendarCheck, color: "text-brand-tertiary", bg: "bg-brand-tertiary/10" },
     { label: "Galleries", value: String(galleries.length), icon: Image, color: "text-purple-600", bg: "bg-purple-50" },
     { label: "Total Clients", value: String(clients.length), icon: Users, color: "text-brand-main-light", bg: "bg-brand-main/5" },
+    { label: "Live Testimonials", value: String(publishedTestimonials), icon: MessageSquareQuote, color: "text-rose-600", bg: "bg-rose-50" },
   ];
 
   if (isLoading) {
@@ -57,7 +69,7 @@ export default function AdminOverview() {
       <div className="space-y-6">
         <div className="h-16 bg-brand-main/5 rounded animate-pulse" />
         <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
-          {Array.from({ length: 6 }).map((_, i) => (
+          {Array.from({ length: 7 }).map((_, i) => (
             <div key={i} className="h-28 bg-brand-main/5 rounded animate-pulse" />
           ))}
         </div>
