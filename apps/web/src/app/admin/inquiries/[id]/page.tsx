@@ -13,6 +13,13 @@ import { apiClient } from "@/lib/api-client";
 import { useAdminPackages } from "@/services/packages";
 import { EventTypeItem, useEventTypes } from "@/services/event-types";
 import { getEventTypeLabel } from "@/lib/event-type-label";
+import {
+  bookingTimezoneOptions,
+  DEFAULT_BOOKING_TIMEZONE,
+  normalizeTimeForApi,
+  toDateInputValue,
+  toTimeInputValue,
+} from "@/lib/booking-date-time";
 
 const defaultStatusCfg = { label: "Unknown", color: "bg-gray-100 text-gray-500" };
 
@@ -80,6 +87,10 @@ export default function AdminInquiryDetail() {
   const [newClientForm, setNewClientForm] = useState({ fullName: "", email: "", phone: "" });
   const [convertForm, setConvertForm] = useState({
     clientId: "",
+    eventDate: "",
+    eventTime: "12:00",
+    eventTimezone: DEFAULT_BOOKING_TIMEZONE,
+    eventLocation: "",
     packageName: "",
     packagePrice: "",
     depositAmount: "",
@@ -99,6 +110,13 @@ export default function AdminInquiryDetail() {
     if (inquiry) {
       setStatus(inquiry.status || "new");
       setNotes(inquiry.notes || inquiry.adminNotes || "");
+      setConvertForm((prev) => ({
+        ...prev,
+        eventDate: toDateInputValue(inquiry.eventDate || ""),
+        eventTime: toTimeInputValue("12:00"),
+        eventTimezone: DEFAULT_BOOKING_TIMEZONE,
+        eventLocation: inquiry.eventLocation || "",
+      }));
     }
   }, [inquiry]);
 
@@ -169,6 +187,10 @@ export default function AdminInquiryDetail() {
       {
         id: inquiry.id,
         clientId,
+        eventDate: convertForm.eventDate || undefined,
+        eventTime: normalizeTimeForApi(convertForm.eventTime),
+        eventTimezone: convertForm.eventTimezone || DEFAULT_BOOKING_TIMEZONE,
+        eventLocation: convertForm.eventLocation || undefined,
         packageName: convertForm.packageName,
         packagePrice: Number(convertForm.packagePrice),
         depositAmount: Number(convertForm.depositAmount),
@@ -375,7 +397,16 @@ export default function AdminInquiryDetail() {
               <div className="space-y-2">
                 <button
                   onClick={() => {
-                    setConvertForm({ clientId: "", packageName: "", packagePrice: "", depositAmount: "" });
+                    setConvertForm({
+                      clientId: "",
+                      eventDate: toDateInputValue(inquiry.eventDate || ""),
+                      eventTime: "12:00",
+                      eventTimezone: DEFAULT_BOOKING_TIMEZONE,
+                      eventLocation: inquiry.eventLocation || "",
+                      packageName: "",
+                      packagePrice: "",
+                      depositAmount: "",
+                    });
                     setUseCustomPackage(false);
                     setSelectedPackageId("");
                     setCreatingNewClient(false);
@@ -649,12 +680,63 @@ export default function AdminInquiryDetail() {
                   />
                 </div>
               )}
+
+              <div>
+                <label className="block text-brand-main/50 mb-1" style={{ fontSize: "0.75rem" }}>Session Schedule *</label>
+                <div className="grid grid-cols-2 gap-3">
+                  <input
+                    type="date"
+                    value={convertForm.eventDate}
+                    onChange={(e) => setConvertForm((f) => ({ ...f, eventDate: e.target.value }))}
+                    className="w-full px-3 py-2.5 bg-brand-secondary border border-brand-main/10 text-brand-main focus:outline-none focus:border-brand-tertiary"
+                    style={{ fontSize: "0.85rem" }}
+                  />
+                  <input
+                    type="time"
+                    value={convertForm.eventTime}
+                    onChange={(e) => setConvertForm((f) => ({ ...f, eventTime: e.target.value }))}
+                    className="w-full px-3 py-2.5 bg-brand-secondary border border-brand-main/10 text-brand-main focus:outline-none focus:border-brand-tertiary"
+                    style={{ fontSize: "0.85rem" }}
+                  />
+                </div>
+                <div className="grid grid-cols-1 gap-3 mt-3">
+                  <select
+                    value={convertForm.eventTimezone}
+                    onChange={(e) => setConvertForm((f) => ({ ...f, eventTimezone: e.target.value }))}
+                    className="w-full px-3 py-2.5 bg-brand-secondary border border-brand-main/10 text-brand-main focus:outline-none focus:border-brand-tertiary"
+                    style={{ fontSize: "0.85rem" }}
+                  >
+                    {bookingTimezoneOptions.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                  <input
+                    type="text"
+                    value={convertForm.eventLocation}
+                    onChange={(e) => setConvertForm((f) => ({ ...f, eventLocation: e.target.value }))}
+                    placeholder="Session location"
+                    className="w-full px-3 py-2.5 bg-brand-secondary border border-brand-main/10 text-brand-main focus:outline-none focus:border-brand-tertiary"
+                    style={{ fontSize: "0.85rem" }}
+                  />
+                </div>
+              </div>
             </div>
 
             <div className="flex items-center gap-3 mt-6">
               <button
                 onClick={handleConvert}
-                disabled={convertInquiry.isPending || createClient.isPending || (!creatingNewClient && !convertForm.clientId) || (creatingNewClient && (!newClientForm.fullName || !newClientForm.email)) || !convertForm.packageName || !convertForm.packagePrice || !convertForm.depositAmount}
+                disabled={
+                  convertInquiry.isPending ||
+                  createClient.isPending ||
+                  (!creatingNewClient && !convertForm.clientId) ||
+                  (creatingNewClient && (!newClientForm.fullName || !newClientForm.email)) ||
+                  !convertForm.packageName ||
+                  !convertForm.packagePrice ||
+                  !convertForm.depositAmount ||
+                  !convertForm.eventDate
+                }
                 className="flex-1 inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-brand-tertiary text-white hover:bg-brand-tertiary-dark transition-colors tracking-[0.1em] uppercase disabled:opacity-50 disabled:cursor-not-allowed"
                 style={{ fontSize: "0.65rem" }}
               >

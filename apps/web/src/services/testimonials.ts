@@ -17,6 +17,7 @@ export interface TestimonialItem {
   id: string;
   clientName: string;
   eventType?: string | null;
+  portfolioSlug?: string | null;
   bookingId?: string | null;
   booking?: TestimonialBookingSummary | null;
   eventDate?: string | null;
@@ -102,12 +103,9 @@ export function useAdminTestimonials() {
 }
 
 export function useMyTestimonials() {
-  const { dataSource } = useDataSourceStore();
-
   return useQuery<TestimonialItem[]>({
-    queryKey: [...testimonialKeys.my(), dataSource],
+    queryKey: testimonialKeys.my(),
     queryFn: async () => {
-      if (dataSource === 'mock') return [];
       const { data } = await apiClient.get('/testimonials/my');
       return data;
     },

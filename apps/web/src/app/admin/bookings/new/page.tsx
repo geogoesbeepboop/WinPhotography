@@ -8,6 +8,11 @@ import { useClients, useCreateClient } from "@/services/clients";
 import { useCreateBooking } from "@/services/bookings";
 import { EventTypeItem, useEventTypes } from "@/services/event-types";
 import { usePackages } from "@/services/packages";
+import {
+  bookingTimezoneOptions,
+  DEFAULT_BOOKING_TIMEZONE,
+  normalizeTimeForApi,
+} from "@/lib/booking-date-time";
 
 interface ClientOption {
   id: string;
@@ -44,6 +49,8 @@ function NewBookingForm() {
     clientId: prefilledClientId,
     eventType: "",
     eventDate: "",
+    eventTime: "12:00",
+    eventTimezone: DEFAULT_BOOKING_TIMEZONE,
     eventLocation: "",
     packageName: "",
     packagePrice: "",
@@ -60,7 +67,7 @@ function NewBookingForm() {
 
   const handleSubmit = async () => {
     setError("");
-    if (!form.eventType || !form.packageName || !form.packagePrice || !form.depositAmount) {
+    if (!form.eventType || !form.eventDate || !form.packageName || !form.packagePrice || !form.depositAmount) {
       setError("Please fill in all required fields.");
       return;
     }
@@ -94,7 +101,9 @@ function NewBookingForm() {
       await createBooking.mutateAsync({
         clientId,
         eventType: form.eventType,
-        eventDate: form.eventDate || undefined,
+        eventDate: form.eventDate,
+        eventTime: normalizeTimeForApi(form.eventTime),
+        eventTimezone: form.eventTimezone || DEFAULT_BOOKING_TIMEZONE,
         eventLocation: form.eventLocation || undefined,
         packageName: form.packageName,
         packagePrice: Number(form.packagePrice),
@@ -224,7 +233,7 @@ function NewBookingForm() {
             </select>
           </div>
           <div>
-            <label className="block text-brand-main/50 mb-1" style={{ fontSize: "0.75rem" }}>Event Date</label>
+            <label className="block text-brand-main/50 mb-1" style={{ fontSize: "0.75rem" }}>Event Date *</label>
             <input
               type="date"
               value={form.eventDate}
@@ -232,6 +241,33 @@ function NewBookingForm() {
               className="w-full px-3 py-2.5 bg-brand-secondary border border-brand-main/10 text-brand-main focus:outline-none focus:border-brand-tertiary"
               style={{ fontSize: "0.85rem" }}
             />
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-brand-main/50 mb-1" style={{ fontSize: "0.75rem" }}>Event Time *</label>
+              <input
+                type="time"
+                value={form.eventTime}
+                onChange={(e) => setForm((f) => ({ ...f, eventTime: e.target.value }))}
+                className="w-full px-3 py-2.5 bg-brand-secondary border border-brand-main/10 text-brand-main focus:outline-none focus:border-brand-tertiary"
+                style={{ fontSize: "0.85rem" }}
+              />
+            </div>
+            <div>
+              <label className="block text-brand-main/50 mb-1" style={{ fontSize: "0.75rem" }}>Timezone *</label>
+              <select
+                value={form.eventTimezone}
+                onChange={(e) => setForm((f) => ({ ...f, eventTimezone: e.target.value }))}
+                className="w-full px-3 py-2.5 bg-brand-secondary border border-brand-main/10 text-brand-main focus:outline-none focus:border-brand-tertiary"
+                style={{ fontSize: "0.85rem" }}
+              >
+                {bookingTimezoneOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
           <div>
             <label className="block text-brand-main/50 mb-1" style={{ fontSize: "0.75rem" }}>Event Location</label>

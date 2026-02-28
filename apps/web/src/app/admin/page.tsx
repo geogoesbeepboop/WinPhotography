@@ -23,6 +23,10 @@ import { EventTypeItem, useEventTypes } from "@/services/event-types";
 import { getEventTypeLabel } from "@/lib/event-type-label";
 import { useAdminTestimonials } from "@/services/testimonials";
 import { deriveBookingLifecycleStage } from "@/lib/booking-lifecycle";
+import {
+  DEFAULT_BOOKING_TIMEZONE,
+  formatBookingDateTime,
+} from "@/lib/booking-date-time";
 
 export default function AdminOverview() {
   const { data: inquiriesData, isLoading: inquiriesLoading } = useInquiries();
@@ -40,7 +44,19 @@ export default function AdminOverview() {
   const clients = clientsData ?? [];
   const testimonials = testimonialsData ?? [];
   const eventTypeOptions = eventTypes as EventTypeItem[];
-  const bookingStage = (booking: any) => deriveBookingLifecycleStage(booking);
+  const bookingStage = (booking: any) => {
+    if (
+      booking?.status === "pending_deposit" ||
+      booking?.status === "upcoming" ||
+      booking?.status === "pending_full_payment" ||
+      booking?.status === "pending_delivery" ||
+      booking?.status === "completed" ||
+      booking?.status === "cancelled"
+    ) {
+      return booking.status;
+    }
+    return deriveBookingLifecycleStage(booking);
+  };
 
   const isLoading =
     inquiriesLoading ||
@@ -160,6 +176,11 @@ export default function AdminOverview() {
                 .map((bk: any) => {
                 const stage = bookingStage(bk);
                 const cfg = bookingStatusConfig[stage as keyof typeof bookingStatusConfig];
+                const bookingDate = formatBookingDateTime(
+                  bk.eventDate || bk.date,
+                  bk.eventTime || bk.time,
+                  bk.eventTimezone || DEFAULT_BOOKING_TIMEZONE,
+                );
                 return (
                   <Link key={bk.id} href={`/admin/bookings/${bk.id}`} className="flex items-center justify-between p-4 hover:bg-card/50 transition-colors">
                     <div className="min-w-0">
@@ -167,7 +188,7 @@ export default function AdminOverview() {
                         {bk.clientName || bk.client?.fullName}
                       </p>
                       <p className="text-brand-main/40 truncate flex items-center gap-1.5" style={{ fontSize: "0.75rem" }}>
-                        <Clock className="w-3 h-3" />{bk.date || bk.eventDate} · {getEventTypeLabel(bk.eventType, eventTypeOptions) || bk.type}
+                        <Clock className="w-3 h-3" />{bookingDate || bk.date || bk.eventDate} · {getEventTypeLabel(bk.eventType, eventTypeOptions) || bk.type}
                       </p>
                     </div>
                     {cfg && <span className={`shrink-0 ml-3 px-2.5 py-0.5 ${cfg.color}`} style={{ fontSize: "0.6rem" }}>{cfg.label}</span>}

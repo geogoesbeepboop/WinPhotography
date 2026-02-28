@@ -6,7 +6,7 @@ import Link from "next/link";
 import { motion } from "motion/react";
 import { ArrowLeft, Upload, Eye, EyeOff, Image, X, Loader2 } from "lucide-react";
 import { useGallery, usePublishGallery, useAddGalleryPhotos, useDeleteGalleryPhoto, useUpdateGallery } from "@/services/galleries";
-import { useAddPortfolioPhotos, useCreatePortfolioItem } from "@/services/portfolio";
+import { useCreatePortfolioItem } from "@/services/portfolio";
 import { uploadGalleryPhoto } from "@/services/upload";
 import { ImageWithFallback } from "@/components/shared/image-with-fallback";
 import { resolveMediaUrl } from "@/lib/media";
@@ -40,7 +40,7 @@ interface GalleryDetails {
   status: string;
   clientName?: string;
   client?: { fullName?: string };
-  booking?: { eventType?: string; eventDate?: string };
+  booking?: { id?: string; eventType?: string; eventDate?: string };
   photos?: GalleryPhotoItem[];
 }
 
@@ -52,14 +52,15 @@ export default function AdminGalleryDetail() {
   const deletePhoto = useDeleteGalleryPhoto();
   const updateGallery = useUpdateGallery();
   const createPortfolioItem = useCreatePortfolioItem();
-  const addPortfolioPhotos = useAddPortfolioPhotos();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const duplicateGuardRef = useRef(false);
 
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState({ current: 0, total: 0 });
   const [deletePhotoTarget, setDeletePhotoTarget] = useState<{ id: string; label: string } | null>(null);
   const [portfolioSyncMessage, setPortfolioSyncMessage] = useState("");
   const [portfolioSyncError, setPortfolioSyncError] = useState("");
+  const [isDuplicating, setIsDuplicating] = useState(false);
 
   if (isLoading) {
     return (
@@ -158,12 +159,15 @@ export default function AdminGalleryDetail() {
   };
 
   const duplicateToPortfolio = async () => {
+    if (duplicateGuardRef.current || isDuplicating) return;
     if (photos.length === 0) {
       setPortfolioSyncError("Add at least one gallery photo before duplicating to portfolio.");
       setPortfolioSyncMessage("");
       return;
     }
 
+    duplicateGuardRef.current = true;
+    setIsDuplicating(true);
     setPortfolioSyncError("");
     setPortfolioSyncMessage("");
 
@@ -173,34 +177,25 @@ export default function AdminGalleryDetail() {
         category: gallery.booking?.eventType || "event",
         description: gallery.description || undefined,
         eventDate: gallery.booking?.eventDate || undefined,
+        bookingId: gallery.booking?.id || undefined,
+        sourceGalleryId: gallery.id,
         isPublished: published,
       });
-
-      await addPortfolioPhotos.mutateAsync({
-        id: created.id,
-        photos: photos
-          .filter((photo) => Boolean(photo.r2Key))
-          .map((photo, index) => ({
-            r2Key: photo.r2Key as string,
-            mimeType: photo.mimeType || "image/jpeg",
-            width: photo.width,
-            height: photo.height,
-            sortOrder: photo.sortOrder ?? index,
-          })),
-      });
-
-      setPortfolioSyncMessage(`Gallery duplicated to portfolio: ${created.title}`);
+      setPortfolioSyncMessage(`Gallery added to Portfolio: ${created.title}`);
       setPortfolioSyncError("");
     } catch (error: any) {
       const message =
         error?.response?.data?.message ||
-        "Failed to duplicate this gallery to portfolio.";
+        "Failed to link this gallery to Portfolio.";
       setPortfolioSyncError(Array.isArray(message) ? message.join(", ") : message);
       setPortfolioSyncMessage("");
+    } finally {
+      duplicateGuardRef.current = false;
+      setIsDuplicating(false);
     }
   };
 
-  const portfolioPending = createPortfolioItem.isPending || addPortfolioPhotos.isPending;
+  const portfolioPending = createPortfolioItem.isPending || isDuplicating;
 
   return (
     <div>
@@ -245,12 +240,12 @@ export default function AdminGalleryDetail() {
               {portfolioPending ? (
                 <>
                   <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  Duplicating...
+                  Linking...
                 </>
               ) : (
                 <>
                   <Image className="w-3.5 h-3.5" />
-                  Duplicate to Portfolio
+                  Add to Portfolio
                 </>
               )}
             </button>

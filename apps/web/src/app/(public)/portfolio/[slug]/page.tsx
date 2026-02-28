@@ -4,10 +4,11 @@ import { useState, useMemo } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { motion, AnimatePresence } from "motion/react";
-import { ArrowLeft, X, ChevronLeft, ChevronRight, Camera } from "lucide-react";
+import { ArrowLeft, X, ChevronLeft, ChevronRight, Camera, Star } from "lucide-react";
 import { ImageWithFallback } from "@/components/shared/image-with-fallback";
 import { BrandWaveLoader } from "@/components/shared/brand-wave-loader";
 import { usePortfolioBySlug } from "@/services/portfolio";
+import { TestimonialItem, useTestimonials } from "@/services/testimonials";
 import { format } from "date-fns";
 import { resolveMediaUrl } from "@/lib/media";
 import { useDataSourceStore } from "@/stores/admin-settings-store";
@@ -27,8 +28,10 @@ interface PortfolioDetailApi {
 
 export default function PortfolioDetailPage() {
   const { slug } = useParams();
+  const slugValue = String(slug || "");
   const { dataSource, hasHydrated } = useDataSourceStore();
-  const { data: apiData, isLoading } = usePortfolioBySlug(slug as string);
+  const { data: apiData, isLoading } = usePortfolioBySlug(slugValue);
+  const { data: testimonials = [] } = useTestimonials();
   const showInitialLoader =
     !hasHydrated || (dataSource === "api" && isLoading);
 
@@ -46,6 +49,12 @@ export default function PortfolioDetailPage() {
   }, [apiData]);
 
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+  const portfolioTestimonial = useMemo(() => {
+    const testimonialItems = testimonials as TestimonialItem[];
+    return (
+      testimonialItems.find((item) => item.portfolioSlug === slugValue) || null
+    );
+  }, [testimonials, slugValue]);
 
   const openLightbox = (index: number) => setLightboxIndex(index);
   const closeLightbox = () => setLightboxIndex(null);
@@ -167,6 +176,55 @@ export default function PortfolioDetailPage() {
           )}
         </div>
       </section>
+
+      {portfolioTestimonial && (
+        <section className="py-16 bg-brand-warm/50">
+          <div className="max-w-4xl mx-auto px-6 lg:px-8">
+            <motion.div
+              initial={{ opacity: 0, y: 16 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              className="bg-white border border-brand-main/10 p-8 md:p-10"
+            >
+              <p
+                className="tracking-[0.3em] uppercase text-brand-tertiary mb-4"
+                style={{ fontSize: "0.65rem" }}
+              >
+                Client Wrap-Up
+              </p>
+              <div className="flex items-center gap-1 mb-4">
+                {Array.from({
+                  length: Math.max(
+                    1,
+                    Math.min(5, portfolioTestimonial.rating ?? 5),
+                  ),
+                }).map((_, starIndex) => (
+                  <Star
+                    key={`${portfolioTestimonial.id}-wrap-up-star-${starIndex}`}
+                    className="w-4 h-4 text-brand-tertiary fill-brand-tertiary"
+                  />
+                ))}
+              </div>
+              <p
+                className="text-brand-main/80 italic mb-5"
+                style={{ fontSize: "1rem", lineHeight: "1.9" }}
+              >
+                "{portfolioTestimonial.content}"
+              </p>
+              <div>
+                <p className="font-serif text-brand-main" style={{ fontSize: "1.1rem" }}>
+                  {portfolioTestimonial.clientName}
+                </p>
+                {portfolioTestimonial.eventType && (
+                  <p className="text-brand-main/50" style={{ fontSize: "0.8rem" }}>
+                    {portfolioTestimonial.eventType}
+                  </p>
+                )}
+              </div>
+            </motion.div>
+          </div>
+        </section>
+      )}
 
       {/* CTA */}
       <section className="py-20 bg-brand-warm text-center">

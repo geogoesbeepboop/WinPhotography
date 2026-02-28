@@ -6,6 +6,11 @@ export const createBookingSchema = z.object({
   inquiryId: z.string().uuid('Invalid inquiry ID').optional(),
   eventType: z.nativeEnum(EventType),
   eventDate: z.string().min(1, 'Event date is required'),
+  eventTime: z
+    .string()
+    .regex(/^([01]\d|2[0-3]):[0-5]\d(:[0-5]\d)?$/, 'Event time must use HH:mm or HH:mm:ss')
+    .optional(),
+  eventTimezone: z.string().max(64, 'Timezone must be less than 64 characters').optional(),
   eventEndDate: z.string().optional(),
   eventLocation: z
     .string()

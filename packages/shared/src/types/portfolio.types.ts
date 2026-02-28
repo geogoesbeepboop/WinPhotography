@@ -6,6 +6,8 @@ export interface PortfolioItem {
   slug: string;
   description: string | null;
   category: PortfolioCategory;
+  bookingId: string | null;
+  sourceGalleryId: string | null;
   coverImageKey: string;
   coverThumbnailKey: string;
   isFeatured: boolean;
@@ -39,6 +41,8 @@ export interface CreatePortfolioItemDto {
   title: string;
   description?: string;
   category: PortfolioCategory;
+  bookingId?: string;
+  sourceGalleryId?: string;
   isFeatured?: boolean;
   metaTitle?: string;
   metaDescription?: string;
@@ -49,6 +53,8 @@ export interface UpdatePortfolioItemDto {
   title?: string;
   description?: string;
   category?: PortfolioCategory;
+  bookingId?: string | null;
+  sourceGalleryId?: string | null;
   isFeatured?: boolean;
   isPublished?: boolean;
   sortOrder?: number;

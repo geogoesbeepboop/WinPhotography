@@ -6,8 +6,12 @@ import {
   UpdateDateColumn,
   Index,
   OneToMany,
+  ManyToOne,
+  JoinColumn,
 } from 'typeorm';
 import { PortfolioPhotoEntity } from './portfolio-photo.entity';
+import { Booking } from '../../bookings/entities/booking.entity';
+import { GalleryEntity } from '../../galleries/entities/gallery.entity';
 
 @Entity('portfolio_items')
 export class PortfolioItemEntity {
@@ -27,6 +31,25 @@ export class PortfolioItemEntity {
   @Index()
   @Column({ type: 'varchar', length: 100 })
   category: string;
+
+  @Index()
+  @Column({ name: 'booking_id', type: 'uuid', nullable: true })
+  bookingId: string | null;
+
+  @ManyToOne(() => Booking, (booking) => booking.portfolioItems, {
+    nullable: true,
+    onDelete: 'SET NULL',
+  })
+  @JoinColumn({ name: 'booking_id' })
+  booking: Booking | null;
+
+  @Index({ unique: true })
+  @Column({ name: 'source_gallery_id', type: 'uuid', nullable: true, unique: true })
+  sourceGalleryId: string | null;
+
+  @ManyToOne(() => GalleryEntity, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'source_gallery_id' })
+  sourceGallery: GalleryEntity | null;
 
   @Column({ name: 'cover_image_key', type: 'varchar', length: 500 })
   coverImageKey: string;

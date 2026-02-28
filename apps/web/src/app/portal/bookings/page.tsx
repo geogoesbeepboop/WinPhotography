@@ -31,6 +31,10 @@ import {
   BookingLifecycleStage,
   deriveBookingLifecycleStage,
 } from "@/lib/booking-lifecycle";
+import {
+  DEFAULT_BOOKING_TIMEZONE,
+  formatBookingDateTime,
+} from "@/lib/booking-date-time";
 
 interface ApiPayment {
   amount: number;
@@ -47,6 +51,7 @@ interface ApiBooking {
   eventDate: string;
   lifecycleStage?: BookingLifecycleStage;
   eventTime?: string;
+  eventTimezone?: string;
   eventLocation?: string;
   contractUrl?: string | null;
   contractSignedAt?: string;
@@ -124,8 +129,12 @@ function mapApiBookings(apiBookings: ApiBooking[]): DisplayBooking[] {
       type: b.packageName,
       category: b.eventType,
       rawStatus: b.status,
-      date: format(new Date(b.eventDate), "MMMM d, yyyy"),
-      time: b.eventTime || "",
+      date: formatBookingDateTime(
+        b.eventDate,
+        b.eventTime || "",
+        b.eventTimezone || DEFAULT_BOOKING_TIMEZONE,
+      ),
+      time: "",
       location: b.eventLocation || "",
       status: displayStatus,
       contract: Boolean(b.contractUrl),
@@ -227,7 +236,7 @@ export default function PortalBookings() {
         });
       }
       setTestimonialSuccess(
-        "Thank you for submitting feedback! Hope we are able to be a part of another special event in your future.",
+        "Thank you for your feedback! We hope to be part of another special event of yours soon 😊",
       );
       setTestimonialModalBookingId(null);
     } catch (error: unknown) {
@@ -409,7 +418,7 @@ export default function PortalBookings() {
                         style={{ fontSize: "0.7rem" }}
                       >
                         <MessageSquareQuote className="w-3.5 h-3.5" />
-                        {testimonialsByBooking.get(booking.id) ? "Edit Feedback" : "Leave Feedback"}
+                        {testimonialsByBooking.get(booking.id) ? "Edit Feedback" : "Tell Us About Your Experience"}
                       </button>
                     )}
                   </div>
@@ -433,13 +442,6 @@ export default function PortalBookings() {
                       Review & Sign Contract
                       <ArrowRight className="w-3.5 h-3.5" />
                     </button>
-                  </div>
-                )}
-                {booking.status === "pending_deposit" && !booking.contract && (
-                  <div className="px-6 py-5 bg-amber-50/50 border-t border-brand-main/6">
-                    <p className="text-amber-700" style={{ fontSize: "0.82rem" }}>
-                      Contract details are not available yet. You will be notified as soon as the contract is ready to review.
-                    </p>
                   </div>
                 )}
               </motion.div>

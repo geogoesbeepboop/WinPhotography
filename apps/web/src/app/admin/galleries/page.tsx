@@ -5,6 +5,10 @@ import { motion } from "motion/react";
 import { useState } from "react";
 import { Image, PlusCircle, Eye, EyeOff, Calendar, User, Search } from "lucide-react";
 import { useGalleries } from "@/services/galleries";
+import {
+  DEFAULT_BOOKING_TIMEZONE,
+  formatTimestampWithTimezone,
+} from "@/lib/booking-date-time";
 
 interface GalleryListItem {
   id: string;
@@ -12,6 +16,7 @@ interface GalleryListItem {
   status: string;
   clientName?: string;
   client?: { fullName?: string };
+  booking?: { eventTimezone?: string };
   photoCount?: number;
   createdAt?: string;
   publishedAt?: string;
@@ -73,7 +78,11 @@ export default function AdminGalleries() {
       </div>
 
       <div className="space-y-3">
-        {filtered.map((gal, i) => (
+        {filtered.map((gal, i) => {
+          const timezone = gal.booking?.eventTimezone || DEFAULT_BOOKING_TIMEZONE;
+          const createdAtLabel = formatTimestampWithTimezone(gal.createdAt, timezone) || gal.createdAt || "";
+          const publishedAtLabel = formatTimestampWithTimezone(gal.publishedAt, timezone) || gal.publishedAt || "";
+          return (
           <motion.div key={gal.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}>
             <Link href={`/admin/galleries/${gal.id}`} className="block bg-white border border-brand-main/8 p-5 hover:border-brand-tertiary/30 transition-colors">
               <div className="flex flex-wrap items-start justify-between gap-3">
@@ -89,16 +98,17 @@ export default function AdminGalleries() {
                   <div className="flex flex-wrap items-center gap-3 text-brand-main/40" style={{ fontSize: "0.75rem" }}>
                     <span className="flex items-center gap-1"><User className="w-3 h-3" />{gal.clientName || gal.client?.fullName || "Unknown"}</span>
                     <span className="flex items-center gap-1"><Image className="w-3 h-3" />{gal.photoCount ?? 0} photos</span>
-                    <span className="flex items-center gap-1"><Calendar className="w-3 h-3" />{gal.createdAt}</span>
+                    <span className="flex items-center gap-1"><Calendar className="w-3 h-3" />Created on {createdAtLabel}</span>
                   </div>
                 </div>
                 {gal.publishedAt && (
-                  <p className="text-brand-main/30" style={{ fontSize: "0.7rem" }}>Published {gal.publishedAt}</p>
+                  <p className="text-brand-main/30" style={{ fontSize: "0.7rem" }}>Published on {publishedAtLabel}</p>
                 )}
               </div>
             </Link>
           </motion.div>
-        ))}
+          );
+        })}
 
         {filtered.length === 0 && (
           <div className="text-center py-16">

@@ -85,8 +85,9 @@ export function deriveBookingLifecycleStage(
 ): BookingLifecycleStage {
   const normalizedStatus = normalizeStatus(booking.status);
 
-  if (normalizedStatus === BookingStatus.CANCELLED) {
-    return 'cancelled';
+  // Persisted booking status should be the source of truth for lifecycle display/state.
+  if (normalizedStatus) {
+    return normalizedStatus;
   }
 
   const paid = paidAmount(booking.payments);

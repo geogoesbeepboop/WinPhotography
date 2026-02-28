@@ -10,7 +10,6 @@ const navLinks = [
   { label: "Home", path: "/" },
   { label: "About", path: "/about" },
   { label: "Portfolio", path: "/portfolio" },
-  { label: "Testimonials", path: "/testimonials" },
   { label: "Pricing", path: "/pricing" },
   { label: "Blog", path: "/blog" },
   { label: "Inquire", path: "/inquire" },

@@ -21,6 +21,10 @@ import {
   BookingLifecycleStage,
   deriveBookingLifecycleStage,
 } from "@/lib/booking-lifecycle";
+import {
+  DEFAULT_BOOKING_TIMEZONE,
+  formatBookingDateTime,
+} from "@/lib/booking-date-time";
 
 interface ApiGallery {
   id: string;
@@ -46,6 +50,8 @@ interface ApiBooking {
   depositAmount: number;
   status: string;
   eventDate: string;
+  eventTime?: string;
+  eventTimezone?: string;
   lifecycleStage?: BookingLifecycleStage;
   payments?: ApiPayment[];
   galleries?: Array<{ status?: string }>;
@@ -133,7 +139,11 @@ export default function PortalDashboard() {
         return {
           id: b.id,
           type: b.packageName,
-          date: format(new Date(b.eventDate), "MMMM d, yyyy"),
+          date: formatBookingDateTime(
+            b.eventDate,
+            b.eventTime || "",
+            b.eventTimezone || DEFAULT_BOOKING_TIMEZONE,
+          ),
           status: deriveBookingLifecycleStage(b) as keyof typeof statusConfig,
           paidAmount,
           totalAmount: Number(b.packagePrice),

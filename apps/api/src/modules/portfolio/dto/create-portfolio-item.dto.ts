@@ -4,6 +4,7 @@ import {
   IsBoolean,
   MinLength,
   MaxLength,
+  IsUUID,
 } from 'class-validator';
 
 export class CreatePortfolioItemDto {
@@ -20,6 +21,14 @@ export class CreatePortfolioItemDto {
   @IsString()
   @MaxLength(100)
   category: string;
+
+  @IsOptional()
+  @IsUUID()
+  bookingId?: string;
+
+  @IsOptional()
+  @IsUUID()
+  sourceGalleryId?: string;
 
   @IsOptional()
   @IsBoolean()

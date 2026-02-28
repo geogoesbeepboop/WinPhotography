@@ -85,6 +85,10 @@ export class InquiriesService {
       packageName: string;
       packagePrice: number;
       depositAmount: number;
+      eventDate?: string;
+      eventTime?: string;
+      eventTimezone?: string;
+      eventLocation?: string;
     },
   ): Promise<{ booking: Booking; inquiry: InquiryEntity }> {
     const inquiry = await this.findById(id);
@@ -99,8 +103,12 @@ export class InquiriesService {
       clientId: conversionData.clientId,
       inquiryId: inquiry.id,
       eventType: inquiry.eventType,
-      eventDate: inquiry.eventDate ?? new Date(),
-      eventLocation: inquiry.eventLocation || 'TBD',
+      eventDate: conversionData.eventDate
+        ? new Date(conversionData.eventDate)
+        : inquiry.eventDate ?? new Date(),
+      eventTime: conversionData.eventTime || '12:00:00',
+      eventTimezone: conversionData.eventTimezone || 'America/New_York',
+      eventLocation: conversionData.eventLocation || inquiry.eventLocation || 'TBD',
       packageName: conversionData.packageName,
       packagePrice: conversionData.packagePrice,
       depositAmount: conversionData.depositAmount,

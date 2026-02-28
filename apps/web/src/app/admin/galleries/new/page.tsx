@@ -24,8 +24,11 @@ import { getEventTypeLabel } from "@/lib/event-type-label";
 import { imageUploadAcceptList, isSupportedImageUpload } from "@/lib/image-upload";
 import { ImageWithFallback } from "@/components/shared/image-with-fallback";
 import {
+  DEFAULT_BOOKING_TIMEZONE,
+  formatBookingDateTime,
+} from "@/lib/booking-date-time";
+import {
   BookingLifecycleStage,
-  deriveBookingLifecycleStage,
 } from "@/lib/booking-lifecycle";
 
 interface BookingOption {
@@ -42,6 +45,9 @@ interface BookingOption {
   packageName?: string;
   date?: string;
   eventDate?: string;
+  time?: string;
+  eventTime?: string;
+  eventTimezone?: string;
   location?: string;
   eventLocation?: string;
 }
@@ -56,6 +62,7 @@ function AdminGalleryNewContent() {
   const createGallery = useCreateGallery();
   const addGalleryPhotos = useAddGalleryPhotos();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const submitGuardRef = useRef(false);
 
   const [form, setForm] = useState({
     bookingId: preselectedBooking,
@@ -71,11 +78,13 @@ function AdminGalleryNewContent() {
   const bookingOptions = bookings as BookingOption[];
   const eventTypeOptions = eventTypes as EventTypeItem[];
   const availableBookings = bookingOptions.filter((booking) => {
-    const lifecycleStage = deriveBookingLifecycleStage(booking);
-    return lifecycleStage !== "pending_deposit" && lifecycleStage !== "cancelled";
+    return (
+      booking.status === "pending_full_payment" ||
+      booking.status === "pending_delivery"
+    );
   });
 
-  const selectedBooking = availableBookings.find((booking) => booking.id === form.bookingId);
+  const selectedBooking = bookingOptions.find((booking) => booking.id === form.bookingId);
 
   const extractSupportedFiles = (files: File[]): File[] => {
     const supported = files.filter(isSupportedImageUpload);
@@ -120,12 +129,14 @@ function AdminGalleryNewContent() {
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
+    if (submitGuardRef.current) return;
 
     if (!form.bookingId || !form.title) {
       setError("Please select a booking and enter a title.");
       return;
     }
 
+    submitGuardRef.current = true;
     setError("");
 
     try {
@@ -172,6 +183,7 @@ function AdminGalleryNewContent() {
       setError(Array.isArray(message) ? message.join(", ") : message);
     } finally {
       setIsUploading(false);
+      submitGuardRef.current = false;
     }
   };
 
@@ -211,9 +223,7 @@ function AdminGalleryNewContent() {
         <form onSubmit={handleSubmit} className="max-w-3xl space-y-6">
           <div className="bg-white border border-brand-main/8 p-6 space-y-5">
             <div>
-              <label className="block text-brand-main mb-1.5 tracking-[0.05em]" style={{ fontSize: "0.75rem" }}>
-                Linked Booking *
-              </label>
+              <label className="block text-brand-main mb-1.5 tracking-[0.05em]" style={{ fontSize: "0.75rem" }}>Booking *</label>
               <select
                 value={form.bookingId}
                 onChange={(event) => {
@@ -235,7 +245,7 @@ function AdminGalleryNewContent() {
                 <option value="">Select a booking...</option>
                 {availableBookings.map((booking) => (
                   <option key={booking.id} value={booking.id}>
-                    {booking.clientName || booking.client?.fullName || "Unknown"} — {getEventTypeLabel(booking.eventType, eventTypeOptions) || booking.packageName || ""} ({booking.date || booking.eventDate || ""})
+                    {booking.clientName || booking.client?.fullName || "Unknown"} — {getEventTypeLabel(booking.eventType, eventTypeOptions) || booking.packageName || ""} ({formatBookingDateTime(booking.eventDate || booking.date, booking.eventTime || booking.time, booking.eventTimezone || DEFAULT_BOOKING_TIMEZONE) || booking.date || booking.eventDate || ""})
                   </option>
                 ))}
               </select>
@@ -247,7 +257,7 @@ function AdminGalleryNewContent() {
                   {selectedBooking.clientName || selectedBooking.client?.fullName || "Unknown"}
                 </p>
                 <p className="text-brand-main/40" style={{ fontSize: "0.75rem" }}>
-                  {getEventTypeLabel(selectedBooking.eventType, eventTypeOptions) || selectedBooking.packageName || ""} · {selectedBooking.date || selectedBooking.eventDate || ""} · {selectedBooking.location || selectedBooking.eventLocation || ""}
+                  {getEventTypeLabel(selectedBooking.eventType, eventTypeOptions) || selectedBooking.packageName || ""} · {formatBookingDateTime(selectedBooking.eventDate || selectedBooking.date, selectedBooking.eventTime || selectedBooking.time, selectedBooking.eventTimezone || DEFAULT_BOOKING_TIMEZONE) || selectedBooking.date || selectedBooking.eventDate || ""} · {selectedBooking.location || selectedBooking.eventLocation || ""}
                 </p>
               </div>
             )}
@@ -399,7 +409,7 @@ function AdminGalleryNewContent() {
         <div className="mt-10 bg-white border border-brand-main/8 p-8 text-center">
           <ImageIcon className="w-8 h-8 text-brand-main/15 mx-auto mb-3" />
           <p className="text-brand-main/45" style={{ fontSize: "0.9rem" }}>
-            No eligible bookings yet. A gallery can be created once a booking has moved past the pending deposit stage.
+            No eligible bookings yet. A gallery can be created when a booking is pending full payment or pending delivery.
           </p>
         </div>
       )}

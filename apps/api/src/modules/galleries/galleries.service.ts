@@ -27,6 +27,15 @@ export class GalleriesService {
   ) {}
 
   async create(data: Partial<GalleryEntity>): Promise<GalleryEntity> {
+    if (data.bookingId) {
+      const existingForBooking = await this.galleriesRepository.findOne({
+        where: { bookingId: data.bookingId },
+      });
+      if (existingForBooking) {
+        return existingForBooking;
+      }
+    }
+
     // Auto-resolve clientId from booking if not provided
     if (!data.clientId && data.bookingId) {
       const booking = await this.bookingsRepository.findOne({

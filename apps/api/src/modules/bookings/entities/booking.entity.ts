@@ -13,6 +13,7 @@ import { BookingStatus } from '@winphotography/shared';
 import { UserEntity } from '../../users/entities/user.entity';
 import { GalleryEntity } from '../../galleries/entities/gallery.entity';
 import { PaymentEntity } from '../../payments/entities/payment.entity';
+import { PortfolioItemEntity } from '../../portfolio/entities/portfolio-item.entity';
 
 @Entity('bookings')
 export class Booking {
@@ -39,6 +40,17 @@ export class Booking {
 
   @Column({ name: 'event_end_date', type: 'date', nullable: true })
   eventEndDate: Date | null;
+
+  @Column({ name: 'event_time', type: 'time', default: '12:00:00' })
+  eventTime: string;
+
+  @Column({
+    name: 'event_timezone',
+    type: 'varchar',
+    length: 64,
+    default: 'America/New_York',
+  })
+  eventTimezone: string;
 
   @Column({ name: 'event_location', type: 'varchar', length: 500 })
   eventLocation: string;
@@ -79,4 +91,7 @@ export class Booking {
 
   @OneToMany(() => PaymentEntity, (payment) => payment.booking)
   payments: PaymentEntity[];
+
+  @OneToMany(() => PortfolioItemEntity, (portfolioItem) => portfolioItem.booking)
+  portfolioItems: PortfolioItemEntity[];
 }

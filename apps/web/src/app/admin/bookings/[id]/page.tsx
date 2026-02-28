@@ -10,6 +10,31 @@ import { useBooking, useUpdateBooking } from "@/services/bookings";
 import { EventTypeItem, useEventTypes } from "@/services/event-types";
 import { getEventTypeLabel } from "@/lib/event-type-label";
 import { BookingLifecycleStage, deriveBookingLifecycleStage } from "@/lib/booking-lifecycle";
+import {
+  bookingTimezoneOptions,
+  DEFAULT_BOOKING_TIMEZONE,
+  formatBookingDateTime,
+  formatTimestampWithTimezone,
+  normalizeTimeForApi,
+  toDateInputValue,
+  toTimeInputValue,
+} from "@/lib/booking-date-time";
+
+const bookingStatusValues: BookingLifecycleStage[] = [
+  "pending_deposit",
+  "upcoming",
+  "pending_full_payment",
+  "pending_delivery",
+  "completed",
+  "cancelled",
+];
+
+function toBookingStatus(value?: string | null): BookingLifecycleStage | null {
+  if (!value) return null;
+  return bookingStatusValues.includes(value as BookingLifecycleStage)
+    ? (value as BookingLifecycleStage)
+    : null;
+}
 
 export default function AdminBookingDetail() {
   const { id } = useParams();
@@ -18,18 +43,42 @@ export default function AdminBookingDetail() {
   const updateBooking = useUpdateBooking();
   const [status, setStatus] = useState<BookingLifecycleStage>("pending_deposit");
   const [notes, setNotes] = useState("");
+  const [sessionDraft, setSessionDraft] = useState({
+    eventDate: "",
+    eventTime: "12:00",
+    eventTimezone: DEFAULT_BOOKING_TIMEZONE,
+    eventLocation: "",
+  });
   const eventTypeOptions = eventTypes as EventTypeItem[];
 
   useEffect(() => {
     if (booking) {
-      setStatus(deriveBookingLifecycleStage(booking));
+      const persistedStatus = toBookingStatus(booking.status);
+      setStatus(persistedStatus || deriveBookingLifecycleStage(booking));
       setNotes(booking.adminNotes || "");
+      setSessionDraft({
+        eventDate: toDateInputValue(booking.eventDate || booking.date || ""),
+        eventTime: toTimeInputValue(booking.eventTime || booking.time || ""),
+        eventTimezone: booking.eventTimezone || DEFAULT_BOOKING_TIMEZONE,
+        eventLocation: booking.eventLocation || booking.location || "",
+      });
     }
   }, [booking]);
 
   const handleStatusChange = (newStatus: BookingLifecycleStage) => {
     setStatus(newStatus);
     updateBooking.mutate({ id: id as string, status: newStatus });
+  };
+
+  const handleSessionSave = () => {
+    if (!sessionDraft.eventDate) return;
+    updateBooking.mutate({
+      id: id as string,
+      eventDate: sessionDraft.eventDate,
+      eventTime: normalizeTimeForApi(sessionDraft.eventTime),
+      eventTimezone: sessionDraft.eventTimezone || DEFAULT_BOOKING_TIMEZONE,
+      eventLocation: sessionDraft.eventLocation || undefined,
+    });
   };
 
   if (isLoading) {
@@ -108,9 +157,17 @@ export default function AdminBookingDetail() {
     booking.type ||
     booking.packageName ||
     "";
-  const bookingDate = booking.date || booking.eventDate || "";
+  const bookingDateTime = formatBookingDateTime(
+    booking.eventDate || booking.date,
+    booking.eventTime || booking.time,
+    booking.eventTimezone || DEFAULT_BOOKING_TIMEZONE,
+  );
   const location = booking.location || booking.eventLocation || "";
   const isContractSigned = Boolean(booking.contractSignedAt || booking.contractSigned);
+  const createdAtLabel = formatTimestampWithTimezone(
+    booking.createdAt,
+    booking.eventTimezone || DEFAULT_BOOKING_TIMEZONE,
+  );
 
   return (
     <div>
@@ -125,7 +182,9 @@ export default function AdminBookingDetail() {
               <h1 className="font-serif text-brand-main" style={{ fontSize: "1.8rem" }}>{bookingType}</h1>
               {cfg && <span className={`px-3 py-1 ${cfg.color}`} style={{ fontSize: "0.6rem" }}>{cfg.label}</span>}
             </div>
-            <p className="text-brand-main/50" style={{ fontSize: "0.85rem" }}>{clientName} · Created {booking.createdAt}</p>
+            <p className="text-brand-main/50" style={{ fontSize: "0.85rem" }}>
+              {clientName} · Created on {createdAtLabel || booking.createdAt}
+            </p>
           </div>
           <select value={status} onChange={(e) => handleStatusChange(e.target.value as BookingLifecycleStage)}
             className="px-3 py-2 bg-white border border-brand-main/10 text-brand-main focus:outline-none focus:border-brand-tertiary" style={{ fontSize: "0.8rem" }}>
@@ -142,21 +201,63 @@ export default function AdminBookingDetail() {
           <div className="lg:col-span-2 space-y-6">
             {/* Session Details */}
             <div className="bg-white border border-brand-main/8 p-6">
-              <h2 className="font-serif text-brand-main mb-4" style={{ fontSize: "1.1rem" }}>Session Details</h2>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="flex items-center gap-3 text-brand-main/70" style={{ fontSize: "0.85rem" }}>
-                  <Calendar className="w-4 h-4 text-brand-tertiary shrink-0" /> {bookingDate}
+              <div className="flex flex-wrap items-start justify-between gap-4 mb-4">
+                <h2 className="font-serif text-brand-main" style={{ fontSize: "1.1rem" }}>Session Details</h2>
+                <button
+                  onClick={handleSessionSave}
+                  disabled={updateBooking.isPending || !sessionDraft.eventDate}
+                  className="inline-flex items-center gap-2 px-3 py-2 bg-brand-main text-brand-secondary disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  style={{ fontSize: "0.68rem" }}
+                >
+                  {updateBooking.isPending ? "Saving..." : "Save Session Details"}
+                </button>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+                <div>
+                  <label className="block text-brand-main/50 mb-1" style={{ fontSize: "0.72rem" }}>Date *</label>
+                  <input
+                    type="date"
+                    value={sessionDraft.eventDate}
+                    onChange={(e) => setSessionDraft((prev) => ({ ...prev, eventDate: e.target.value }))}
+                    className="w-full px-3 py-2.5 bg-brand-secondary border border-brand-main/10 text-brand-main focus:outline-none focus:border-brand-tertiary"
+                    style={{ fontSize: "0.82rem" }}
+                  />
                 </div>
-                {booking.time && (
-                  <div className="flex items-center gap-3 text-brand-main/70" style={{ fontSize: "0.85rem" }}>
-                    <Clock className="w-4 h-4 text-brand-tertiary shrink-0" /> {booking.time}
-                  </div>
-                )}
-                {location && (
-                  <div className="flex items-center gap-3 text-brand-main/70 sm:col-span-2" style={{ fontSize: "0.85rem" }}>
-                    <MapPin className="w-4 h-4 text-brand-tertiary shrink-0" /> {location}
-                  </div>
-                )}
+                <div>
+                  <label className="block text-brand-main/50 mb-1" style={{ fontSize: "0.72rem" }}>Time *</label>
+                  <input
+                    type="time"
+                    value={sessionDraft.eventTime}
+                    onChange={(e) => setSessionDraft((prev) => ({ ...prev, eventTime: e.target.value }))}
+                    className="w-full px-3 py-2.5 bg-brand-secondary border border-brand-main/10 text-brand-main focus:outline-none focus:border-brand-tertiary"
+                    style={{ fontSize: "0.82rem" }}
+                  />
+                </div>
+                <div className="sm:col-span-2">
+                  <label className="block text-brand-main/50 mb-1" style={{ fontSize: "0.72rem" }}>Timezone *</label>
+                  <select
+                    value={sessionDraft.eventTimezone}
+                    onChange={(e) => setSessionDraft((prev) => ({ ...prev, eventTimezone: e.target.value }))}
+                    className="w-full px-3 py-2.5 bg-brand-secondary border border-brand-main/10 text-brand-main focus:outline-none focus:border-brand-tertiary"
+                    style={{ fontSize: "0.82rem" }}
+                  >
+                    {bookingTimezoneOptions.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="sm:col-span-2">
+                  <label className="block text-brand-main/50 mb-1" style={{ fontSize: "0.72rem" }}>Location</label>
+                  <input
+                    type="text"
+                    value={sessionDraft.eventLocation}
+                    onChange={(e) => setSessionDraft((prev) => ({ ...prev, eventLocation: e.target.value }))}
+                    className="w-full px-3 py-2.5 bg-brand-secondary border border-brand-main/10 text-brand-main focus:outline-none focus:border-brand-tertiary"
+                    style={{ fontSize: "0.82rem" }}
+                  />
+                </div>
               </div>
             </div>
 

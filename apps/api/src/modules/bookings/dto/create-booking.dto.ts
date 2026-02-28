@@ -6,6 +6,8 @@ import {
   IsOptional,
   MaxLength,
   Min,
+  Matches,
+  IsDateString,
 } from 'class-validator';
 import { BookingStatus } from '@winphotography/shared';
 
@@ -21,8 +23,20 @@ export class CreateBookingDto {
   @MaxLength(100)
   eventType: string;
 
-  @IsString()
+  @IsDateString()
   eventDate: string;
+
+  @IsOptional()
+  @IsString()
+  @Matches(/^([01]\d|2[0-3]):[0-5]\d(:[0-5]\d)?$/, {
+    message: 'eventTime must be in HH:mm or HH:mm:ss format',
+  })
+  eventTime?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  eventTimezone?: string;
 
   @IsOptional()
   @IsString()

@@ -21,6 +21,7 @@ import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { UserEntity } from '../users/entities/user.entity';
+import { Booking } from './entities/booking.entity';
 
 @ApiTags('Bookings')
 @Controller('bookings')
@@ -78,7 +79,11 @@ export class BookingsController {
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateBookingDto,
   ) {
-    return this.bookingsService.update(id, dto);
+    const updateData: Partial<Booking> = { ...dto } as Partial<Booking>;
+    if (dto.eventDate) {
+      updateData.eventDate = new Date(dto.eventDate);
+    }
+    return this.bookingsService.update(id, updateData);
   }
 
   @Delete(':id')

@@ -75,31 +75,27 @@ export default function TestimonialsPage() {
                 getEventTypeLabel(testimonial.eventType || "", eventTypeOptions) ||
                 testimonial.eventType ||
                 "Session";
+              const portfolioHref = testimonial.portfolioSlug
+                ? `/portfolio/${testimonial.portfolioSlug}`
+                : "";
               const bookingDate = testimonial.booking?.eventDate
                 ? format(new Date(testimonial.booking.eventDate), "MMMM d, yyyy")
                 : testimonial.eventDate
                   ? format(new Date(testimonial.eventDate), "MMMM d, yyyy")
                   : undefined;
 
-              return (
-                <motion.article
-                  key={testimonial.id}
-                  initial={{ opacity: 0, y: 16 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true }}
-                  transition={{ delay: index * 0.05 }}
-                  className="bg-white border border-brand-main/8 overflow-hidden max-w-[24rem] mx-auto w-full"
-                >
-                  <Link href={`/testimonials/${testimonial.id}`} className="block group">
-                    <div className="relative aspect-square overflow-hidden">
-                      <ImageWithFallback
-                        src={testimonialImage(testimonial)}
-                        alt={`${testimonial.clientName} testimonial`}
-                        className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
-                      />
-                    </div>
-                  </Link>
-                  <div className="p-4">
+              const cardContent = (
+                <>
+                  <div className="relative aspect-square overflow-hidden">
+                    <ImageWithFallback
+                      src={testimonialImage(testimonial)}
+                      alt={`${testimonial.clientName} testimonial`}
+                      className={`w-full h-full object-cover transition-transform duration-700 ${
+                        portfolioHref ? "group-hover:scale-105" : ""
+                      }`}
+                    />
+                  </div>
+                  <div className="p-4 flex flex-1 flex-col">
                     <div className="flex items-center gap-1 mb-2.5">
                       {Array.from({ length: Math.max(1, Math.min(5, testimonial.rating ?? 5)) }).map((_, starIndex) => (
                         <Star
@@ -120,26 +116,9 @@ export default function TestimonialsPage() {
                       <p className="text-brand-main/45" style={{ fontSize: "0.75rem" }}>
                         {eventLabel}
                       </p>
-                      {bookingDate && (
-                        <p className="text-brand-main/40 inline-flex items-center gap-1.5 mt-1" style={{ fontSize: "0.72rem" }}>
-                          <Calendar className="w-3 h-3" />
-                          {bookingDate}
-                        </p>
-                      )}
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      <Link
-                        href={`/testimonials/${testimonial.id}`}
-                        className="inline-flex items-center gap-2 px-3.5 py-1.5 border border-brand-main/15 text-brand-main/65 hover:text-brand-main hover:border-brand-main/35 transition-colors"
-                        style={{ fontSize: "0.68rem" }}
-                      >
-                        Read Full Story
-                        <ArrowRight className="w-3 h-3" />
-                      </Link>
                       {testimonial.booking?.lifecycleStage === "completed" && (
                         <span
-                          className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-green-100 text-green-700"
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-green-100 text-green-700 mt-2"
                           style={{ fontSize: "0.6rem" }}
                         >
                           <CheckCircle2 className="w-3 h-3" />
@@ -147,7 +126,46 @@ export default function TestimonialsPage() {
                         </span>
                       )}
                     </div>
+
+                    <div className="mt-auto flex items-end justify-between gap-2">
+                      {bookingDate && (
+                        <p className="text-brand-main/40 inline-flex items-center gap-1.5" style={{ fontSize: "0.72rem" }}>
+                          <Calendar className="w-3 h-3" />
+                          {bookingDate}
+                        </p>
+                      )}
+                      {portfolioHref ? (
+                        <span
+                          className="inline-flex items-center gap-2 px-3.5 py-1.5 border border-brand-main/15 text-brand-main/65 ml-auto"
+                          style={{ fontSize: "0.68rem" }}
+                        >
+                          Read Full Story
+                          <ArrowRight className="w-3 h-3" />
+                        </span>
+                      ) : null}
+                    </div>
                   </div>
+                </>
+              );
+
+              return (
+                <motion.article
+                  key={testimonial.id}
+                  initial={{ opacity: 0, y: 16 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ delay: index * 0.05 }}
+                  className="bg-white border border-brand-main/8 overflow-hidden max-w-[24rem] mx-auto w-full flex flex-col h-full"
+                >
+                  {portfolioHref ? (
+                    <Link href={portfolioHref} className="group flex h-full flex-col">
+                      {cardContent}
+                    </Link>
+                  ) : (
+                    <div className="flex h-full flex-col">
+                      {cardContent}
+                    </div>
+                  )}
                 </motion.article>
               );
             })}

@@ -6,6 +6,7 @@ import {
   Min,
   MinLength,
   MaxLength,
+  IsUUID,
 } from 'class-validator';
 
 export class UpdatePortfolioItemDto {
@@ -24,6 +25,14 @@ export class UpdatePortfolioItemDto {
   @IsString()
   @MaxLength(100)
   category?: string;
+
+  @IsOptional()
+  @IsUUID()
+  bookingId?: string | null;
+
+  @IsOptional()
+  @IsUUID()
+  sourceGalleryId?: string | null;
 
   @IsOptional()
   @IsBoolean()

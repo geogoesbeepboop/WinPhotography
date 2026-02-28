@@ -8,6 +8,8 @@ export interface Booking {
   inquiryId: string | null;
   eventType: EventType;
   eventDate: string;
+  eventTime: string;
+  eventTimezone: string;
   eventEndDate: string | null;
   eventLocation: string;
   packageName: string;
@@ -34,6 +36,8 @@ export interface CreateBookingDto {
   inquiryId?: string;
   eventType: EventType;
   eventDate: string;
+  eventTime?: string;
+  eventTimezone?: string;
   eventEndDate?: string;
   eventLocation: string;
   packageName: string;
@@ -43,6 +47,8 @@ export interface CreateBookingDto {
 
 export interface UpdateBookingDto {
   eventDate?: string;
+  eventTime?: string;
+  eventTimezone?: string;
   eventEndDate?: string;
   eventLocation?: string;
   status?: BookingStatus;

@@ -88,18 +88,30 @@ export function useConvertInquiry() {
       packageName,
       packagePrice,
       depositAmount,
+      eventDate,
+      eventTime,
+      eventTimezone,
+      eventLocation,
     }: {
       id: string;
       clientId: string;
       packageName: string;
       packagePrice: number;
       depositAmount: number;
+      eventDate?: string;
+      eventTime?: string;
+      eventTimezone?: string;
+      eventLocation?: string;
     }) => {
       const { data } = await apiClient.post(`/inquiries/${id}/convert`, {
         clientId,
         packageName,
         packagePrice,
         depositAmount,
+        eventDate,
+        eventTime,
+        eventTimezone,
+        eventLocation,
       });
       return data;
     },

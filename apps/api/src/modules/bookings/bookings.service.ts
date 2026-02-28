@@ -1,4 +1,4 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException, OnModuleInit } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { BookingStatus } from '@winphotography/shared';
 import { Repository } from 'typeorm';
@@ -14,7 +14,7 @@ export type BookingWithLifecycle = Booking & {
 };
 
 @Injectable()
-export class BookingsService {
+export class BookingsService implements OnModuleInit {
   private readonly logger = new Logger(BookingsService.name);
 
   constructor(
@@ -23,8 +23,23 @@ export class BookingsService {
     private readonly emailService: EmailService,
   ) {}
 
+  async onModuleInit() {
+    try {
+      await this.ensureSchema();
+    } catch (error) {
+      this.logger.error(
+        'Failed to ensure booking datetime columns exist. Run SQL migrations if booking updates fail.',
+        error instanceof Error ? error.stack : String(error),
+      );
+    }
+  }
+
   async create(data: Partial<Booking>): Promise<Booking> {
-    const booking = this.bookingsRepository.create(data);
+    const booking = this.bookingsRepository.create({
+      ...data,
+      eventTime: this.normalizeEventTime(data.eventTime),
+      eventTimezone: this.normalizeEventTimezone(data.eventTimezone),
+    });
     const saved = await this.bookingsRepository.save(booking);
     const hydrated = await this.findById(saved.id);
     if (!hydrated) {
@@ -68,12 +83,22 @@ export class BookingsService {
     }
 
     const previousStatus = booking.status;
-    Object.assign(booking, data);
+    const normalizedData: Partial<Booking> = {
+      ...data,
+      ...(data.eventTime !== undefined
+        ? { eventTime: this.normalizeEventTime(data.eventTime) }
+        : {}),
+      ...(data.eventTimezone !== undefined
+        ? { eventTimezone: this.normalizeEventTimezone(data.eventTimezone) }
+        : {}),
+    };
+
+    Object.assign(booking, normalizedData);
     const saved = await this.bookingsRepository.save(booking);
 
     // Send email notifications on status changes
-    if (data.status && data.status !== previousStatus) {
-      if (data.status === BookingStatus.UPCOMING && booking.client?.email) {
+    if (normalizedData.status && normalizedData.status !== previousStatus) {
+      if (normalizedData.status === BookingStatus.UPCOMING && booking.client?.email) {
         try {
           await this.emailService.sendBookingConfirmed(booking.client.email, {
             clientName: booking.client.fullName,
@@ -98,7 +123,7 @@ export class BookingsService {
           eventType: booking.eventType,
           eventDate: booking.eventDate,
           previousStatus,
-          newStatus: String(data.status),
+          newStatus: String(normalizedData.status),
         });
       } catch (error) {
         this.logger.error('Failed to send admin notification for booking status change', error?.stack ?? error);
@@ -125,5 +150,66 @@ export class BookingsService {
     const lifecycleStage = deriveBookingLifecycleStage(booking);
     Object.assign(booking, { lifecycleStage });
     return booking as BookingWithLifecycle;
+  }
+
+  private normalizeEventTime(value?: string | null): string {
+    const raw = (value || '').trim();
+    if (!raw) return '12:00:00';
+    if (/^\d{2}:\d{2}$/.test(raw)) {
+      return `${raw}:00`;
+    }
+    if (/^\d{2}:\d{2}:\d{2}$/.test(raw)) {
+      return raw;
+    }
+    return '12:00:00';
+  }
+
+  private normalizeEventTimezone(value?: string | null): string {
+    const raw = (value || '').trim();
+    return raw || 'America/New_York';
+  }
+
+  private async ensureSchema(): Promise<void> {
+    await this.bookingsRepository.query(`
+      ALTER TABLE bookings
+      ADD COLUMN IF NOT EXISTS event_time TIME;
+    `);
+
+    await this.bookingsRepository.query(`
+      UPDATE bookings
+      SET event_time = '12:00:00'
+      WHERE event_time IS NULL;
+    `);
+
+    await this.bookingsRepository.query(`
+      ALTER TABLE bookings
+      ALTER COLUMN event_time SET DEFAULT '12:00:00';
+    `);
+
+    await this.bookingsRepository.query(`
+      ALTER TABLE bookings
+      ALTER COLUMN event_time SET NOT NULL;
+    `);
+
+    await this.bookingsRepository.query(`
+      ALTER TABLE bookings
+      ADD COLUMN IF NOT EXISTS event_timezone VARCHAR(64);
+    `);
+
+    await this.bookingsRepository.query(`
+      UPDATE bookings
+      SET event_timezone = 'America/New_York'
+      WHERE event_timezone IS NULL OR btrim(event_timezone) = '';
+    `);
+
+    await this.bookingsRepository.query(`
+      ALTER TABLE bookings
+      ALTER COLUMN event_timezone SET DEFAULT 'America/New_York';
+    `);
+
+    await this.bookingsRepository.query(`
+      ALTER TABLE bookings
+      ALTER COLUMN event_timezone SET NOT NULL;
+    `);
   }
 }

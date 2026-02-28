@@ -9,6 +9,10 @@ import { useBookings } from "@/services/bookings";
 import { EventTypeItem, useEventTypes } from "@/services/event-types";
 import { getEventTypeLabel } from "@/lib/event-type-label";
 import { BookingLifecycleStage, deriveBookingLifecycleStage } from "@/lib/booking-lifecycle";
+import {
+  DEFAULT_BOOKING_TIMEZONE,
+  formatBookingDateTime,
+} from "@/lib/booking-date-time";
 
 interface BookingListItem {
   id: string;
@@ -19,6 +23,8 @@ interface BookingListItem {
   eventType?: string;
   packageName?: string;
   eventDate?: string;
+  eventTime?: string;
+  eventTimezone?: string;
   date?: string;
   time?: string;
   location?: string;
@@ -44,6 +50,16 @@ const statusFilters: BookingStatusFilter[] = [
 ];
 
 function getBookingStage(booking: BookingListItem): BookingLifecycleStage {
+  if (
+    booking.status === "pending_deposit" ||
+    booking.status === "upcoming" ||
+    booking.status === "pending_full_payment" ||
+    booking.status === "pending_delivery" ||
+    booking.status === "completed" ||
+    booking.status === "cancelled"
+  ) {
+    return booking.status;
+  }
   return deriveBookingLifecycleStage(booking);
 }
 
@@ -170,7 +186,11 @@ export default function AdminBookings() {
             const progress = total > 0 ? Math.round((paid / total) * 100) : 0;
             const clientName = bk.clientName || bk.client?.fullName || "Unknown";
             const bookingType = getEventTypeLabel(bk.eventType, eventTypeOptions) || bk.packageName || "";
-            const bookingDate = bk.date || bk.eventDate || "";
+            const bookingDate = formatBookingDateTime(
+              bk.eventDate || bk.date || "",
+              bk.eventTime || bk.time || "",
+              bk.eventTimezone || DEFAULT_BOOKING_TIMEZONE,
+            );
             const location = bk.location || bk.eventLocation || "";
             return (
               <motion.div key={bk.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.04 }}>
@@ -183,7 +203,7 @@ export default function AdminBookings() {
                       </div>
                       <p className="text-brand-main/60" style={{ fontSize: "0.85rem" }}>{bookingType}</p>
                       <div className="flex flex-wrap items-center gap-3 text-brand-main/40 mt-1" style={{ fontSize: "0.75rem" }}>
-                        <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{bookingDate}{bk.time ? ` at ${bk.time}` : ""}</span>
+                        <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{bookingDate || bk.date || bk.eventDate || ""}</span>
                         {location && <span className="flex items-center gap-1"><MapPin className="w-3 h-3" />{location}</span>}
                       </div>
                     </div>

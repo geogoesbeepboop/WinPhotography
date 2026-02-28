@@ -1,7 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api-client';
-import { useDataSourceStore } from '@/stores/admin-settings-store';
-import { mockPortalBookings, mockPortalGalleries } from '@/lib/mock-data/portal-data';
 
 export const portalKeys = {
   bookings: ['portal', 'bookings'] as const,
@@ -10,12 +8,9 @@ export const portalKeys = {
 };
 
 export function useMyBookings() {
-  const { dataSource } = useDataSourceStore();
-
   return useQuery({
-    queryKey: [...portalKeys.bookings, dataSource],
+    queryKey: portalKeys.bookings,
     queryFn: async () => {
-      if (dataSource === 'mock') return mockPortalBookings;
       const { data } = await apiClient.get('/bookings/my');
       return data;
     },
@@ -24,12 +19,9 @@ export function useMyBookings() {
 }
 
 export function useMyGalleries() {
-  const { dataSource } = useDataSourceStore();
-
   return useQuery({
-    queryKey: [...portalKeys.galleries, dataSource],
+    queryKey: portalKeys.galleries,
     queryFn: async () => {
-      if (dataSource === 'mock') return mockPortalGalleries;
       const { data } = await apiClient.get('/galleries/my');
       return data;
     },
@@ -38,12 +30,9 @@ export function useMyGalleries() {
 }
 
 export function useMyPayments() {
-  const { dataSource } = useDataSourceStore();
-
   return useQuery({
-    queryKey: [...portalKeys.payments, dataSource],
+    queryKey: portalKeys.payments,
     queryFn: async () => {
-      if (dataSource === 'mock') return [];
       const { data } = await apiClient.get('/payments/my');
       return data;
     },

@@ -12,11 +12,17 @@ import {
   useUpdatePortfolioItem,
   useDeletePortfolioPhoto,
 } from "@/services/portfolio";
+import { useBookings } from "@/services/bookings";
 import { uploadPortfolioPhoto } from "@/services/upload";
 import { EventTypeItem, useEventTypes } from "@/services/event-types";
 import { resolveMediaUrl } from "@/lib/media";
 import { imageUploadAcceptList, isSupportedImageUpload } from "@/lib/image-upload";
 import { ImageWithFallback } from "@/components/shared/image-with-fallback";
+import { getEventTypeLabel } from "@/lib/event-type-label";
+import {
+  DEFAULT_BOOKING_TIMEZONE,
+  formatBookingDateTime,
+} from "@/lib/booking-date-time";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -40,12 +46,24 @@ interface PortfolioItemOption {
   id: string;
   title: string;
   category: string;
+  bookingId?: string | null;
   description?: string;
   isFeatured?: boolean;
   featured?: boolean;
   coverImageUrl?: string;
   coverImageKey?: string;
   photos?: PortfolioPhotoOption[];
+}
+
+interface BookingOption {
+  id: string;
+  eventType?: string;
+  eventDate?: string;
+  eventTime?: string;
+  eventTimezone?: string;
+  packageName?: string;
+  clientName?: string;
+  client?: { fullName?: string };
 }
 
 interface ExistingPhotoView {
@@ -70,8 +88,10 @@ export default function AdminPortfolioNew() {
   const addPhotos = useAddPortfolioPhotos();
   const deletePortfolioPhoto = useDeletePortfolioPhoto();
   const { data: portfolioItems = [] } = useAdminPortfolio();
+  const { data: bookings = [] } = useBookings();
   const { data: eventTypes = [] } = useEventTypes();
   const eventTypeOptions = eventTypes as EventTypeItem[];
+  const bookingOptions = bookings as BookingOption[];
   const existingItem = (portfolioItems as PortfolioItemOption[]).find(
     (item) => item.id === editId,
   );
@@ -80,6 +100,7 @@ export default function AdminPortfolioNew() {
   const [form, setForm] = useState({
     title: "",
     category: "",
+    bookingId: "",
     description: "",
     featured: false,
   });
@@ -107,6 +128,7 @@ export default function AdminPortfolioNew() {
     setForm({
       title: existingItem.title || "",
       category: existingItem.category || "",
+      bookingId: existingItem.bookingId || "",
       description: existingItem.description || "",
       featured: existingItem.featured ?? existingItem.isFeatured ?? false,
     });
@@ -183,6 +205,7 @@ export default function AdminPortfolioNew() {
           id: editId,
           title: form.title,
           category: form.category,
+          bookingId: form.bookingId || null,
           description: form.description || undefined,
           isFeatured: form.featured,
         });
@@ -190,6 +213,7 @@ export default function AdminPortfolioNew() {
         const item = await createPortfolioItem.mutateAsync({
           title: form.title,
           category: form.category,
+          bookingId: form.bookingId || undefined,
           description: form.description || undefined,
           isFeatured: form.featured,
         });
@@ -284,6 +308,34 @@ export default function AdminPortfolioNew() {
                 required>
                 <option value="">Select event type...</option>
                 {eventTypeOptions.map((et) => <option key={et.slug} value={et.slug}>{et.name}</option>)}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-brand-main mb-1.5 tracking-[0.05em]" style={{ fontSize: "0.75rem" }}>
+                Linked Booking (optional)
+              </label>
+              <select
+                value={form.bookingId}
+                onChange={(e) => setForm((prev) => ({ ...prev, bookingId: e.target.value }))}
+                className="w-full px-4 py-3 bg-brand-secondary border border-brand-main/10 text-brand-main focus:outline-none focus:border-brand-tertiary transition-colors"
+                style={{ fontSize: "0.85rem" }}
+              >
+                <option value="">No linked booking</option>
+                {bookingOptions.map((booking) => {
+                  const bookingClient = booking.clientName || booking.client?.fullName || "Client";
+                  const bookingEvent = getEventTypeLabel(booking.eventType || "", eventTypeOptions) || booking.eventType || booking.packageName || "Session";
+                  const bookingDate = formatBookingDateTime(
+                    booking.eventDate,
+                    booking.eventTime,
+                    booking.eventTimezone || DEFAULT_BOOKING_TIMEZONE,
+                  );
+                  return (
+                    <option key={booking.id} value={booking.id}>
+                      {bookingClient} · {bookingEvent} · {bookingDate}
+                    </option>
+                  );
+                })}
               </select>
             </div>
 

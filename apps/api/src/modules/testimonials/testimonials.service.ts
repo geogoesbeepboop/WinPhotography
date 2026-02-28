@@ -14,6 +14,11 @@ import { Booking } from '../bookings/entities/booking.entity';
 import { SubmitTestimonialDto } from './dto/submit-testimonial.dto';
 import { UpdateMyTestimonialDto } from './dto/update-my-testimonial.dto';
 import { deriveBookingLifecycleStage } from '../../common/utils/booking-lifecycle';
+import { PortfolioItemEntity } from '../portfolio/entities/portfolio-item.entity';
+
+type PublicTestimonial = TestimonialEntity & {
+  portfolioSlug?: string | null;
+};
 
 @Injectable()
 export class TestimonialsService implements OnModuleInit {
@@ -73,19 +78,39 @@ export class TestimonialsService implements OnModuleInit {
   async findPublished(): Promise<TestimonialEntity[]> {
     const testimonials = await this.testimonialsRepository.find({
       where: { isPublished: true },
-      relations: ['booking', 'booking.client', 'booking.payments', 'booking.galleries'],
+      relations: [
+        'booking',
+        'booking.client',
+        'booking.payments',
+        'booking.galleries',
+        'booking.portfolioItems',
+      ],
       order: { sortOrder: 'ASC', createdAt: 'DESC' },
     });
-    return testimonials.map((testimonial) => this.attachBookingLifecycleStage(testimonial));
+    return testimonials.map((testimonial) =>
+      this.attachPublicBookingMetadata(
+        this.attachBookingLifecycleStage(testimonial),
+      ),
+    );
   }
 
   async findFeatured(): Promise<TestimonialEntity[]> {
     const testimonials = await this.testimonialsRepository.find({
       where: { isFeatured: true, isPublished: true },
-      relations: ['booking', 'booking.client', 'booking.payments', 'booking.galleries'],
+      relations: [
+        'booking',
+        'booking.client',
+        'booking.payments',
+        'booking.galleries',
+        'booking.portfolioItems',
+      ],
       order: { sortOrder: 'ASC', createdAt: 'DESC' },
     });
-    return testimonials.map((testimonial) => this.attachBookingLifecycleStage(testimonial));
+    return testimonials.map((testimonial) =>
+      this.attachPublicBookingMetadata(
+        this.attachBookingLifecycleStage(testimonial),
+      ),
+    );
   }
 
   async findAll(): Promise<TestimonialEntity[]> {
@@ -106,9 +131,19 @@ export class TestimonialsService implements OnModuleInit {
   async findPublishedById(id: string): Promise<TestimonialEntity | null> {
     const testimonial = await this.testimonialsRepository.findOne({
       where: { id, isPublished: true },
-      relations: ['booking', 'booking.client', 'booking.payments', 'booking.galleries'],
+      relations: [
+        'booking',
+        'booking.client',
+        'booking.payments',
+        'booking.galleries',
+        'booking.portfolioItems',
+      ],
     });
-    return testimonial ? this.attachBookingLifecycleStage(testimonial) : null;
+    return testimonial
+      ? this.attachPublicBookingMetadata(
+          this.attachBookingLifecycleStage(testimonial),
+        )
+      : null;
   }
 
   async findMine(clientId: string): Promise<TestimonialEntity[]> {
@@ -276,6 +311,39 @@ export class TestimonialsService implements OnModuleInit {
     const lifecycleStage = deriveBookingLifecycleStage(testimonial.booking);
     Object.assign(testimonial.booking, { lifecycleStage });
     return testimonial;
+  }
+
+  private attachPublicBookingMetadata(
+    testimonial: TestimonialEntity,
+  ): PublicTestimonial {
+    const withPortfolioSlug = testimonial as PublicTestimonial;
+    const booking = testimonial.booking as
+      | (Booking & { portfolioItems?: PortfolioItemEntity[]; lifecycleStage?: string })
+      | null;
+
+    const linkedPortfolio =
+      booking?.portfolioItems?.find(
+        (item) => item.isPublished && Boolean(item.slug?.trim()),
+      ) || null;
+    withPortfolioSlug.portfolioSlug = linkedPortfolio?.slug ?? null;
+
+    if (!booking) {
+      return withPortfolioSlug;
+    }
+
+    // Public endpoints should expose booking date context only (no internal time fields).
+    (withPortfolioSlug as any).booking = {
+      id: booking.id,
+      eventType: booking.eventType,
+      eventDate: booking.eventDate,
+      packageName: booking.packageName,
+      status: booking.status,
+      lifecycleStage:
+        (booking as any).lifecycleStage ?? deriveBookingLifecycleStage(booking),
+      clientId: booking.clientId,
+    };
+
+    return withPortfolioSlug;
   }
 
   private async ensureSchema(): Promise<void> {
