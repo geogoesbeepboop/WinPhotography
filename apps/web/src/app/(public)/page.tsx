@@ -186,7 +186,7 @@ export default function HomePage() {
           />
           <div className="absolute inset-0 bg-gradient-to-b from-brand-main/40 via-brand-main/20 to-brand-main/70" />
         </div>
-        <div className="relative h-full flex flex-col items-center justify-center text-center px-6">
+        <div className="relative h-full flex flex-col items-center justify-start text-center px-6 pt-20 sm:pt-24 lg:pt-28">
           <motion.p
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -201,7 +201,7 @@ export default function HomePage() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, delay: 0.4 }}
             className="font-serif text-brand-secondary max-w-4xl"
-            style={{ fontSize: "clamp(2.5rem, 6vw, 4.5rem)", lineHeight: "1.1" }}
+            style={{ fontSize: "clamp(1.8rem, 4.2vw, 3.2rem)", lineHeight: "1.08" }}
           >
             Timeless Photography for
             <br />
@@ -213,7 +213,7 @@ export default function HomePage() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, delay: 0.6 }}
-            className="mt-6 text-brand-secondary/80 max-w-xl"
+            className="mt-10 sm:mt-14 text-brand-secondary/80 max-w-xl"
             style={{ fontSize: "0.95rem", lineHeight: "1.8" }}
           >
             Weddings, elopements, proposals, and celebrations -- captured with artistry, warmth, and a deep reverence for your story.
@@ -405,19 +405,29 @@ export default function HomePage() {
       {/* Testimonials */}
       <section className="py-24 lg:py-32 bg-brand-secondary">
         <div className="max-w-7xl mx-auto px-6 lg:px-8">
-          <div className="text-center mb-16">
-            <p
-              className="tracking-[0.3em] uppercase text-brand-tertiary mb-4"
+          <div className="flex flex-col md:flex-row md:items-end md:justify-between mb-16">
+            <div className="text-center md:text-left">
+              <p
+                className="tracking-[0.3em] uppercase text-brand-tertiary mb-4"
+                style={{ fontSize: "0.7rem" }}
+              >
+                Kind Words
+              </p>
+              <h2
+                className="font-serif text-brand-main"
+                style={{ fontSize: "clamp(1.8rem, 4vw, 2.8rem)" }}
+              >
+                What Clients Are Saying
+              </h2>
+            </div>
+            <Link
+              href="/testimonials"
+              className="mt-4 md:mt-0 inline-flex items-center gap-2 text-brand-tertiary-dark tracking-[0.1em] uppercase transition-colors hover:text-brand-main group"
               style={{ fontSize: "0.7rem" }}
             >
-              Kind Words
-            </p>
-            <h2
-              className="font-serif text-brand-main"
-              style={{ fontSize: "clamp(1.8rem, 4vw, 2.8rem)" }}
-            >
-              What Clients Are Saying
-            </h2>
+              View All Testimonials
+              <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
+            </Link>
           </div>
           {displayTestimonials.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8">

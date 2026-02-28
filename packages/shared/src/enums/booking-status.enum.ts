@@ -1,9 +1,8 @@
 export enum BookingStatus {
   PENDING_DEPOSIT = 'pending_deposit',
-  CONFIRMED = 'confirmed',
-  IN_PROGRESS = 'in_progress',
-  EDITING = 'editing',
-  DELIVERED = 'delivered',
+  UPCOMING = 'upcoming',
+  PENDING_FULL_PAYMENT = 'pending_full_payment',
+  PENDING_DELIVERY = 'pending_delivery',
   COMPLETED = 'completed',
   CANCELLED = 'cancelled',
 }

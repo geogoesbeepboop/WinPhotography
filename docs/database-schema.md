@@ -7,7 +7,7 @@ Full SQL schema for Supabase PostgreSQL. Run as a migration or directly in the S
 ```sql
 CREATE TYPE user_role AS ENUM ('admin', 'client');
 CREATE TYPE inquiry_status AS ENUM ('new', 'contacted', 'quoted', 'converted', 'archived');
-CREATE TYPE booking_status AS ENUM ('pending_deposit', 'confirmed', 'in_progress', 'editing', 'delivered', 'completed', 'cancelled');
+CREATE TYPE booking_status AS ENUM ('pending_deposit', 'upcoming', 'pending_full_payment', 'pending_delivery', 'completed', 'cancelled');
 CREATE TYPE payment_status AS ENUM ('pending', 'processing', 'succeeded', 'failed', 'refunded');
 CREATE TYPE payment_type AS ENUM ('deposit', 'final_payment');
 CREATE TYPE event_type AS ENUM ('wedding', 'engagement', 'event', 'portrait', 'corporate', 'other');

@@ -6,7 +6,6 @@ import {
   OnModuleInit,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { BookingStatus } from '@winphotography/shared';
 import { Repository } from 'typeorm';
 import { TestimonialEntity } from './entities/testimonial.entity';
 import { CreateTestimonialDto } from './dto/create-testimonial.dto';
@@ -14,6 +13,7 @@ import { UpdateTestimonialDto } from './dto/update-testimonial.dto';
 import { Booking } from '../bookings/entities/booking.entity';
 import { SubmitTestimonialDto } from './dto/submit-testimonial.dto';
 import { UpdateMyTestimonialDto } from './dto/update-my-testimonial.dto';
+import { deriveBookingLifecycleStage } from '../../common/utils/booking-lifecycle';
 
 @Injectable()
 export class TestimonialsService implements OnModuleInit {
@@ -71,17 +71,21 @@ export class TestimonialsService implements OnModuleInit {
   }
 
   async findPublished(): Promise<TestimonialEntity[]> {
-    return this.testimonialsRepository.find({
+    const testimonials = await this.testimonialsRepository.find({
       where: { isPublished: true },
+      relations: ['booking', 'booking.client', 'booking.payments', 'booking.galleries'],
       order: { sortOrder: 'ASC', createdAt: 'DESC' },
     });
+    return testimonials.map((testimonial) => this.attachBookingLifecycleStage(testimonial));
   }
 
   async findFeatured(): Promise<TestimonialEntity[]> {
-    return this.testimonialsRepository.find({
+    const testimonials = await this.testimonialsRepository.find({
       where: { isFeatured: true, isPublished: true },
+      relations: ['booking', 'booking.client', 'booking.payments', 'booking.galleries'],
       order: { sortOrder: 'ASC', createdAt: 'DESC' },
     });
+    return testimonials.map((testimonial) => this.attachBookingLifecycleStage(testimonial));
   }
 
   async findAll(): Promise<TestimonialEntity[]> {
@@ -92,20 +96,32 @@ export class TestimonialsService implements OnModuleInit {
   }
 
   async findById(id: string): Promise<TestimonialEntity | null> {
-    return this.testimonialsRepository.findOne({
+    const testimonial = await this.testimonialsRepository.findOne({
       where: { id },
-      relations: ['booking', 'booking.client'],
+      relations: ['booking', 'booking.client', 'booking.payments', 'booking.galleries'],
     });
+    return testimonial ? this.attachBookingLifecycleStage(testimonial) : null;
+  }
+
+  async findPublishedById(id: string): Promise<TestimonialEntity | null> {
+    const testimonial = await this.testimonialsRepository.findOne({
+      where: { id, isPublished: true },
+      relations: ['booking', 'booking.client', 'booking.payments', 'booking.galleries'],
+    });
+    return testimonial ? this.attachBookingLifecycleStage(testimonial) : null;
   }
 
   async findMine(clientId: string): Promise<TestimonialEntity[]> {
-    return this.testimonialsRepository
+    const testimonials = await this.testimonialsRepository
       .createQueryBuilder('testimonial')
       .leftJoinAndSelect('testimonial.booking', 'booking')
       .leftJoinAndSelect('booking.client', 'client')
+      .leftJoinAndSelect('booking.payments', 'payments')
+      .leftJoinAndSelect('booking.galleries', 'galleries')
       .where('booking.client_id = :clientId', { clientId })
       .orderBy('testimonial.createdAt', 'DESC')
       .getMany();
+    return testimonials.map((testimonial) => this.attachBookingLifecycleStage(testimonial));
   }
 
   async submitByClient(
@@ -123,12 +139,11 @@ export class TestimonialsService implements OnModuleInit {
       );
     }
 
-    if (
-      booking.status !== BookingStatus.DELIVERED &&
-      booking.status !== BookingStatus.COMPLETED
-    ) {
+    const bookingLifecycle = deriveBookingLifecycleStage(booking);
+
+    if (bookingLifecycle !== 'completed') {
       throw new BadRequestException(
-        'Testimonials can only be submitted for delivered or completed bookings',
+        'Testimonials can only be submitted once your booking is fully paid and gallery delivery is complete',
       );
     }
 
@@ -252,6 +267,15 @@ export class TestimonialsService implements OnModuleInit {
   private normalizeEventType(value?: string | null): string | null {
     const trimmed = value?.trim();
     return trimmed ? trimmed : null;
+  }
+
+  private attachBookingLifecycleStage(
+    testimonial: TestimonialEntity,
+  ): TestimonialEntity {
+    if (!testimonial.booking) return testimonial;
+    const lifecycleStage = deriveBookingLifecycleStage(testimonial.booking);
+    Object.assign(testimonial.booking, { lifecycleStage });
+    return testimonial;
   }
 
   private async ensureSchema(): Promise<void> {

@@ -227,7 +227,7 @@ packages/shared/src/
 ├── enums/
 │   ├── roles.enum.ts                    UserRole: admin | client
 │   ├── inquiry-status.enum.ts           new → contacted → quoted → converted → archived
-│   ├── booking-status.enum.ts           pending_deposit → confirmed → ... → completed
+│   ├── booking-status.enum.ts           pending_deposit → upcoming → pending_full_payment → pending_delivery → completed
 │   ├── gallery-status.enum.ts           draft → published → archived
 │   ├── payment-status.enum.ts           pending → processing → succeeded → failed → refunded
 │   └── event-type.enum.ts              wedding | engagement | event | portrait | corporate | other
@@ -315,7 +315,7 @@ Inquiry ──→ Admin converts to Booking ──→ Deposit payment created
          │
          └──→ Webhook: checkout.session.completed
                 │
-                └──→ Update payment status + booking confirmed
+                └──→ Update payment status + booking moved to upcoming
 
 Gallery delivered ──→ Final payment created ──→ Same Stripe flow
   │

@@ -24,7 +24,13 @@ export interface Booking {
   date: string;
   time: string;
   location: string;
-  status: "pending" | "confirmed" | "completed" | "cancelled";
+  status:
+    | "pending_deposit"
+    | "upcoming"
+    | "pending_full_payment"
+    | "pending_delivery"
+    | "completed"
+    | "cancelled";
   contractSigned: boolean;
   totalAmount: number;
   paidAmount: number;
@@ -89,11 +95,11 @@ export const mockInquiries: Inquiry[] = [
 ];
 
 export const mockBookings: Booking[] = [
-  { id: "bk-1", clientId: "c-1", clientName: "Sarah Chen", clientEmail: "sarah@example.com", type: "Wedding - Signature", category: "Weddings", date: "Mar 22, 2026", time: "2:00 PM", location: "Golden Gate Park, SF", status: "confirmed", contractSigned: true, totalAmount: 6800, paidAmount: 2040, payments: [{ id: "pay-1", bookingId: "bk-1", clientName: "Sarah Chen", type: "deposit", label: "Deposit (30%)", amount: 2040, status: "paid", date: "Nov 15, 2025" }, { id: "pay-2", bookingId: "bk-1", clientName: "Sarah Chen", type: "final", label: "Final Balance", amount: 4760, status: "pending", dueDate: "Mar 8, 2026" }], notes: "Bride prefers candid over posed. Second shooter confirmed.", createdAt: "Nov 10, 2025" },
+  { id: "bk-1", clientId: "c-1", clientName: "Sarah Chen", clientEmail: "sarah@example.com", type: "Wedding - Signature", category: "Weddings", date: "Mar 22, 2026", time: "2:00 PM", location: "Golden Gate Park, SF", status: "upcoming", contractSigned: true, totalAmount: 6800, paidAmount: 2040, payments: [{ id: "pay-1", bookingId: "bk-1", clientName: "Sarah Chen", type: "deposit", label: "Deposit (30%)", amount: 2040, status: "paid", date: "Nov 15, 2025" }, { id: "pay-2", bookingId: "bk-1", clientName: "Sarah Chen", type: "final", label: "Final Balance", amount: 4760, status: "pending", dueDate: "Mar 8, 2026" }], notes: "Bride prefers candid over posed. Second shooter confirmed.", createdAt: "Nov 10, 2025" },
   { id: "bk-2", clientId: "c-1", clientName: "Sarah Chen", clientEmail: "sarah@example.com", type: "Engagement - Full Story", category: "Proposals", date: "Jan 15, 2026", time: "4:30 PM", location: "Baker Beach, SF", status: "completed", contractSigned: true, totalAmount: 2200, paidAmount: 2200, payments: [{ id: "pay-3", bookingId: "bk-2", clientName: "Sarah Chen", type: "deposit", label: "Deposit (30%)", amount: 660, status: "paid", date: "Dec 1, 2025" }, { id: "pay-4", bookingId: "bk-2", clientName: "Sarah Chen", type: "final", label: "Final Balance", amount: 1540, status: "paid", date: "Jan 1, 2026" }], notes: "Golden hour shoot, bring blanket for beach shots.", createdAt: "Nov 25, 2025" },
-  { id: "bk-3", clientId: "c-2", clientName: "Michael Torres", clientEmail: "michael@example.com", type: "Elopement - Adventure", category: "Elopements", date: "Apr 18, 2026", time: "6:00 AM", location: "Big Sur, CA", status: "confirmed", contractSigned: true, totalAmount: 4200, paidAmount: 1260, payments: [{ id: "pay-5", bookingId: "bk-3", clientName: "Michael Torres", type: "deposit", label: "Deposit (30%)", amount: 1260, status: "paid", date: "Jan 20, 2026" }, { id: "pay-6", bookingId: "bk-3", clientName: "Michael Torres", type: "final", label: "Final Balance", amount: 2940, status: "pending", dueDate: "Apr 4, 2026" }], notes: "Sunrise elopement on Bixby Bridge trail. 5-mile hike.", createdAt: "Jan 15, 2026" },
-  { id: "bk-4", clientId: "c-3", clientName: "Rachel Adams", clientEmail: "rachel@example.com", type: "Headshots - Professional", category: "Headshots", date: "Mar 5, 2026", time: "10:00 AM", location: "Studio, SF", status: "pending", contractSigned: false, totalAmount: 650, paidAmount: 0, payments: [], notes: "Needs photos for new startup website.", createdAt: "Feb 18, 2026" },
-  { id: "bk-5", clientId: "c-4", clientName: "Jessica & Tom Lee", clientEmail: "jlee@example.com", type: "Wedding - Luxe", category: "Weddings", date: "Jun 14, 2026", time: "11:00 AM", location: "Napa Valley, CA", status: "confirmed", contractSigned: true, totalAmount: 8500, paidAmount: 2550, payments: [{ id: "pay-7", bookingId: "bk-5", clientName: "Jessica & Tom Lee", type: "deposit", label: "Deposit (30%)", amount: 2550, status: "paid", date: "Feb 1, 2026" }, { id: "pay-8", bookingId: "bk-5", clientName: "Jessica & Tom Lee", type: "final", label: "Final Balance", amount: 5950, status: "pending", dueDate: "May 31, 2026" }], notes: "Full day coverage. Rehearsal dinner Friday + wedding Saturday.", createdAt: "Jan 28, 2026" },
+  { id: "bk-3", clientId: "c-2", clientName: "Michael Torres", clientEmail: "michael@example.com", type: "Elopement - Adventure", category: "Elopements", date: "Apr 18, 2026", time: "6:00 AM", location: "Big Sur, CA", status: "upcoming", contractSigned: true, totalAmount: 4200, paidAmount: 1260, payments: [{ id: "pay-5", bookingId: "bk-3", clientName: "Michael Torres", type: "deposit", label: "Deposit (30%)", amount: 1260, status: "paid", date: "Jan 20, 2026" }, { id: "pay-6", bookingId: "bk-3", clientName: "Michael Torres", type: "final", label: "Final Balance", amount: 2940, status: "pending", dueDate: "Apr 4, 2026" }], notes: "Sunrise elopement on Bixby Bridge trail. 5-mile hike.", createdAt: "Jan 15, 2026" },
+  { id: "bk-4", clientId: "c-3", clientName: "Rachel Adams", clientEmail: "rachel@example.com", type: "Headshots - Professional", category: "Headshots", date: "Mar 5, 2026", time: "10:00 AM", location: "Studio, SF", status: "pending_deposit", contractSigned: false, totalAmount: 650, paidAmount: 0, payments: [], notes: "Needs photos for new startup website.", createdAt: "Feb 18, 2026" },
+  { id: "bk-5", clientId: "c-4", clientName: "Jessica & Tom Lee", clientEmail: "jlee@example.com", type: "Wedding - Luxe", category: "Weddings", date: "Jun 14, 2026", time: "11:00 AM", location: "Napa Valley, CA", status: "upcoming", contractSigned: true, totalAmount: 8500, paidAmount: 2550, payments: [{ id: "pay-7", bookingId: "bk-5", clientName: "Jessica & Tom Lee", type: "deposit", label: "Deposit (30%)", amount: 2550, status: "paid", date: "Feb 1, 2026" }, { id: "pay-8", bookingId: "bk-5", clientName: "Jessica & Tom Lee", type: "final", label: "Final Balance", amount: 5950, status: "pending", dueDate: "May 31, 2026" }], notes: "Full day coverage. Rehearsal dinner Friday + wedding Saturday.", createdAt: "Jan 28, 2026" },
 ];
 
 export const mockPayments: Payment[] = mockBookings.flatMap((b) => b.payments);
@@ -131,13 +137,11 @@ export const inquiryStatusConfig: Record<string, { label: string; color: string 
 };
 
 export const bookingStatusConfig: Record<string, { label: string; color: string }> = {
-  pending: { label: "Pending", color: "bg-amber-100 text-amber-700" },
   pending_deposit: { label: "Pending Deposit", color: "bg-amber-100 text-amber-700" },
-  confirmed: { label: "Confirmed", color: "bg-green-100 text-green-700" },
-  in_progress: { label: "In Progress", color: "bg-blue-100 text-blue-700" },
-  editing: { label: "Editing", color: "bg-purple-100 text-purple-700" },
-  delivered: { label: "Delivered", color: "bg-teal-100 text-teal-700" },
-  completed: { label: "Completed", color: "bg-brand-main/10 text-brand-main/60" },
+  upcoming: { label: "Upcoming", color: "bg-blue-100 text-blue-700" },
+  pending_full_payment: { label: "Pending Full Payment", color: "bg-orange-100 text-orange-700" },
+  pending_delivery: { label: "Pending Delivery", color: "bg-purple-100 text-purple-700" },
+  completed: { label: "Completed", color: "bg-green-600 text-white" },
   cancelled: { label: "Cancelled", color: "bg-red-100 text-red-600" },
 };
 

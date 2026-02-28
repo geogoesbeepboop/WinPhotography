@@ -6,6 +6,31 @@ import { CreditCard, DollarSign, TrendingUp, AlertCircle, Search } from "lucide-
 import { paymentStatusConfig } from "@/lib/mock-data/admin-data";
 import { usePayments } from "@/services/payments";
 
+function mapToDisplayStatus(status?: string): "paid" | "pending" | "overdue" | "refunded" {
+  if (status === "paid" || status === "succeeded") return "paid";
+  if (status === "pending" || status === "processing") return "pending";
+  if (status === "overdue" || status === "failed") return "overdue";
+  return "refunded";
+}
+
+function getBookingReference(payment: any): string {
+  const packageName = payment.booking?.packageName || payment.booking?.eventType;
+  const eventDate = payment.booking?.eventDate
+    ? String(payment.booking.eventDate).slice(0, 10)
+    : "";
+
+  if (packageName) {
+    return `${packageName}${eventDate ? ` · ${eventDate}` : ""}`;
+  }
+
+  const bookingId = payment.bookingId || payment.booking?.id;
+  if (bookingId) {
+    return `Booking ${String(bookingId).slice(0, 8).toUpperCase()}`;
+  }
+
+  return "—";
+}
+
 export default function AdminPayments() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [search, setSearch] = useState("");
@@ -14,19 +39,27 @@ export default function AdminPayments() {
   const allPayments = payments ?? [];
 
   const filtered = allPayments.filter((p: any) => {
-    if (statusFilter !== "all" && p.status !== statusFilter) return false;
+    const displayStatus = mapToDisplayStatus(p.status);
+    if (statusFilter !== "all" && displayStatus !== statusFilter) return false;
     if (search) {
       const q = search.toLowerCase();
       const clientName = (p.clientName || p.booking?.client?.fullName || "").toLowerCase();
       const description = (p.label || p.paymentType || "").toLowerCase();
-      if (!clientName.includes(q) && !description.includes(q)) return false;
+      const bookingRef = getBookingReference(p).toLowerCase();
+      if (!clientName.includes(q) && !description.includes(q) && !bookingRef.includes(q)) return false;
     }
     return true;
   });
 
-  const totalPaid = allPayments.filter((p: any) => p.status === "paid").reduce((s: number, p: any) => s + (p.amount || 0), 0);
-  const totalPending = allPayments.filter((p: any) => p.status === "pending").reduce((s: number, p: any) => s + (p.amount || 0), 0);
-  const totalOverdue = allPayments.filter((p: any) => p.status === "overdue").reduce((s: number, p: any) => s + (p.amount || 0), 0);
+  const totalPaid = allPayments
+    .filter((p: any) => mapToDisplayStatus(p.status) === "paid")
+    .reduce((s: number, p: any) => s + (p.amount || 0), 0);
+  const totalPending = allPayments
+    .filter((p: any) => mapToDisplayStatus(p.status) === "pending")
+    .reduce((s: number, p: any) => s + (p.amount || 0), 0);
+  const totalOverdue = allPayments
+    .filter((p: any) => mapToDisplayStatus(p.status) === "overdue")
+    .reduce((s: number, p: any) => s + (p.amount || 0), 0);
 
   const stats = [
     { label: "Total Collected", value: `$${totalPaid.toLocaleString()}`, icon: DollarSign, color: "text-green-600", bg: "bg-green-50" },
@@ -36,10 +69,10 @@ export default function AdminPayments() {
 
   const counts = {
     all: allPayments.length,
-    paid: allPayments.filter((p: any) => p.status === "paid").length,
-    pending: allPayments.filter((p: any) => p.status === "pending").length,
-    overdue: allPayments.filter((p: any) => p.status === "overdue").length,
-    refunded: allPayments.filter((p: any) => p.status === "refunded").length,
+    paid: allPayments.filter((p: any) => mapToDisplayStatus(p.status) === "paid").length,
+    pending: allPayments.filter((p: any) => mapToDisplayStatus(p.status) === "pending").length,
+    overdue: allPayments.filter((p: any) => mapToDisplayStatus(p.status) === "overdue").length,
+    refunded: allPayments.filter((p: any) => mapToDisplayStatus(p.status) === "refunded").length,
   };
 
   return (
@@ -78,7 +111,7 @@ export default function AdminPayments() {
       {/* Search + Filters */}
       <div className="relative max-w-sm mb-4">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-brand-main/30" />
-        <input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search by client or description..."
+        <input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search by client, booking, or description..."
           className="w-full pl-10 pr-4 py-2.5 bg-white border border-brand-main/10 text-brand-main focus:outline-none focus:border-brand-tertiary transition-colors" style={{ fontSize: "0.85rem" }} />
       </div>
       <div className="flex items-center gap-1 mb-6 flex-wrap">
@@ -94,18 +127,20 @@ export default function AdminPayments() {
       {/* Loading State */}
       {isLoading && (
         <div className="bg-white border border-brand-main/8 overflow-hidden">
-          <div className="hidden sm:grid grid-cols-5 gap-4 px-5 py-3 bg-brand-secondary/50 border-b border-brand-main/6 text-brand-main/40 tracking-[0.05em] uppercase" style={{ fontSize: "0.65rem" }}>
+          <div className="hidden sm:grid grid-cols-6 gap-4 px-5 py-3 bg-brand-secondary/50 border-b border-brand-main/6 text-brand-main/40 tracking-[0.05em] uppercase" style={{ fontSize: "0.65rem" }}>
             <span>Client</span>
             <span>Description</span>
+            <span>Booking</span>
             <span>Date</span>
             <span className="text-right">Amount</span>
             <span className="text-right">Status</span>
           </div>
           <div className="divide-y divide-brand-main/6">
             {[...Array(5)].map((_, i) => (
-              <div key={i} className="grid grid-cols-1 sm:grid-cols-5 gap-1 sm:gap-4 px-5 py-4 animate-pulse">
+              <div key={i} className="grid grid-cols-1 sm:grid-cols-6 gap-1 sm:gap-4 px-5 py-4 animate-pulse">
                 <div className="h-4 bg-brand-main/10 rounded w-28" />
                 <div className="h-4 bg-brand-main/8 rounded w-32" />
+                <div className="h-4 bg-brand-main/6 rounded w-24" />
                 <div className="h-4 bg-brand-main/6 rounded w-24" />
                 <div className="h-4 bg-brand-main/8 rounded w-16 sm:ml-auto" />
                 <div className="h-4 bg-brand-main/6 rounded w-14 sm:ml-auto" />
@@ -120,26 +155,30 @@ export default function AdminPayments() {
         <>
           <div className="bg-white border border-brand-main/8 overflow-hidden">
             {/* Table Header */}
-            <div className="hidden sm:grid grid-cols-5 gap-4 px-5 py-3 bg-brand-secondary/50 border-b border-brand-main/6 text-brand-main/40 tracking-[0.05em] uppercase" style={{ fontSize: "0.65rem" }}>
+            <div className="hidden sm:grid grid-cols-6 gap-4 px-5 py-3 bg-brand-secondary/50 border-b border-brand-main/6 text-brand-main/40 tracking-[0.05em] uppercase" style={{ fontSize: "0.65rem" }}>
               <span>Client</span>
               <span>Description</span>
+              <span>Booking</span>
               <span>Date</span>
               <span className="text-right">Amount</span>
               <span className="text-right">Status</span>
             </div>
             <div className="divide-y divide-brand-main/6">
               {filtered.map((pay: any, i: number) => {
-                const cfg = paymentStatusConfig[pay.status];
+                const displayStatus = mapToDisplayStatus(pay.status);
+                const cfg = paymentStatusConfig[displayStatus];
                 const clientName = pay.clientName || pay.booking?.client?.fullName || "Unknown";
                 const description = pay.label || pay.paymentType || "";
-                const dateDisplay = pay.status === "paid"
+                const bookingRef = getBookingReference(pay);
+                const dateDisplay = displayStatus === "paid"
                   ? (pay.date || pay.paidAt || "")
                   : `Due ${pay.dueDate || ""}`;
                 return (
                   <motion.div key={pay.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.03 }}
-                    className="grid grid-cols-1 sm:grid-cols-5 gap-1 sm:gap-4 px-5 py-4 hover:bg-brand-secondary/30 transition-colors items-center">
+                    className="grid grid-cols-1 sm:grid-cols-6 gap-1 sm:gap-4 px-5 py-4 hover:bg-brand-secondary/30 transition-colors items-center">
                     <p className="text-brand-main" style={{ fontSize: "0.85rem" }}>{clientName}</p>
                     <p className="text-brand-main/60" style={{ fontSize: "0.8rem" }}>{description}</p>
+                    <p className="text-brand-main/55" style={{ fontSize: "0.75rem" }}>{bookingRef}</p>
                     <p className="text-brand-main/40" style={{ fontSize: "0.8rem" }}>{dateDisplay}</p>
                     <p className="font-serif text-brand-main sm:text-right" style={{ fontSize: "1rem" }}>${(pay.amount || 0).toLocaleString()}</p>
                     <div className="sm:text-right">

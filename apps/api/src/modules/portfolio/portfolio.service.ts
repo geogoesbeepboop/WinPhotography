@@ -35,7 +35,7 @@ export class PortfolioService {
   ) {}
 
   async create(data: CreatePortfolioItemDto): Promise<PortfolioItemEntity> {
-    const slug = generateSlug(data.title);
+    const slug = await this.generateUniqueSlug(data.title);
 
     const item = this.portfolioRepository.create({
       ...data,
@@ -140,7 +140,7 @@ export class PortfolioService {
     const updateData: Partial<PortfolioItemEntity> = { ...rest };
 
     if (data.title) {
-      updateData.slug = generateSlug(data.title);
+      updateData.slug = await this.generateUniqueSlug(data.title, id);
     }
 
     if (eventDate !== undefined) {
@@ -302,5 +302,27 @@ export class PortfolioService {
       heif: 'image/heif',
     };
     return (ext && map[ext]) || 'image/jpeg';
+  }
+
+  private async generateUniqueSlug(
+    title: string,
+    excludeItemId?: string,
+  ): Promise<string> {
+    const baseSlug = generateSlug(title) || `portfolio-${randomUUID().slice(0, 8)}`;
+    let candidate = baseSlug;
+    let suffix = 2;
+
+    while (true) {
+      const existing = await this.portfolioRepository.findOne({
+        where: { slug: candidate },
+      });
+
+      if (!existing || (excludeItemId && existing.id === excludeItemId)) {
+        return candidate;
+      }
+
+      candidate = `${baseSlug}-${suffix}`;
+      suffix += 1;
+    }
   }
 }

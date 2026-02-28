@@ -8,6 +8,7 @@ import {
   Body,
   UseGuards,
   ParseUUIDPipe,
+  NotFoundException,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { UserRole } from '@winphotography/shared';
@@ -30,6 +31,12 @@ export class TestimonialsController {
   // Public: return published testimonials
   @Get()
   async findPublished() {
+    return this.testimonialsService.findPublished();
+  }
+
+  // Public: explicit published list endpoint
+  @Get('published')
+  async findPublishedExplicit() {
     return this.testimonialsService.findPublished();
   }
 
@@ -77,6 +84,15 @@ export class TestimonialsController {
     @Body() dto: UpdateMyTestimonialDto,
   ) {
     return this.testimonialsService.updateMine(user.id, id, dto);
+  }
+
+  @Get(':id')
+  async findPublishedById(@Param('id', ParseUUIDPipe) id: string) {
+    const testimonial = await this.testimonialsService.findPublishedById(id);
+    if (!testimonial) {
+      throw new NotFoundException(`Published testimonial with ID "${id}" not found`);
+    }
+    return testimonial;
   }
 
   // Admin: create testimonial

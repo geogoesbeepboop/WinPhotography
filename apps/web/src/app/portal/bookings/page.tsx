@@ -27,6 +27,10 @@ import {
   useSubmitMyTestimonial,
   useUpdateMyTestimonial,
 } from "@/services/testimonials";
+import {
+  BookingLifecycleStage,
+  deriveBookingLifecycleStage,
+} from "@/lib/booking-lifecycle";
 
 interface ApiPayment {
   amount: number;
@@ -41,45 +45,42 @@ interface ApiBooking {
   depositAmount: number;
   status: string;
   eventDate: string;
+  lifecycleStage?: BookingLifecycleStage;
   eventTime?: string;
   eventLocation?: string;
-  contractUrl?: string;
+  contractUrl?: string | null;
   contractSignedAt?: string;
   payments?: ApiPayment[];
+  galleries?: Array<{ status?: string }>;
   client?: { id: string; name?: string };
 }
 
-type DisplayStatus = "confirmed" | "completed" | "pending" | "in_progress" | "editing" | "delivered" | "cancelled";
+type DisplayStatus = BookingLifecycleStage;
 
 const statusConfig: Record<DisplayStatus, { label: string; color: string; icon: React.ComponentType<{ className?: string }> }> = {
-  confirmed: {
-    label: "Confirmed",
-    color: "bg-green-100 text-green-700",
-    icon: CheckCircle2,
-  },
-  completed: {
-    label: "Completed",
-    color: "bg-brand-main/10 text-brand-main/60",
-    icon: CheckCircle2,
-  },
-  pending: {
+  pending_deposit: {
     label: "Pending Deposit",
     color: "bg-amber-100 text-amber-700",
     icon: Clock,
   },
-  in_progress: {
-    label: "In Progress",
+  upcoming: {
+    label: "Upcoming",
     color: "bg-blue-100 text-blue-700",
     icon: CalendarCheck,
   },
-  editing: {
-    label: "In Editing",
+  pending_full_payment: {
+    label: "Pending Full Payment",
+    color: "bg-orange-100 text-orange-700",
+    icon: CreditCard,
+  },
+  pending_delivery: {
+    label: "Pending Delivery",
     color: "bg-purple-100 text-purple-700",
     icon: Clock,
   },
-  delivered: {
-    label: "Delivered",
-    color: "bg-green-100 text-green-700",
+  completed: {
+    label: "Completed",
+    color: "bg-green-600 text-white",
     icon: CheckCircle2,
   },
   cancelled: {
@@ -88,19 +89,6 @@ const statusConfig: Record<DisplayStatus, { label: string; color: string; icon: 
     icon: XCircle,
   },
 };
-
-function mapApiStatus(status: string): DisplayStatus {
-  const mapping: Record<string, DisplayStatus> = {
-    pending_deposit: "pending",
-    confirmed: "confirmed",
-    in_progress: "in_progress",
-    editing: "editing",
-    delivered: "delivered",
-    completed: "completed",
-    cancelled: "cancelled",
-  };
-  return mapping[status] || "pending";
-}
 
 interface DisplayBooking {
   id: string;
@@ -112,6 +100,7 @@ interface DisplayBooking {
   location: string;
   status: DisplayStatus;
   contract: boolean;
+  contractUrl?: string;
   contractSigned: boolean;
   contractSignedDate?: string;
   contractId: string;
@@ -128,7 +117,7 @@ function mapApiBookings(apiBookings: ApiBooking[]): DisplayBooking[] {
       .filter((p) => p.status === "succeeded")
       .reduce((sum, p) => sum + p.amount, 0);
     const balance = Math.max(0, b.packagePrice - paidAmount);
-    const displayStatus = mapApiStatus(b.status);
+    const displayStatus = deriveBookingLifecycleStage(b);
 
     return {
       id: b.id,
@@ -139,7 +128,8 @@ function mapApiBookings(apiBookings: ApiBooking[]): DisplayBooking[] {
       time: b.eventTime || "",
       location: b.eventLocation || "",
       status: displayStatus,
-      contract: !!b.contractUrl,
+      contract: Boolean(b.contractUrl),
+      contractUrl: b.contractUrl || undefined,
       contractSigned: !!b.contractSignedAt,
       contractSignedDate: b.contractSignedAt
         ? format(new Date(b.contractSignedAt), "MMM d, yyyy")
@@ -158,6 +148,7 @@ export default function PortalBookings() {
   const clientName = (supabaseUser?.user_metadata?.full_name as string) || supabaseUser?.email || "Client";
   const [contractModal, setContractModal] = useState<string | null>(null);
   const [testimonialModalBookingId, setTestimonialModalBookingId] = useState<string | null>(null);
+  const [testimonialSuccess, setTestimonialSuccess] = useState("");
   const [testimonialForm, setTestimonialForm] = useState({
     content: "",
     rating: 5,
@@ -191,11 +182,12 @@ export default function PortalBookings() {
   const testimonialPending = submitTestimonial.isPending || updateMyTestimonial.isPending;
 
   const canLeaveFeedback = (booking: DisplayBooking): boolean =>
-    booking.rawStatus === "delivered" || booking.rawStatus === "completed";
+    booking.status === "completed";
 
   const openTestimonialModal = (bookingId: string) => {
     const existing = testimonialsByBooking.get(bookingId);
     setTestimonialError("");
+    setTestimonialSuccess("");
     setTestimonialModalBookingId(bookingId);
     setTestimonialForm({
       content: existing?.content || "",
@@ -234,6 +226,9 @@ export default function PortalBookings() {
           rating: testimonialForm.rating,
         });
       }
+      setTestimonialSuccess(
+        "Thank you for submitting feedback! Hope we are able to be a part of another special event in your future.",
+      );
       setTestimonialModalBookingId(null);
     } catch (error: unknown) {
       const message =
@@ -271,6 +266,18 @@ export default function PortalBookings() {
         </p>
       </motion.div>
 
+      {testimonialSuccess && (
+        <motion.div
+          initial={{ opacity: 0, y: -8 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mb-6 border border-green-200 bg-green-50 px-4 py-3"
+        >
+          <p className="text-green-700" style={{ fontSize: "0.82rem" }}>
+            {testimonialSuccess}
+          </p>
+        </motion.div>
+      )}
+
       {isLoading ? (
         <div className="flex items-center justify-center py-16">
           <Loader2 className="w-6 h-6 animate-spin text-brand-tertiary" />
@@ -285,7 +292,7 @@ export default function PortalBookings() {
       ) : (
         <div className="space-y-5">
           {bookings.map((booking, i) => {
-            const config = statusConfig[booking.status] || statusConfig.pending;
+            const config = statusConfig[booking.status] || statusConfig.pending_deposit;
             const isPaidInFull = booking.paidAmount >= booking.totalAmount;
             const hasBalance = booking.nextPaymentAmount > 0 && !isPaidInFull;
 
@@ -336,7 +343,7 @@ export default function PortalBookings() {
                   </div>
 
                   {/* Simplified Payment Status */}
-                  {booking.status !== "pending" && booking.status !== "cancelled" && (
+                  {booking.status !== "pending_deposit" && booking.status !== "cancelled" && (
                     <div className="flex flex-wrap items-center gap-4 mt-4 pt-4 border-t border-brand-main/6">
                       {isPaidInFull ? (
                         <div className="flex items-center gap-2 text-green-600" style={{ fontSize: "0.8rem" }}>
@@ -376,6 +383,15 @@ export default function PortalBookings() {
                         View Contract
                       </button>
                     )}
+                    {booking.contractSigned && (
+                      <span
+                        className="inline-flex items-center gap-1.5 px-3 py-1 bg-green-600 text-white"
+                        style={{ fontSize: "0.62rem" }}
+                      >
+                        <CheckCircle2 className="w-3 h-3" />
+                        Signed{booking.contractSignedDate ? ` · ${booking.contractSignedDate}` : ""}
+                      </span>
+                    )}
                     {hasBalance && (
                       <button
                         className="inline-flex items-center gap-2 px-4 py-2 bg-brand-tertiary text-white hover:bg-brand-tertiary-dark transition-colors tracking-[0.1em] uppercase"
@@ -396,25 +412,11 @@ export default function PortalBookings() {
                         {testimonialsByBooking.get(booking.id) ? "Edit Feedback" : "Leave Feedback"}
                       </button>
                     )}
-                    {canLeaveFeedback(booking) && testimonialsByBooking.get(booking.id) && (
-                      <span
-                        className={`inline-flex items-center px-2.5 py-1 ${
-                          testimonialsByBooking.get(booking.id)?.isPublished
-                            ? "bg-green-50 text-green-700"
-                            : "bg-amber-50 text-amber-700"
-                        }`}
-                        style={{ fontSize: "0.65rem" }}
-                      >
-                        {testimonialsByBooking.get(booking.id)?.isPublished
-                          ? "Published"
-                          : "Pending Review"}
-                      </span>
-                    )}
                   </div>
                 </div>
 
                 {/* Pending contract CTA */}
-                {booking.status === "pending" && (
+                {booking.status === "pending_deposit" && booking.contract && (
                   <div className="px-6 py-5 bg-amber-50/50 border-t border-brand-main/6">
                     <p
                       className="text-amber-700 mb-3"
@@ -431,6 +433,13 @@ export default function PortalBookings() {
                       Review & Sign Contract
                       <ArrowRight className="w-3.5 h-3.5" />
                     </button>
+                  </div>
+                )}
+                {booking.status === "pending_deposit" && !booking.contract && (
+                  <div className="px-6 py-5 bg-amber-50/50 border-t border-brand-main/6">
+                    <p className="text-amber-700" style={{ fontSize: "0.82rem" }}>
+                      Contract details are not available yet. You will be notified as soon as the contract is ready to review.
+                    </p>
                   </div>
                 )}
               </motion.div>
@@ -455,6 +464,7 @@ export default function PortalBookings() {
             signed: activeBooking.contractSigned,
             signedDate: activeBooking.contractSignedDate,
             contractId: activeBooking.contractId,
+            contractUrl: activeBooking.contractUrl,
           }}
           onSign={
             !activeBooking.contractSigned
@@ -549,12 +559,6 @@ export default function PortalBookings() {
                   disabled={testimonialPending}
                 />
               </div>
-
-              {activeTestimonial && !activeTestimonial.isPublished && (
-                <p className="text-amber-700" style={{ fontSize: "0.78rem" }}>
-                  Your testimonial is pending admin review before it appears publicly.
-                </p>
-              )}
 
               {testimonialError && (
                 <p className="text-red-600" style={{ fontSize: "0.8rem" }}>

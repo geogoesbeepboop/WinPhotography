@@ -83,7 +83,7 @@ export const mockPortalBookings = [
     packageName: "Wedding - Signature",
     packagePrice: 6800,
     depositAmount: 2040,
-    status: "confirmed",
+    status: "upcoming",
     eventDate: "2026-03-22",
     eventLocation: "Golden Gate Park, San Francisco",
     contractUrl: "https://example.com/contract/MW-2026-0322",

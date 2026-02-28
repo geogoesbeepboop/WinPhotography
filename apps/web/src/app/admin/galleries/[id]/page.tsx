@@ -6,6 +6,7 @@ import Link from "next/link";
 import { motion } from "motion/react";
 import { ArrowLeft, Upload, Eye, EyeOff, Image, X, Loader2 } from "lucide-react";
 import { useGallery, usePublishGallery, useAddGalleryPhotos, useDeleteGalleryPhoto, useUpdateGallery } from "@/services/galleries";
+import { useAddPortfolioPhotos, useCreatePortfolioItem } from "@/services/portfolio";
 import { uploadGalleryPhoto } from "@/services/upload";
 import { ImageWithFallback } from "@/components/shared/image-with-fallback";
 import { resolveMediaUrl } from "@/lib/media";
@@ -26,14 +27,20 @@ interface GalleryPhotoItem {
   caption?: string;
   url?: string;
   r2Key?: string;
+  mimeType?: string;
+  width?: number;
+  height?: number;
+  sortOrder?: number;
 }
 
 interface GalleryDetails {
   id: string;
   title: string;
+  description?: string | null;
   status: string;
   clientName?: string;
   client?: { fullName?: string };
+  booking?: { eventType?: string; eventDate?: string };
   photos?: GalleryPhotoItem[];
 }
 
@@ -44,11 +51,15 @@ export default function AdminGalleryDetail() {
   const addPhotos = useAddGalleryPhotos();
   const deletePhoto = useDeleteGalleryPhoto();
   const updateGallery = useUpdateGallery();
+  const createPortfolioItem = useCreatePortfolioItem();
+  const addPortfolioPhotos = useAddPortfolioPhotos();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState({ current: 0, total: 0 });
   const [deletePhotoTarget, setDeletePhotoTarget] = useState<{ id: string; label: string } | null>(null);
+  const [portfolioSyncMessage, setPortfolioSyncMessage] = useState("");
+  const [portfolioSyncError, setPortfolioSyncError] = useState("");
 
   if (isLoading) {
     return (
@@ -146,6 +157,51 @@ export default function AdminGalleryDetail() {
     );
   };
 
+  const duplicateToPortfolio = async () => {
+    if (photos.length === 0) {
+      setPortfolioSyncError("Add at least one gallery photo before duplicating to portfolio.");
+      setPortfolioSyncMessage("");
+      return;
+    }
+
+    setPortfolioSyncError("");
+    setPortfolioSyncMessage("");
+
+    try {
+      const created = await createPortfolioItem.mutateAsync({
+        title: gallery.title,
+        category: gallery.booking?.eventType || "event",
+        description: gallery.description || undefined,
+        eventDate: gallery.booking?.eventDate || undefined,
+        isPublished: published,
+      });
+
+      await addPortfolioPhotos.mutateAsync({
+        id: created.id,
+        photos: photos
+          .filter((photo) => Boolean(photo.r2Key))
+          .map((photo, index) => ({
+            r2Key: photo.r2Key as string,
+            mimeType: photo.mimeType || "image/jpeg",
+            width: photo.width,
+            height: photo.height,
+            sortOrder: photo.sortOrder ?? index,
+          })),
+      });
+
+      setPortfolioSyncMessage(`Gallery duplicated to portfolio: ${created.title}`);
+      setPortfolioSyncError("");
+    } catch (error: any) {
+      const message =
+        error?.response?.data?.message ||
+        "Failed to duplicate this gallery to portfolio.";
+      setPortfolioSyncError(Array.isArray(message) ? message.join(", ") : message);
+      setPortfolioSyncMessage("");
+    }
+  };
+
+  const portfolioPending = createPortfolioItem.isPending || addPortfolioPhotos.isPending;
+
   return (
     <div>
       <Link href="/admin/galleries" className="inline-flex items-center gap-2 text-brand-main/40 hover:text-brand-main transition-colors mb-6" style={{ fontSize: "0.8rem" }}>
@@ -168,7 +224,7 @@ export default function AdminGalleryDetail() {
           <div className="flex items-center gap-3">
             <button
               onClick={handlePublishToggle}
-              disabled={publishGallery.isPending || updateGallery.isPending}
+              disabled={publishGallery.isPending || updateGallery.isPending || portfolioPending}
               className={`inline-flex items-center gap-2 px-5 py-2.5 tracking-[0.1em] uppercase transition-colors disabled:opacity-50 ${
                 published ? "bg-amber-100 text-amber-700 hover:bg-amber-200" : "bg-brand-main text-brand-secondary hover:bg-brand-main-light"
               }`} style={{ fontSize: "0.65rem" }}>
@@ -180,8 +236,43 @@ export default function AdminGalleryDetail() {
                 <><Eye className="w-3.5 h-3.5" /> Publish</>
               )}
             </button>
+            <button
+              onClick={duplicateToPortfolio}
+              disabled={portfolioPending}
+              className="inline-flex items-center gap-2 px-5 py-2.5 border border-brand-main/15 text-brand-main/70 hover:text-brand-main hover:border-brand-main/30 tracking-[0.1em] uppercase transition-colors disabled:opacity-50"
+              style={{ fontSize: "0.65rem" }}
+            >
+              {portfolioPending ? (
+                <>
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  Duplicating...
+                </>
+              ) : (
+                <>
+                  <Image className="w-3.5 h-3.5" />
+                  Duplicate to Portfolio
+                </>
+              )}
+            </button>
           </div>
         </div>
+
+        {(portfolioSyncMessage || portfolioSyncError) && (
+          <div
+            className={`mb-6 border px-4 py-3 ${
+              portfolioSyncError
+                ? "border-red-200 bg-red-50"
+                : "border-green-200 bg-green-50"
+            }`}
+          >
+            <p
+              className={portfolioSyncError ? "text-red-700" : "text-green-700"}
+              style={{ fontSize: "0.8rem" }}
+            >
+              {portfolioSyncError || portfolioSyncMessage}
+            </p>
+          </div>
+        )}
 
         {/* Upload Area */}
         <input

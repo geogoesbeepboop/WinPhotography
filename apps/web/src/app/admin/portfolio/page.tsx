@@ -49,12 +49,12 @@ export default function AdminPortfolio() {
 
   const togglePublish = (item: PortfolioAdminItem) => {
     const isPublished = item.published ?? item.isPublished ?? false;
-    updateItem.mutate({ id: item.id, isPublished: !isPublished, published: !isPublished });
+    updateItem.mutate({ id: item.id, isPublished: !isPublished });
   };
 
   const toggleFeatured = (item: PortfolioAdminItem) => {
     const isFeatured = item.featured ?? item.isFeatured ?? false;
-    updateItem.mutate({ id: item.id, isFeatured: !isFeatured, featured: !isFeatured });
+    updateItem.mutate({ id: item.id, isFeatured: !isFeatured });
   };
 
   const removeItem = () => {

@@ -9,6 +9,7 @@ interface TestimonialBookingSummary {
   eventDate?: string | null;
   packageName?: string | null;
   status?: string | null;
+  lifecycleStage?: string | null;
   clientId?: string;
 }
 
@@ -33,6 +34,7 @@ export const testimonialKeys = {
   all: ['testimonials'] as const,
   published: () => [...testimonialKeys.all, 'published'] as const,
   featured: () => [...testimonialKeys.all, 'featured'] as const,
+  byId: (id: string) => [...testimonialKeys.all, 'by-id', id] as const,
   adminList: () => [...testimonialKeys.all, 'admin-list'] as const,
   my: () => [...testimonialKeys.all, 'my'] as const,
 };
@@ -44,7 +46,7 @@ export function useTestimonials() {
     queryKey: [...testimonialKeys.published(), dataSource],
     queryFn: async () => {
       if (dataSource === 'mock') return mockTestimonials as TestimonialItem[];
-      const { data } = await apiClient.get('/testimonials');
+      const { data } = await apiClient.get('/testimonials/published');
       return data;
     },
     staleTime: 10 * 60 * 1000,
@@ -64,6 +66,24 @@ export function useFeaturedTestimonials() {
       return data;
     },
     staleTime: 10 * 60 * 1000,
+  });
+}
+
+export function useTestimonialById(id: string) {
+  const { dataSource } = useDataSourceStore();
+
+  return useQuery<TestimonialItem | null>({
+    queryKey: [...testimonialKeys.byId(id), dataSource],
+    queryFn: async () => {
+      if (dataSource === 'mock') {
+        const item = (mockTestimonials as TestimonialItem[]).find((testimonial) => testimonial.id === id);
+        return item ?? null;
+      }
+      const { data } = await apiClient.get(`/testimonials/${id}`);
+      return data;
+    },
+    enabled: Boolean(id),
+    staleTime: 5 * 60 * 1000,
   });
 }
 

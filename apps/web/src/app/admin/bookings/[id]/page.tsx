@@ -9,24 +9,25 @@ import { bookingStatusConfig, paymentStatusConfig } from "@/lib/mock-data/admin-
 import { useBooking, useUpdateBooking } from "@/services/bookings";
 import { EventTypeItem, useEventTypes } from "@/services/event-types";
 import { getEventTypeLabel } from "@/lib/event-type-label";
+import { BookingLifecycleStage, deriveBookingLifecycleStage } from "@/lib/booking-lifecycle";
 
 export default function AdminBookingDetail() {
   const { id } = useParams();
   const { data: booking, isLoading } = useBooking(id as string);
   const { data: eventTypes = [] } = useEventTypes();
   const updateBooking = useUpdateBooking();
-  const [status, setStatus] = useState("pending_deposit");
+  const [status, setStatus] = useState<BookingLifecycleStage>("pending_deposit");
   const [notes, setNotes] = useState("");
   const eventTypeOptions = eventTypes as EventTypeItem[];
 
   useEffect(() => {
     if (booking) {
-      setStatus(booking.status || "pending_deposit");
+      setStatus(deriveBookingLifecycleStage(booking));
       setNotes(booking.adminNotes || "");
     }
   }, [booking]);
 
-  const handleStatusChange = (newStatus: string) => {
+  const handleStatusChange = (newStatus: BookingLifecycleStage) => {
     setStatus(newStatus);
     updateBooking.mutate({ id: id as string, status: newStatus });
   };
@@ -126,13 +127,12 @@ export default function AdminBookingDetail() {
             </div>
             <p className="text-brand-main/50" style={{ fontSize: "0.85rem" }}>{clientName} · Created {booking.createdAt}</p>
           </div>
-          <select value={status} onChange={(e) => handleStatusChange(e.target.value)}
+          <select value={status} onChange={(e) => handleStatusChange(e.target.value as BookingLifecycleStage)}
             className="px-3 py-2 bg-white border border-brand-main/10 text-brand-main focus:outline-none focus:border-brand-tertiary" style={{ fontSize: "0.8rem" }}>
             <option value="pending_deposit">Pending Deposit</option>
-            <option value="confirmed">Confirmed</option>
-            <option value="in_progress">In Progress</option>
-            <option value="editing">Editing</option>
-            <option value="delivered">Delivered</option>
+            <option value="upcoming">Upcoming</option>
+            <option value="pending_full_payment">Pending Full Payment</option>
+            <option value="pending_delivery">Pending Delivery</option>
             <option value="completed">Completed</option>
             <option value="cancelled">Cancelled</option>
           </select>

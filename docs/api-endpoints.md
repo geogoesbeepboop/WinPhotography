@@ -41,6 +41,9 @@ Base URL: `/api/v1` (except health check)
 | PATCH | `/bookings/:id` | Admin | Update booking details/status |
 | DELETE | `/bookings/:id` | Admin | Cancel booking |
 
+Note: booking payloads include a derived `lifecycleStage` value:
+`pending_deposit`, `upcoming`, `pending_full_payment`, `pending_delivery`, `completed`, `cancelled`.
+
 ## Galleries
 | Method | Endpoint | Auth | Description |
 |--------|----------|------|-------------|
@@ -93,6 +96,13 @@ Base URL: `/api/v1` (except health check)
 | Method | Endpoint | Auth | Description |
 |--------|----------|------|-------------|
 | GET | `/testimonials` | **Public** | List published testimonials |
+| GET | `/testimonials/published` | **Public** | Explicit published testimonials endpoint |
+| GET | `/testimonials/featured` | **Public** | List featured testimonials (published only) |
+| GET | `/testimonials/:id` | **Public** | Get one published testimonial by ID |
+| GET | `/testimonials/admin/all` | Admin | List all testimonials including drafts |
+| GET | `/testimonials/my` | Client | List testimonials tied to current client bookings |
+| POST | `/testimonials/my` | Client | Submit or update testimonial for a client booking |
+| PATCH | `/testimonials/my/:id` | Client | Edit a client-owned testimonial |
 | POST | `/testimonials` | Admin | Create testimonial |
 | PATCH | `/testimonials/:id` | Admin | Update testimonial |
 | DELETE | `/testimonials/:id` | Admin | Delete testimonial |

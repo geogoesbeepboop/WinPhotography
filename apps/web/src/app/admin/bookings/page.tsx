@@ -3,15 +3,17 @@
 import { useState } from "react";
 import Link from "next/link";
 import { motion } from "motion/react";
-import { Search, CalendarCheck, Clock, MapPin, DollarSign, Plus } from "lucide-react";
+import { Search, CalendarCheck, Clock, MapPin, Plus } from "lucide-react";
 import { bookingStatusConfig } from "@/lib/mock-data/admin-data";
 import { useBookings } from "@/services/bookings";
 import { EventTypeItem, useEventTypes } from "@/services/event-types";
 import { getEventTypeLabel } from "@/lib/event-type-label";
+import { BookingLifecycleStage, deriveBookingLifecycleStage } from "@/lib/booking-lifecycle";
 
 interface BookingListItem {
   id: string;
   status: string;
+  lifecycleStage?: BookingLifecycleStage;
   clientName?: string;
   client?: { fullName?: string };
   eventType?: string;
@@ -26,10 +28,23 @@ interface BookingListItem {
   depositAmount?: number;
   eventLocation?: string;
   payments?: Array<{ amount: number | string; status: string }>;
+  galleries?: Array<{ status?: string }>;
 }
 
-function isPendingStatus(status?: string): boolean {
-  return status === "pending" || status === "pending_deposit";
+type BookingStatusFilter = "all" | BookingLifecycleStage;
+
+const statusFilters: BookingStatusFilter[] = [
+  "all",
+  "pending_deposit",
+  "upcoming",
+  "pending_full_payment",
+  "pending_delivery",
+  "completed",
+  "cancelled",
+];
+
+function getBookingStage(booking: BookingListItem): BookingLifecycleStage {
+  return deriveBookingLifecycleStage(booking);
 }
 
 function getPaidAmount(booking: BookingListItem): number {
@@ -42,7 +57,7 @@ function getPaidAmount(booking: BookingListItem): number {
 }
 
 export default function AdminBookings() {
-  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [statusFilter, setStatusFilter] = useState<BookingStatusFilter>("all");
   const [search, setSearch] = useState("");
   const { data: bookings, isLoading } = useBookings();
   const { data: eventTypes = [] } = useEventTypes();
@@ -51,9 +66,9 @@ export default function AdminBookings() {
   const eventTypeOptions = eventTypes as EventTypeItem[];
 
   const filtered = allBookings.filter((b) => {
-    if (statusFilter === "pending") {
-      if (!isPendingStatus(b.status)) return false;
-    } else if (statusFilter !== "all" && b.status !== statusFilter) {
+    const stage = getBookingStage(b);
+
+    if (statusFilter !== "all" && stage !== statusFilter) {
       return false;
     }
 
@@ -66,10 +81,12 @@ export default function AdminBookings() {
 
   const counts = {
     all: allBookings.length,
-    pending: allBookings.filter((b) => isPendingStatus(b.status)).length,
-    confirmed: allBookings.filter((b) => b.status === "confirmed").length,
-    completed: allBookings.filter((b) => b.status === "completed").length,
-    cancelled: allBookings.filter((b) => b.status === "cancelled").length,
+    pending_deposit: allBookings.filter((b) => getBookingStage(b) === "pending_deposit").length,
+    upcoming: allBookings.filter((b) => getBookingStage(b) === "upcoming").length,
+    pending_full_payment: allBookings.filter((b) => getBookingStage(b) === "pending_full_payment").length,
+    pending_delivery: allBookings.filter((b) => getBookingStage(b) === "pending_delivery").length,
+    completed: allBookings.filter((b) => getBookingStage(b) === "completed").length,
+    cancelled: allBookings.filter((b) => getBookingStage(b) === "cancelled").length,
   };
 
   return (
@@ -98,14 +115,25 @@ export default function AdminBookings() {
           />
         </div>
         <div className="flex items-center gap-1 flex-wrap">
-          {(["all", "pending", "confirmed", "completed", "cancelled"] as const).map((s) => (
-            <button key={s} onClick={() => setStatusFilter(s)}
-              className={`px-3 py-1.5 transition-colors tracking-[0.05em] capitalize ${statusFilter === s ? "bg-brand-main text-brand-secondary" : "bg-white border border-brand-main/10 text-brand-main/50 hover:text-brand-main"}`}
-              style={{ fontSize: "0.7rem" }}
-            >
-              {s} ({counts[s]})
-            </button>
-          ))}
+          {statusFilters.map((s) => {
+            const label = s === "all" ? "All" : bookingStatusConfig[s]?.label ?? s;
+            const count = counts[s];
+
+            return (
+              <button
+                key={s}
+                onClick={() => setStatusFilter(s)}
+                className={`px-3 py-1.5 transition-colors tracking-[0.05em] ${
+                  statusFilter === s
+                    ? "bg-brand-main text-brand-secondary"
+                    : "bg-white border border-brand-main/10 text-brand-main/50 hover:text-brand-main"
+                }`}
+                style={{ fontSize: "0.7rem" }}
+              >
+                {label} ({count})
+              </button>
+            );
+          })}
         </div>
       </div>
 
@@ -135,7 +163,8 @@ export default function AdminBookings() {
       {!isLoading && (
         <div className="space-y-3">
           {filtered.map((bk, i) => {
-            const cfg = bookingStatusConfig[bk.status];
+            const stage = getBookingStage(bk);
+            const cfg = bookingStatusConfig[stage];
             const total = bk.totalAmount ?? bk.packagePrice ?? 0;
             const paid = getPaidAmount(bk);
             const progress = total > 0 ? Math.round((paid / total) * 100) : 0;

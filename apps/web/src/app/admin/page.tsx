@@ -22,6 +22,7 @@ import { useClients } from "@/services/clients";
 import { EventTypeItem, useEventTypes } from "@/services/event-types";
 import { getEventTypeLabel } from "@/lib/event-type-label";
 import { useAdminTestimonials } from "@/services/testimonials";
+import { deriveBookingLifecycleStage } from "@/lib/booking-lifecycle";
 
 export default function AdminOverview() {
   const { data: inquiriesData, isLoading: inquiriesLoading } = useInquiries();
@@ -39,6 +40,7 @@ export default function AdminOverview() {
   const clients = clientsData ?? [];
   const testimonials = testimonialsData ?? [];
   const eventTypeOptions = eventTypes as EventTypeItem[];
+  const bookingStage = (booking: any) => deriveBookingLifecycleStage(booking);
 
   const isLoading =
     inquiriesLoading ||
@@ -51,14 +53,17 @@ export default function AdminOverview() {
   const totalRevenue = payments.filter((p: any) => p.status === "paid").reduce((s: number, p: any) => s + p.amount, 0);
   const pendingPayments = payments.filter((p: any) => p.status === "pending" || p.status === "overdue").reduce((s: number, p: any) => s + p.amount, 0);
   const newInquiries = inquiries.filter((i: any) => i.status === "new").length;
-  const confirmedBookings = bookings.filter((b: any) => b.status === "confirmed").length;
+  const activeBookings = bookings.filter((b: any) => {
+    const stage = bookingStage(b);
+    return stage !== "completed" && stage !== "cancelled";
+  }).length;
   const publishedTestimonials = testimonials.filter((t: any) => t.isPublished).length;
 
   const stats = [
     { label: "Total Revenue", value: `$${totalRevenue.toLocaleString()}`, icon: DollarSign, color: "text-green-600", bg: "bg-green-50" },
     { label: "Pending Payments", value: `$${pendingPayments.toLocaleString()}`, icon: TrendingUp, color: "text-amber-600", bg: "bg-amber-50" },
     { label: "New Inquiries", value: String(newInquiries), icon: MessageSquare, color: "text-blue-600", bg: "bg-blue-50" },
-    { label: "Active Bookings", value: String(confirmedBookings), icon: CalendarCheck, color: "text-brand-tertiary", bg: "bg-brand-tertiary/10" },
+    { label: "Active Bookings", value: String(activeBookings), icon: CalendarCheck, color: "text-brand-tertiary", bg: "bg-brand-tertiary/10" },
     { label: "Galleries", value: String(galleries.length), icon: Image, color: "text-purple-600", bg: "bg-purple-50" },
     { label: "Total Clients", value: String(clients.length), icon: Users, color: "text-brand-main-light", bg: "bg-brand-main/5" },
     { label: "Live Testimonials", value: String(publishedTestimonials), icon: MessageSquareQuote, color: "text-rose-600", bg: "bg-rose-50" },
@@ -147,14 +152,22 @@ export default function AdminOverview() {
               </Link>
             </div>
             <div className="divide-y divide-brand-main/6">
-              {bookings.filter((b: any) => b.status === "confirmed" || b.status === "pending").map((bk: any) => {
-                const cfg = bookingStatusConfig[bk.status as keyof typeof bookingStatusConfig];
+              {bookings
+                .filter((b: any) => {
+                  const stage = bookingStage(b);
+                  return stage !== "completed" && stage !== "cancelled";
+                })
+                .map((bk: any) => {
+                const stage = bookingStage(bk);
+                const cfg = bookingStatusConfig[stage as keyof typeof bookingStatusConfig];
                 return (
                   <Link key={bk.id} href={`/admin/bookings/${bk.id}`} className="flex items-center justify-between p-4 hover:bg-card/50 transition-colors">
                     <div className="min-w-0">
-                      <p className="text-brand-main truncate" style={{ fontSize: "0.85rem" }}>{bk.clientName}</p>
+                      <p className="text-brand-main truncate" style={{ fontSize: "0.85rem" }}>
+                        {bk.clientName || bk.client?.fullName}
+                      </p>
                       <p className="text-brand-main/40 truncate flex items-center gap-1.5" style={{ fontSize: "0.75rem" }}>
-                        <Clock className="w-3 h-3" />{bk.date} · {getEventTypeLabel(bk.eventType, eventTypeOptions) || bk.type}
+                        <Clock className="w-3 h-3" />{bk.date || bk.eventDate} · {getEventTypeLabel(bk.eventType, eventTypeOptions) || bk.type}
                       </p>
                     </div>
                     {cfg && <span className={`shrink-0 ml-3 px-2.5 py-0.5 ${cfg.color}`} style={{ fontSize: "0.6rem" }}>{cfg.label}</span>}

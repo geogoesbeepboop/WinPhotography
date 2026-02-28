@@ -9,6 +9,7 @@ import {
   Camera,
   LayoutDashboard,
   CalendarCheck,
+  Image,
   Settings,
   LogOut,
   Menu,
@@ -18,6 +19,7 @@ import { motion, AnimatePresence } from "motion/react";
 
 const navItems = [
   { path: "/portal", label: "Dashboard", icon: LayoutDashboard, exact: true },
+  { path: "/portal/galleries", label: "Galleries", icon: Image },
   { path: "/portal/bookings", label: "Bookings", icon: CalendarCheck },
   { path: "/portal/settings", label: "Settings", icon: Settings },
 ];

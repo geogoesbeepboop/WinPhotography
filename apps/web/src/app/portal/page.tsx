@@ -11,11 +11,16 @@ import {
   CreditCard,
   CheckCircle2,
   Loader2,
+  XCircle,
 } from "lucide-react";
-import { format, isFuture } from "date-fns";
+import { format } from "date-fns";
 import { ImageWithFallback } from "@/components/shared/image-with-fallback";
 import { useAuthStore } from "@/stores/auth-store";
 import { useMyBookings, useMyGalleries } from "@/services/portal";
+import {
+  BookingLifecycleStage,
+  deriveBookingLifecycleStage,
+} from "@/lib/booking-lifecycle";
 
 interface ApiGallery {
   id: string;
@@ -41,7 +46,9 @@ interface ApiBooking {
   depositAmount: number;
   status: string;
   eventDate: string;
+  lifecycleStage?: BookingLifecycleStage;
   payments?: ApiPayment[];
+  galleries?: Array<{ status?: string }>;
   client?: { id: string };
 }
 
@@ -49,12 +56,6 @@ interface ApiBooking {
 function mapGalleryStatus(status: string): "ready" | "editing" {
   if (status === "published") return "ready";
   return "editing";
-}
-
-function mapBookingStatus(status: string): "confirmed" | "completed" | "editing" {
-  if (status === "completed" || status === "delivered") return "completed";
-  if (status === "editing") return "editing";
-  return "confirmed";
 }
 
 const statusConfig = {
@@ -68,15 +69,35 @@ const statusConfig = {
     color: "bg-amber-100 text-amber-700",
     icon: Clock,
   },
-  confirmed: {
-    label: "Confirmed",
-    color: "bg-green-100 text-green-700",
-    icon: CheckCircle2,
+  pending_deposit: {
+    label: "Pending Deposit",
+    color: "bg-amber-100 text-amber-700",
+    icon: Clock,
+  },
+  upcoming: {
+    label: "Upcoming",
+    color: "bg-blue-100 text-blue-700",
+    icon: CalendarCheck,
+  },
+  pending_full_payment: {
+    label: "Pending Full Payment",
+    color: "bg-orange-100 text-orange-700",
+    icon: CreditCard,
+  },
+  pending_delivery: {
+    label: "Pending Delivery",
+    color: "bg-purple-100 text-purple-700",
+    icon: Clock,
   },
   completed: {
     label: "Completed",
-    color: "bg-brand-main/10 text-brand-main/60",
+    color: "bg-green-600 text-white",
     icon: CheckCircle2,
+  },
+  cancelled: {
+    label: "Cancelled",
+    color: "bg-red-100 text-red-700",
+    icon: XCircle,
   },
 };
 
@@ -113,7 +134,7 @@ export default function PortalDashboard() {
           id: b.id,
           type: b.packageName,
           date: format(new Date(b.eventDate), "MMMM d, yyyy"),
-          status: mapBookingStatus(b.status) as keyof typeof statusConfig,
+          status: deriveBookingLifecycleStage(b) as keyof typeof statusConfig,
           paidAmount,
           totalAmount: Number(b.packagePrice),
         };
@@ -122,11 +143,7 @@ export default function PortalDashboard() {
 
   // Compute stats from real data
   const activeGalleries = galleries.length;
-  const upcomingSessions = apiBookings
-    ? (apiBookings as ApiBooking[]).filter(
-        (b) => b.status === "confirmed" && isFuture(new Date(b.eventDate))
-      ).length
-    : 0;
+  const upcomingSessions = bookings.filter((booking) => booking.status === "upcoming").length;
   const photosAvailable = galleries
     .filter((g) => g.status === "ready")
     .reduce((sum, g) => sum + g.photoCount, 0);
@@ -217,6 +234,7 @@ export default function PortalDashboard() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.3 }}
         className="mb-10"
+        id="galleries"
       >
         <div className="flex items-center justify-between mb-5">
           <h2
@@ -225,6 +243,13 @@ export default function PortalDashboard() {
           >
             Your Galleries
           </h2>
+          <Link
+            href="/portal/galleries"
+            className="text-brand-tertiary hover:text-brand-tertiary-dark transition-colors inline-flex items-center gap-1"
+            style={{ fontSize: "0.8rem" }}
+          >
+            View All <ArrowRight className="w-3.5 h-3.5" />
+          </Link>
         </div>
         {galleriesLoading ? (
           <div className="flex items-center justify-center py-12">

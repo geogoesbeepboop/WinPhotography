@@ -14,6 +14,13 @@ export interface Booking {
   packagePrice: number;
   depositAmount: number;
   status: BookingStatus;
+  lifecycleStage?:
+    | 'pending_deposit'
+    | 'upcoming'
+    | 'pending_full_payment'
+    | 'pending_delivery'
+    | 'completed'
+    | 'cancelled';
   contractUrl: string | null;
   contractSignedAt: string | null;
   adminNotes: string | null;
