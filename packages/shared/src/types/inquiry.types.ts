@@ -7,6 +7,7 @@ export interface Inquiry {
   contactPhone: string | null;
   eventType: EventType;
   eventDate: string | null;
+  eventTime: string | null;
   eventLocation: string | null;
   guestCount: number | null;
   packageInterest: string | null;
@@ -22,9 +23,10 @@ export interface Inquiry {
 export interface CreateInquiryDto {
   contactName: string;
   contactEmail: string;
-  contactPhone?: string;
+  contactPhone: string;
   eventType: EventType;
   eventDate?: string;
+  eventTime?: string;
   eventLocation?: string;
   guestCount?: number;
   packageInterest?: string;

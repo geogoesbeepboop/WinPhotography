@@ -62,6 +62,20 @@ function formatReceivedTimestamp(value?: string): string {
   return `${yyyy}-${mm}-${dd} ${hh}:${min}:${ss}`;
 }
 
+function formatPreferredDateTime(inquiry: any): string {
+  const legacyPreferred = inquiry?.preferredDate || "";
+  const dateValue = inquiry?.eventDate || "";
+  const timeValue = inquiry?.eventTime || inquiry?.preferredTime || "";
+
+  if (!dateValue) return legacyPreferred;
+
+  const dateLabel = String(dateValue).slice(0, 10);
+  if (!timeValue) return dateLabel;
+
+  const timeLabel = String(timeValue).slice(0, 5);
+  return `${dateLabel} ${timeLabel}`;
+}
+
 export default function AdminInquiryDetail() {
   const { id } = useParams();
   const router = useRouter();
@@ -113,7 +127,7 @@ export default function AdminInquiryDetail() {
       setConvertForm((prev) => ({
         ...prev,
         eventDate: toDateInputValue(inquiry.eventDate || ""),
-        eventTime: toTimeInputValue("12:00"),
+        eventTime: toTimeInputValue(inquiry.eventTime || "12:00"),
         eventTimezone: DEFAULT_BOOKING_TIMEZONE,
         eventLocation: inquiry.eventLocation || "",
       }));
@@ -263,7 +277,7 @@ export default function AdminInquiryDetail() {
     eventTypeOptions,
   );
   const tier = inquiry.tier || "";
-  const preferredDate = inquiry.preferredDate || inquiry.eventDate || "";
+  const preferredDate = formatPreferredDateTime(inquiry);
 
   return (
     <div>
@@ -385,7 +399,7 @@ export default function AdminInquiryDetail() {
                 </div>
                 {preferredDate && (
                   <div className="flex items-center gap-2 text-brand-main/70" style={{ fontSize: "0.85rem" }}>
-                    <Calendar className="w-4 h-4 text-brand-main/30" /> Preferred: {preferredDate}
+                    <Calendar className="w-4 h-4 text-brand-main/30" /> Preferred date &amp; time: {preferredDate}
                   </div>
                 )}
               </div>
@@ -400,7 +414,7 @@ export default function AdminInquiryDetail() {
                     setConvertForm({
                       clientId: "",
                       eventDate: toDateInputValue(inquiry.eventDate || ""),
-                      eventTime: "12:00",
+                      eventTime: toTimeInputValue(inquiry.eventTime || "12:00"),
                       eventTimezone: DEFAULT_BOOKING_TIMEZONE,
                       eventLocation: inquiry.eventLocation || "",
                       packageName: "",

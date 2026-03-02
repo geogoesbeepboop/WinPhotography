@@ -14,7 +14,14 @@ import { Roles } from '../../common/decorators/roles.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { UserEntity } from '../users/entities/user.entity';
 import { UserRole } from '@winphotography/shared';
-import { IsEmail, IsString, IsOptional } from 'class-validator';
+import {
+  IsEmail,
+  IsString,
+  IsOptional,
+  MinLength,
+  MaxLength,
+  Matches,
+} from 'class-validator';
 
 class RegisterClientDto {
   @IsEmail()
@@ -28,10 +35,43 @@ class RegisterClientDto {
   phone?: string;
 }
 
+class RegisterSelfDto {
+  @IsString()
+  @MinLength(2)
+  @MaxLength(100)
+  firstName: string;
+
+  @IsString()
+  @MinLength(2)
+  @MaxLength(100)
+  lastName: string;
+
+  @IsEmail()
+  email: string;
+
+  @IsString()
+  @Matches(/^\d{10,15}$/, {
+    message: 'Phone number must contain 10 to 15 digits',
+  })
+  phone: string;
+
+  @IsString()
+  @MinLength(8)
+  @Matches(/\d/, {
+    message: 'Password must include at least one number',
+  })
+  password: string;
+}
+
 @ApiTags('Auth')
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
+
+  @Post('register')
+  async registerSelf(@Body() body: RegisterSelfDto) {
+    return this.authService.registerSelf(body);
+  }
 
   @Post('register-client')
   @UseGuards(SupabaseAuthGuard, RolesGuard)

@@ -24,6 +24,20 @@ function formatReceivedTimestamp(value?: string): string {
   return `${yyyy}-${mm}-${dd} ${hh}:${min}:${ss}`;
 }
 
+function formatPreferredDateTime(inquiry: any): string {
+  const legacyPreferred = inquiry.preferredDate || "";
+  const dateValue = inquiry.eventDate || "";
+  const timeValue = inquiry.eventTime || inquiry.preferredTime || "";
+
+  if (!dateValue) return legacyPreferred;
+
+  const dateLabel = String(dateValue).slice(0, 10);
+  if (!timeValue) return dateLabel;
+
+  const timeLabel = String(timeValue).slice(0, 5);
+  return `${dateLabel} ${timeLabel}`;
+}
+
 export default function AdminInquiries() {
   const { data: inquiries = [], isLoading } = useInquiries();
   const { data: eventTypes = [] } = useEventTypes();
@@ -142,7 +156,7 @@ export default function AdminInquiries() {
           const email = inq.email || inq.contactEmail || "";
           const category = getEventTypeLabel(inq.category || inq.eventType || "", eventTypeOptions);
           const tier = inq.tier || "";
-          const preferredDate = inq.preferredDate || inq.eventDate || "";
+          const preferredDate = formatPreferredDateTime(inq);
           return (
             <motion.div
               key={inq.id}
@@ -174,7 +188,7 @@ export default function AdminInquiries() {
                 </div>
                 <p className="text-brand-main/50 line-clamp-2" style={{ fontSize: "0.85rem", lineHeight: "1.6" }}>{inq.message}</p>
                 {preferredDate && (
-                  <p className="text-brand-tertiary mt-2" style={{ fontSize: "0.75rem" }}>Preferred date: {preferredDate}</p>
+                  <p className="text-brand-tertiary mt-2" style={{ fontSize: "0.75rem" }}>Preferred date &amp; time: {preferredDate}</p>
                 )}
               </Link>
             </motion.div>

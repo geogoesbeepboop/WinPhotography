@@ -32,8 +32,7 @@ export default function ThankYouPage() {
           className="text-brand-main/60 mb-2"
           style={{ fontSize: "1rem", lineHeight: "1.8" }}
         >
-          Your inquiry has been received and I'm already excited to learn more
-          about your plans!
+          Your inquiry has been received!
         </motion.p>
         <motion.p
           initial={{ opacity: 0, y: 20 }}
@@ -42,9 +41,8 @@ export default function ThankYouPage() {
           className="text-brand-main/60 mb-10"
           style={{ fontSize: "0.9rem", lineHeight: "1.8" }}
         >
-          Expect a personal response from me within 24 hours. In the
-          meantime, feel free to browse more of my work or follow along on
-          Instagram.
+          We will get back to you within 24 hours to setup an in depth consultation. 
+          We're so excited to learn more about your plans!
         </motion.p>
         <motion.div
           initial={{ opacity: 0, y: 20 }}

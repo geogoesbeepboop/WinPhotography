@@ -13,6 +13,7 @@ export const ROUTES = {
 
   // Auth
   login: '/auth/login',
+  createAccount: '/auth/create-account',
   forgotPassword: '/auth/forgot-password',
   resetPassword: '/auth/reset-password',
 

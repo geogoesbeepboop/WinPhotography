@@ -191,7 +191,7 @@ export default function HomePage() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, delay: 0.2 }}
-            className="tracking-[0.3em] uppercase text-brand-tertiary-light mb-6"
+            className="tracking-[0.3em] uppercase text-brand-tertiary-light mt-[10vh] sm:mt-[calc(1rem+1vh)] mb-6"
             style={{ fontSize: "0.75rem" }}
           >
             San Francisco, CA &middot; Available Worldwide
@@ -213,16 +213,16 @@ export default function HomePage() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, delay: 0.6 }}
-            className="mt-10 sm:mt-14 text-brand-secondary/80 max-w-xl"
+            className="mt-[calc(3.5rem+6vh)] sm:mt-[calc(1rem+1vh)] text-brand-secondary max-w-xl"
             style={{ fontSize: "0.95rem", lineHeight: "1.8" }}
           >
-            Weddings, elopements, proposals, and celebrations -- captured with artistry, warmth, and a deep reverence for your story.
+            Weddings, proposals, celebrations and more -- captured with artistry, warmth, and a deep reverence for your story.
           </motion.p>
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, delay: 0.8 }}
-            className="mt-10 flex flex-col sm:flex-row items-center gap-4"
+            className="sm:mt-[calc(1.5rem+3vh)] flex flex-col sm:flex-row items-center gap-4"
           >
             <Link
               href="/portfolio"
@@ -233,7 +233,7 @@ export default function HomePage() {
             </Link>
             <Link
               href="/inquire"
-              className="px-8 py-3.5 border border-brand-secondary/50 text-brand-secondary tracking-[0.15em] uppercase transition-all duration-300 hover:bg-brand-secondary/10"
+              className="px-8 py-3.5 border border-brand-secondary text-brand-secondary tracking-[0.15em] uppercase transition-all duration-300 hover:bg-brand-secondary/10"
               style={{ fontSize: "0.7rem" }}
             >
               Book Your Session

@@ -6,6 +6,7 @@ import {
   MaxLength,
   IsInt,
   Min,
+  Matches,
 } from 'class-validator';
 
 export class CreateInquiryDto {
@@ -17,10 +18,13 @@ export class CreateInquiryDto {
   @IsEmail()
   contactEmail: string;
 
-  @IsOptional()
   @IsString()
+  @MinLength(10)
   @MaxLength(50)
-  contactPhone?: string;
+  @Matches(/^\d{10,15}$/, {
+    message: 'contactPhone must contain 10 to 15 digits',
+  })
+  contactPhone: string;
 
   @IsString()
   @MaxLength(100)
@@ -29,6 +33,13 @@ export class CreateInquiryDto {
   @IsOptional()
   @IsString()
   eventDate?: string;
+
+  @IsOptional()
+  @IsString()
+  @Matches(/^([01]\d|2[0-3]):[0-5]\d(:[0-5]\d)?$/, {
+    message: 'eventTime must be in HH:mm or HH:mm:ss format',
+  })
+  eventTime?: string;
 
   @IsOptional()
   @IsString()

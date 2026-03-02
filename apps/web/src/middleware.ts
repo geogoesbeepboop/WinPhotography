@@ -3,7 +3,12 @@ import { updateSession } from '@/lib/supabase/middleware';
 
 const protectedRoutes = ['/portal', '/admin'];
 const adminRoutes = ['/admin'];
-const authRoutes = ['/auth/login', '/auth/forgot-password', '/auth/reset-password'];
+const authRoutes = [
+  '/auth/login',
+  '/auth/create-account',
+  '/auth/forgot-password',
+  '/auth/reset-password',
+];
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;

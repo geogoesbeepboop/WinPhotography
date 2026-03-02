@@ -31,6 +31,9 @@ export class InquiryEntity {
   @Column({ name: 'event_date', type: 'date', nullable: true })
   eventDate: Date | null;
 
+  @Column({ name: 'event_time', type: 'time', nullable: true })
+  eventTime: string | null;
+
   @Column({ name: 'event_location', type: 'varchar', length: 500, nullable: true })
   eventLocation: string | null;
 

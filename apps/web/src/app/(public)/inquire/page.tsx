@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { motion } from "motion/react";
 import { Calendar, Mail, Heart, Send, Loader2 } from "lucide-react";
@@ -20,8 +20,20 @@ const howFoundOptions = [
   "Other",
 ];
 
+function formatPhone(value: string) {
+  const digits = value.replace(/\D/g, "").slice(0, 10);
+  if (digits.length <= 3) return digits;
+  if (digits.length <= 6) return `(${digits.slice(0, 3)}) ${digits.slice(3)}`;
+  return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6, 10)}`;
+}
+
 export default function InquirePage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const prefillFirstName = searchParams.get("firstName")?.trim() || "";
+  const prefillLastName = searchParams.get("lastName")?.trim() || "";
+  const prefillEmail = searchParams.get("email")?.trim() || "";
+  const prefillPhone = searchParams.get("phone")?.trim() || "";
   const { dataSource, hasHydrated } = useDataSourceStore();
   const { data: eventTypes = [], isLoading: eventTypesLoading } = useEventTypes();
   const showInitialLoader =
@@ -33,6 +45,7 @@ export default function InquirePage() {
     phone: "",
     sessionType: "",
     date: "",
+    time: "",
     location: "",
     guestCount: "",
     budget: "",
@@ -52,12 +65,19 @@ export default function InquirePage() {
   const [error, setError] = useState("");
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
-  const formatPhone = (value: string) => {
-    const digits = value.replace(/\D/g, "");
-    if (digits.length <= 3) return digits;
-    if (digits.length <= 6) return `(${digits.slice(0, 3)}) ${digits.slice(3)}`;
-    return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6, 10)}`;
-  };
+  useEffect(() => {
+    if (!prefillFirstName && !prefillLastName && !prefillEmail && !prefillPhone) {
+      return;
+    }
+
+    setFormData((prev) => ({
+      ...prev,
+      firstName: prefillFirstName || prev.firstName,
+      lastName: prefillLastName || prev.lastName,
+      email: prefillEmail || prev.email,
+      phone: prefillPhone ? formatPhone(prefillPhone) : prev.phone,
+    }));
+  }, [prefillFirstName, prefillLastName, prefillEmail, prefillPhone]);
 
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const formatted = formatPhone(e.target.value);
@@ -77,11 +97,11 @@ export default function InquirePage() {
       errors.email = "Please enter a valid email address";
     }
 
-    if (formData.phone) {
-      const digits = formData.phone.replace(/\D/g, "");
-      if (digits.length > 0 && digits.length < 10) {
-        errors.phone = "Please enter a valid 10-digit phone number";
-      }
+    const phoneDigits = formData.phone.replace(/\D/g, "");
+    if (!phoneDigits) {
+      errors.phone = "Phone number is required";
+    } else if (phoneDigits.length < 10) {
+      errors.phone = "Please enter a valid 10-digit phone number";
     }
 
     if (!formData.sessionType) errors.sessionType = "Please select an event type";
@@ -97,6 +117,10 @@ export default function InquirePage() {
       } else if (selected > fiveYearsFromNow) {
         errors.date = "Date must be within the next 5 years";
       }
+    }
+
+    if (formData.time && !formData.date) {
+      errors.time = "Please select a preferred date when adding a time";
     }
 
     if (!formData.message.trim()) {
@@ -123,9 +147,10 @@ export default function InquirePage() {
       await apiClient.post("/inquiries", {
         contactName: `${formData.firstName} ${formData.lastName}`.trim(),
         contactEmail: formData.email,
-        contactPhone: formData.phone ? formData.phone.replace(/\D/g, "") : undefined,
+        contactPhone: formData.phone.replace(/\D/g, ""),
         eventType: formData.sessionType,
         eventDate: formData.date || undefined,
+        eventTime: formData.time || undefined,
         eventLocation: formData.location || undefined,
         guestCount: guestCount && !isNaN(guestCount) ? guestCount : undefined,
         message: formData.message,
@@ -308,12 +333,13 @@ export default function InquirePage() {
                   className="block mb-2 tracking-[0.1em] uppercase text-brand-main/70"
                   style={{ fontSize: "0.7rem" }}
                 >
-                  Phone Number
+                  Phone Number *
                 </label>
                 <input
                   type="tel"
                   id="phone"
                   name="phone"
+                  required
                   value={formData.phone}
                   onChange={handlePhoneChange}
                   placeholder="(555) 123-4567"
@@ -359,20 +385,43 @@ export default function InquirePage() {
                   className="block mb-2 tracking-[0.1em] uppercase text-brand-main/70"
                   style={{ fontSize: "0.7rem" }}
                 >
-                  Preferred Date
+                  Preferred Date &amp; Time
                 </label>
-                <input
-                  type="date"
-                  id="date"
-                  name="date"
-                  value={formData.date}
-                  onChange={(e) => { handleChange(e); if (fieldErrors.date) setFieldErrors((prev) => ({ ...prev, date: "" })); }}
-                  min={new Date().toISOString().split("T")[0]}
-                  max={new Date(new Date().setFullYear(new Date().getFullYear() + 5)).toISOString().split("T")[0]}
-                  className={`w-full px-4 py-3 bg-white border ${fieldErrors.date ? "border-red-400" : "border-brand-main/10"} text-brand-main focus:outline-none focus:border-brand-tertiary transition-colors`}
-                  style={{ fontSize: "0.9rem" }}
-                />
-                {fieldErrors.date && <p className="mt-1 text-red-500" style={{ fontSize: "0.75rem" }}>{fieldErrors.date}</p>}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <input
+                    type="date"
+                    id="date"
+                    name="date"
+                    value={formData.date}
+                    onChange={(e) => {
+                      handleChange(e);
+                      if (fieldErrors.date || fieldErrors.time) {
+                        setFieldErrors((prev) => ({ ...prev, date: "", time: "" }));
+                      }
+                    }}
+                    min={new Date().toISOString().split("T")[0]}
+                    max={new Date(new Date().setFullYear(new Date().getFullYear() + 5)).toISOString().split("T")[0]}
+                    className={`w-full px-4 py-3 bg-white border ${fieldErrors.date ? "border-red-400" : "border-brand-main/10"} text-brand-main focus:outline-none focus:border-brand-tertiary transition-colors`}
+                    style={{ fontSize: "0.9rem" }}
+                  />
+                  <input
+                    type="time"
+                    id="time"
+                    name="time"
+                    value={formData.time}
+                    onChange={(e) => {
+                      handleChange(e);
+                      if (fieldErrors.time) setFieldErrors((prev) => ({ ...prev, time: "" }));
+                    }}
+                    className={`w-full px-4 py-3 bg-white border ${fieldErrors.time ? "border-red-400" : "border-brand-main/10"} text-brand-main focus:outline-none focus:border-brand-tertiary transition-colors`}
+                    style={{ fontSize: "0.9rem" }}
+                  />
+                </div>
+                {(fieldErrors.date || fieldErrors.time) && (
+                  <p className="mt-1 text-red-500" style={{ fontSize: "0.75rem" }}>
+                    {fieldErrors.date || fieldErrors.time}
+                  </p>
+                )}
               </div>
             </div>
 

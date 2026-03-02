@@ -9,13 +9,19 @@ export const createInquirySchema = z.object({
   contactEmail: z.string().email('Please enter a valid email address'),
   contactPhone: z
     .string()
-    .max(50, 'Phone number is too long')
-    .optional()
-    .or(z.literal('')),
+    .regex(/^\d{10,15}$/, 'Phone number must contain 10 to 15 digits'),
   eventType: z.nativeEnum(EventType, {
     errorMap: () => ({ message: 'Please select an event type' }),
   }),
   eventDate: z.string().optional().or(z.literal('')),
+  eventTime: z
+    .string()
+    .regex(
+      /^([01]\d|2[0-3]):[0-5]\d(:[0-5]\d)?$/,
+      'Time must be in HH:mm or HH:mm:ss format',
+    )
+    .optional()
+    .or(z.literal('')),
   eventLocation: z
     .string()
     .max(500, 'Location must be less than 500 characters')

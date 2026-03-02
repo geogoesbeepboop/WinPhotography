@@ -1,4 +1,12 @@
-import { Injectable, Inject, Logger, NotFoundException, BadRequestException, forwardRef } from '@nestjs/common';
+import {
+  Injectable,
+  Inject,
+  Logger,
+  NotFoundException,
+  BadRequestException,
+  forwardRef,
+  OnModuleInit,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { InquiryEntity } from './entities/inquiry.entity';
@@ -9,7 +17,7 @@ import { BookingsService } from '../bookings/bookings.service';
 import { Booking } from '../bookings/entities/booking.entity';
 
 @Injectable()
-export class InquiriesService {
+export class InquiriesService implements OnModuleInit {
   private readonly logger = new Logger(InquiriesService.name);
 
   constructor(
@@ -20,10 +28,22 @@ export class InquiriesService {
     private readonly bookingsService: BookingsService,
   ) {}
 
+  async onModuleInit() {
+    try {
+      await this.ensureSchema();
+    } catch (error) {
+      this.logger.error(
+        'Failed to ensure inquiry preferred-time column exists. Run SQL migrations if inquiry updates fail.',
+        error instanceof Error ? error.stack : String(error),
+      );
+    }
+  }
+
   async create(dto: CreateInquiryDto): Promise<InquiryEntity> {
     const inquiry = this.inquiriesRepository.create({
       ...dto,
       eventDate: dto.eventDate ? new Date(dto.eventDate) : null,
+      eventTime: this.normalizeEventTime(dto.eventTime),
       status: InquiryStatus.NEW,
     });
     const saved = await this.inquiriesRepository.save(inquiry);
@@ -67,7 +87,13 @@ export class InquiriesService {
     if (!inquiry) {
       throw new NotFoundException(`Inquiry ${id} not found`);
     }
-    Object.assign(inquiry, data);
+    const normalizedData: Partial<InquiryEntity> = {
+      ...data,
+      ...(data.eventTime !== undefined
+        ? { eventTime: this.normalizeEventTime(data.eventTime) }
+        : {}),
+    };
+    Object.assign(inquiry, normalizedData);
     return this.inquiriesRepository.save(inquiry);
   }
 
@@ -106,7 +132,10 @@ export class InquiriesService {
       eventDate: conversionData.eventDate
         ? new Date(conversionData.eventDate)
         : inquiry.eventDate ?? new Date(),
-      eventTime: conversionData.eventTime || '12:00:00',
+      eventTime:
+        this.normalizeEventTime(conversionData.eventTime) ||
+        this.normalizeEventTime(inquiry.eventTime) ||
+        '12:00:00',
       eventTimezone: conversionData.eventTimezone || 'America/New_York',
       eventLocation: conversionData.eventLocation || inquiry.eventLocation || 'TBD',
       packageName: conversionData.packageName,
@@ -119,5 +148,24 @@ export class InquiriesService {
     await this.inquiriesRepository.save(inquiry);
 
     return { booking, inquiry };
+  }
+
+  private normalizeEventTime(value?: string | null): string | null {
+    const raw = (value || '').trim();
+    if (!raw) return null;
+    if (/^\d{2}:\d{2}$/.test(raw)) {
+      return `${raw}:00`;
+    }
+    if (/^\d{2}:\d{2}:\d{2}$/.test(raw)) {
+      return raw;
+    }
+    return null;
+  }
+
+  private async ensureSchema(): Promise<void> {
+    await this.inquiriesRepository.query(`
+      ALTER TABLE inquiries
+      ADD COLUMN IF NOT EXISTS event_time TIME;
+    `);
   }
 }

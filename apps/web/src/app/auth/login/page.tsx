@@ -231,10 +231,10 @@ export default function LoginPage() {
           >
             Don&apos;t have an account?{" "}
             <Link
-              href="/inquire"
+              href="/auth/create-account"
               className="text-brand-tertiary hover:text-brand-tertiary-dark transition-colors"
             >
-              Book a session
+              Create your account
             </Link>{" "}
             to get started.
           </p>

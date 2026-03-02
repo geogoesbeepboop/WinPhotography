@@ -12,6 +12,7 @@ export interface Inquiry {
   status: "new" | "responded" | "booked" | "archived";
   createdAt: string;
   preferredDate?: string;
+  preferredTime?: string;
 }
 
 export interface Booking {
@@ -86,8 +87,8 @@ export interface Client {
 }
 
 export const mockInquiries: Inquiry[] = [
-  { id: "inq-1", name: "Emily Rodriguez", email: "emily@example.com", phone: "(415) 555-0198", category: "Weddings", tier: "Signature", date: "Feb 20, 2026", message: "We're getting married in September and would love to chat about your signature package. Our venue is in Napa Valley.", status: "new", createdAt: "Feb 20, 2026", preferredDate: "Sep 12, 2026" },
-  { id: "inq-2", name: "David Kim", email: "david@example.com", phone: "(415) 555-0234", category: "Proposals", tier: "The Story", date: "Feb 18, 2026", message: "Planning to propose to my girlfriend at Crissy Field during sunset. Need someone to capture it candidly!", status: "new", createdAt: "Feb 18, 2026", preferredDate: "Mar 15, 2026" },
+  { id: "inq-1", name: "Emily Rodriguez", email: "emily@example.com", phone: "(415) 555-0198", category: "Weddings", tier: "Signature", date: "Feb 20, 2026", message: "We're getting married in September and would love to chat about your signature package. Our venue is in Napa Valley.", status: "new", createdAt: "Feb 20, 2026", preferredDate: "Sep 12, 2026", preferredTime: "16:00" },
+  { id: "inq-2", name: "David Kim", email: "david@example.com", phone: "(415) 555-0234", category: "Proposals", tier: "The Story", date: "Feb 18, 2026", message: "Planning to propose to my girlfriend at Crissy Field during sunset. Need someone to capture it candidly!", status: "new", createdAt: "Feb 18, 2026", preferredDate: "Mar 15, 2026", preferredTime: "18:30" },
   { id: "inq-3", name: "Aisha Patel", email: "aisha@example.com", phone: "(510) 555-0171", category: "Headshots", tier: "Professional", date: "Feb 15, 2026", message: "I need updated headshots for my LinkedIn and new company website. Flexible on dates.", status: "responded", createdAt: "Feb 15, 2026", preferredDate: "Mar 2026" },
   { id: "inq-4", name: "James & Lisa Wong", email: "jwong@example.com", phone: "(415) 555-0305", category: "Elopements", tier: "Adventure", date: "Feb 10, 2026", message: "We want to elope on a hike in Big Sur! Thinking a 4-5 hour adventure.", status: "booked", createdAt: "Feb 10, 2026", preferredDate: "Jun 5, 2026" },
   { id: "inq-5", name: "TechCo Events", email: "events@techco.com", phone: "(415) 555-0400", category: "Events", tier: "Full Event", date: "Feb 8, 2026", message: "Annual company gala, 300 guests, need 5 hours of coverage.", status: "archived", createdAt: "Feb 8, 2026", preferredDate: "May 20, 2026" },
