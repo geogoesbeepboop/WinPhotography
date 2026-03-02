@@ -20,12 +20,15 @@ export class GalleryEntity {
   id: string;
 
   @Index()
-  @Column({ name: 'booking_id', type: 'uuid' })
-  bookingId: string;
+  @Column({ name: 'booking_id', type: 'uuid', nullable: true })
+  bookingId: string | null;
 
-  @ManyToOne(() => Booking, (booking) => booking.galleries, { onDelete: 'CASCADE' })
+  @ManyToOne(() => Booking, (booking) => booking.galleries, {
+    onDelete: 'SET NULL',
+    nullable: true,
+  })
   @JoinColumn({ name: 'booking_id' })
-  booking: Booking;
+  booking: Booking | null;
 
   @Index()
   @Column({ name: 'client_id', type: 'uuid' })
@@ -59,6 +62,19 @@ export class GalleryEntity {
 
   @Column({ name: 'expires_at', type: 'timestamptz', nullable: true })
   expiresAt: Date | null;
+
+  @Column({ name: 'is_hidden_public', type: 'boolean', default: false })
+  isHiddenPublic: boolean;
+
+  @Index({ unique: true })
+  @Column({
+    name: 'public_access_slug',
+    type: 'varchar',
+    length: 64,
+    nullable: true,
+    unique: true,
+  })
+  publicAccessSlug: string | null;
 
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt: Date;

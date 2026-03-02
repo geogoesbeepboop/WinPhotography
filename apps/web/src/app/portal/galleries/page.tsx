@@ -14,6 +14,7 @@ import {
 import { format } from "date-fns";
 import { ImageWithFallback } from "@/components/shared/image-with-fallback";
 import { useMyGalleries } from "@/services/portal";
+import { resolveMediaUrl } from "@/lib/media";
 
 interface ApiGalleryPhoto {
   id: string;
@@ -63,11 +64,13 @@ export default function PortalGalleriesPage() {
       const status = mapGalleryStatus(gallery.status);
       const firstPhoto = gallery.photos?.[0];
       const coverImage =
-        gallery.coverImage ||
-        firstPhoto?.thumbnailUrl ||
-        firstPhoto?.url ||
-        firstPhoto?.r2Key ||
-        "";
+        resolveMediaUrl(
+          gallery.coverImage ||
+            firstPhoto?.url ||
+            firstPhoto?.thumbnailUrl ||
+            firstPhoto?.r2Key ||
+            "",
+        );
 
       return {
         ...gallery,

@@ -6,6 +6,8 @@ import { useAdminNetworkActivityStore } from '@/stores/network-activity-store';
 
 type TrackedConfig = {
   __adminMutatingRequest?: boolean;
+  __suppressSuccessToast?: boolean;
+  suppressSuccessToast?: boolean;
   method?: string;
   url?: string;
   data?: unknown;
@@ -57,6 +59,9 @@ apiClient.interceptors.request.use(
       isAdminPageContext() && isMutatingMethod(trackedConfig.method);
 
     trackedConfig.__adminMutatingRequest = shouldTrackAdminMutation;
+    trackedConfig.__suppressSuccessToast = Boolean(
+      trackedConfig.suppressSuccessToast,
+    );
     if (shouldTrackAdminMutation) {
       useAdminNetworkActivityStore.getState().increment();
     }
@@ -98,8 +103,13 @@ apiClient.interceptors.response.use(
     const trackedConfig = response.config as typeof response.config & TrackedConfig;
     if (trackedConfig.__adminMutatingRequest) {
       useAdminNetworkActivityStore.getState().decrement();
-      const message = getErrorMessage(response.data, getSuccessFallback(trackedConfig.method));
-      toast.success(message);
+      if (!trackedConfig.__suppressSuccessToast) {
+        const message = getErrorMessage(
+          response.data,
+          getSuccessFallback(trackedConfig.method),
+        );
+        toast.success(message);
+      }
     }
 
     return response;

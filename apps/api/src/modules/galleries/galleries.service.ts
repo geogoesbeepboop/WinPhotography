@@ -1,17 +1,25 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  Logger,
+  NotFoundException,
+  OnModuleInit,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { randomUUID } from 'crypto';
-import { GalleryStatus } from '@winphotography/shared';
+import { GalleryStatus, UserRole } from '@winphotography/shared';
 import { GalleryEntity } from './entities/gallery.entity';
 import { GalleryPhotoEntity } from './entities/gallery-photo.entity';
 import { Booking } from '../bookings/entities/booking.entity';
 import { EmailService } from '../email/email.service';
 import { StorageService } from '../storage/storage.service';
 import { ImageProcessorService } from '../storage/image-processor.service';
+import { UserEntity } from '../users/entities/user.entity';
+import { CreateHiddenGalleryDto } from './dto/create-hidden-gallery.dto';
 
 @Injectable()
-export class GalleriesService {
+export class GalleriesService implements OnModuleInit {
   private readonly logger = new Logger(GalleriesService.name);
 
   constructor(
@@ -21,10 +29,23 @@ export class GalleriesService {
     private readonly photosRepository: Repository<GalleryPhotoEntity>,
     @InjectRepository(Booking)
     private readonly bookingsRepository: Repository<Booking>,
+    @InjectRepository(UserEntity)
+    private readonly usersRepository: Repository<UserEntity>,
     private readonly emailService: EmailService,
     private readonly storageService: StorageService,
     private readonly imageProcessorService: ImageProcessorService,
   ) {}
+
+  async onModuleInit() {
+    try {
+      await this.ensureSchema();
+    } catch (error) {
+      this.logger.error(
+        'Failed to ensure hidden-public gallery columns exist.',
+        error instanceof Error ? error.stack : String(error),
+      );
+    }
+  }
 
   async create(data: Partial<GalleryEntity>): Promise<GalleryEntity> {
     if (data.bookingId) {
@@ -49,6 +70,64 @@ export class GalleriesService {
     return this.galleriesRepository.save(gallery);
   }
 
+  async createHiddenPublicGallery(
+    data: CreateHiddenGalleryDto,
+  ): Promise<GalleryEntity> {
+    const normalizedEmail = data.clientEmail.trim().toLowerCase();
+    const normalizedName = data.clientName.trim();
+    const normalizedPhone = this.normalizePhone(data.clientPhone);
+
+    if (!normalizedName) {
+      throw new BadRequestException('Client name is required');
+    }
+
+    let client = await this.usersRepository.findOne({
+      where: { email: normalizedEmail },
+    });
+
+    if (!client) {
+      client = this.usersRepository.create({
+        supabaseId: randomUUID(),
+        email: normalizedEmail,
+        fullName: normalizedName,
+        phone: normalizedPhone,
+        role: UserRole.CLIENT,
+      });
+      client = await this.usersRepository.save(client);
+    } else {
+      if (client.role === UserRole.ADMIN) {
+        throw new BadRequestException(
+          'Cannot create a hidden client gallery for an admin email address',
+        );
+      }
+
+      const shouldUpdateName =
+        client.fullName.trim() !== normalizedName && normalizedName.length > 0;
+      const shouldUpdatePhone = normalizedPhone && client.phone !== normalizedPhone;
+
+      if (shouldUpdateName || shouldUpdatePhone) {
+        client.fullName = shouldUpdateName ? normalizedName : client.fullName;
+        client.phone = shouldUpdatePhone ? normalizedPhone : client.phone;
+        client = await this.usersRepository.save(client);
+      }
+    }
+
+    const publicAccessSlug = await this.generateUniquePublicAccessSlug();
+
+    const gallery = this.galleriesRepository.create({
+      title: data.title.trim(),
+      description: data.description?.trim() || null,
+      bookingId: null,
+      clientId: client.id,
+      status: GalleryStatus.PUBLISHED,
+      publishedAt: new Date(),
+      isHiddenPublic: true,
+      publicAccessSlug,
+    });
+
+    return this.galleriesRepository.save(gallery);
+  }
+
   async findAll(): Promise<GalleryEntity[]> {
     return this.galleriesRepository.find({
       relations: ['booking', 'client'],
@@ -62,19 +141,53 @@ export class GalleriesService {
       relations: ['photos', 'booking', 'client'],
     });
     if (gallery) {
-      this.hydratePhotoUrls(gallery);
+      this.hydrateGalleryMedia(gallery);
     }
     return gallery;
   }
 
+  async findHiddenPublicBySlug(slug: string): Promise<GalleryEntity | null> {
+    const gallery = await this.galleriesRepository.findOne({
+      where: {
+        publicAccessSlug: slug,
+        isHiddenPublic: true,
+        status: GalleryStatus.PUBLISHED,
+      },
+      relations: ['photos', 'client'],
+    });
+
+    if (gallery) {
+      this.hydrateGalleryMedia(gallery);
+    }
+
+    return gallery;
+  }
+
+  async canUserInteractWithHiddenGallery(
+    slug: string,
+    user: UserEntity,
+  ): Promise<{ gallery: GalleryEntity; allowed: boolean }> {
+    const gallery = await this.findHiddenPublicBySlug(slug);
+    if (!gallery) {
+      throw new NotFoundException(`Hidden gallery "${slug}" not found`);
+    }
+
+    const allowed =
+      user.role === UserRole.ADMIN ||
+      gallery.clientId === user.id ||
+      gallery.client?.email?.toLowerCase() === user.email.toLowerCase();
+
+    return { gallery, allowed };
+  }
+
   async findByClientId(clientId: string): Promise<GalleryEntity[]> {
     const galleries = await this.galleriesRepository.find({
-      where: { clientId },
+      where: { clientId, isHiddenPublic: false },
       relations: ['booking', 'photos'],
       order: { createdAt: 'DESC' },
     });
     for (const gallery of galleries) {
-      this.hydratePhotoUrls(gallery);
+      this.hydrateGalleryMedia(gallery);
     }
     return galleries;
   }
@@ -291,5 +404,59 @@ export class GalleriesService {
           : null;
       }
     }
+  }
+
+  private hydrateGalleryMedia(gallery: GalleryEntity): void {
+    this.hydratePhotoUrls(gallery);
+
+    const photos = gallery.photos || [];
+    const coverPhoto =
+      photos.find((photo) => photo.id === gallery.coverPhotoId) || photos[0];
+    (gallery as any).coverImage = coverPhoto
+      ? this.storageService.generatePublicUrl(coverPhoto.r2Key)
+      : null;
+  }
+
+  private normalizePhone(value?: string | null): string | null {
+    const digits = (value || '').replace(/\D/g, '');
+    if (!digits) return null;
+    return digits;
+  }
+
+  private async generateUniquePublicAccessSlug(): Promise<string> {
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      const slug = randomUUID().replace(/-/g, '');
+      const existing = await this.galleriesRepository.findOne({
+        where: { publicAccessSlug: slug },
+        select: ['id'],
+      });
+      if (!existing) {
+        return slug;
+      }
+    }
+
+    throw new BadRequestException(
+      'Failed to generate a unique hidden gallery link. Please try again.',
+    );
+  }
+
+  private async ensureSchema(): Promise<void> {
+    await this.galleriesRepository.query(`
+      ALTER TABLE galleries
+      ALTER COLUMN booking_id DROP NOT NULL;
+    `);
+    await this.galleriesRepository.query(`
+      ALTER TABLE galleries
+      ADD COLUMN IF NOT EXISTS is_hidden_public BOOLEAN NOT NULL DEFAULT false;
+    `);
+    await this.galleriesRepository.query(`
+      ALTER TABLE galleries
+      ADD COLUMN IF NOT EXISTS public_access_slug VARCHAR(64);
+    `);
+    await this.galleriesRepository.query(`
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_galleries_public_access_slug
+      ON galleries (public_access_slug)
+      WHERE public_access_slug IS NOT NULL;
+    `);
   }
 }

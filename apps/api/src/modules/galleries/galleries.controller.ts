@@ -18,6 +18,7 @@ import { UserRole } from '@winphotography/shared';
 import { GalleriesService } from './galleries.service';
 import { CreateGalleryDto } from './dto/create-gallery.dto';
 import { UpdateGalleryDto } from './dto/update-gallery.dto';
+import { CreateHiddenGalleryDto } from './dto/create-hidden-gallery.dto';
 import { SupabaseAuthGuard } from '../../common/guards/supabase-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
@@ -37,6 +38,18 @@ export class GalleriesController {
     return this.galleriesService.create(dto);
   }
 
+  @Post('private-link')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.ADMIN)
+  async createPrivateLinkGallery(@Body() dto: CreateHiddenGalleryDto) {
+    const gallery = await this.galleriesService.createHiddenPublicGallery(dto);
+    const publicPath = `/galleries/${gallery.publicAccessSlug}`;
+    return {
+      ...gallery,
+      publicPath,
+    };
+  }
+
   @Get()
   @UseGuards(RolesGuard)
   @Roles(UserRole.ADMIN)
@@ -49,6 +62,21 @@ export class GalleriesController {
   @Get('my')
   async findMyGalleries(@CurrentUser() user: UserEntity) {
     return this.galleriesService.findByClientId(user.id);
+  }
+
+  @Get('public/:slug/access')
+  async canAccessHiddenGalleryActions(
+    @Param('slug') slug: string,
+    @CurrentUser() user: UserEntity,
+  ) {
+    const { allowed } = await this.galleriesService.canUserInteractWithHiddenGallery(
+      slug,
+      user,
+    );
+
+    return {
+      allowed,
+    };
   }
 
   // Admin: generate presigned upload URL for R2

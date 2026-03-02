@@ -25,6 +25,7 @@ import {
   DEFAULT_BOOKING_TIMEZONE,
   formatBookingDateTime,
 } from "@/lib/booking-date-time";
+import { resolveMediaUrl } from "@/lib/media";
 
 interface ApiGallery {
   id: string;
@@ -35,6 +36,12 @@ interface ApiGallery {
   booking?: { id: string };
   createdAt: string;
   coverImage?: string;
+  photos?: Array<{
+    id: string;
+    url?: string;
+    thumbnailUrl?: string;
+    r2Key?: string;
+  }>;
 }
 
 interface ApiPayment {
@@ -124,7 +131,13 @@ export default function PortalDashboard() {
         date: g.publishedAt
           ? format(new Date(g.publishedAt), "MMMM d, yyyy")
           : format(new Date(g.createdAt), "MMMM d, yyyy"),
-        coverImage: g.coverImage || "",
+        coverImage: resolveMediaUrl(
+          g.coverImage ||
+            g.photos?.[0]?.url ||
+            g.photos?.[0]?.thumbnailUrl ||
+            g.photos?.[0]?.r2Key ||
+            "",
+        ),
         photoCount: g.photoCount || 0,
         status: mapGalleryStatus(g.status),
       }))

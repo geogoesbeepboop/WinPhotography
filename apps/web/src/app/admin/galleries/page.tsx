@@ -14,6 +14,8 @@ interface GalleryListItem {
   id: string;
   title: string;
   status: string;
+  isHiddenPublic?: boolean;
+  publicAccessSlug?: string | null;
   clientName?: string;
   client?: { fullName?: string };
   booking?: { eventTimezone?: string };
@@ -93,6 +95,11 @@ export default function AdminGalleries() {
                       <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-green-100 text-green-700" style={{ fontSize: "0.6rem" }}><Eye className="w-3 h-3" /> Published</span>
                     ) : (
                       <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-amber-100 text-amber-700" style={{ fontSize: "0.6rem" }}><EyeOff className="w-3 h-3" /> Draft</span>
+                    )}
+                    {gal.isHiddenPublic && (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-blue-100 text-blue-700" style={{ fontSize: "0.6rem" }}>
+                        Hidden Link
+                      </span>
                     )}
                   </div>
                   <div className="flex flex-wrap items-center gap-3 text-brand-main/40" style={{ fontSize: "0.75rem" }}>

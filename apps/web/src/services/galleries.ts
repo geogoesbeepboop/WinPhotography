@@ -8,6 +8,7 @@ export const galleryKeys = {
   all: ['galleries'] as const,
   list: () => [...galleryKeys.all, 'list'] as const,
   detail: (id: string) => [...galleryKeys.all, 'detail', id] as const,
+  publicDetail: (slug: string) => [...galleryKeys.all, 'public', slug] as const,
 };
 
 export function useGalleries() {
@@ -57,6 +58,26 @@ export function useCreateGallery() {
   });
 }
 
+export function useCreateHiddenPublicGallery() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (data: {
+      title: string;
+      description?: string;
+      clientName: string;
+      clientEmail: string;
+      clientPhone?: string;
+    }) => {
+      const { data: result } = await apiClient.post('/galleries/private-link', data);
+      return result;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: galleryKeys.list() });
+    },
+  });
+}
+
 export function useUpdateGallery() {
   const queryClient = useQueryClient();
 
@@ -94,6 +115,7 @@ export function useAddGalleryPhotos() {
     mutationFn: async ({
       id,
       photos,
+      suppressSuccessToast,
     }: {
       id: string;
       photos: Array<{
@@ -104,10 +126,13 @@ export function useAddGalleryPhotos() {
         width?: number;
         height?: number;
       }>;
+      suppressSuccessToast?: boolean;
     }) => {
       const { data } = await apiClient.post(`/galleries/${id}/photos`, {
         photos,
-      });
+      }, {
+        suppressSuccessToast,
+      } as any);
       return data;
     },
     onSuccess: (_data, variables) => {
@@ -138,5 +163,16 @@ export function useDeleteGalleryPhoto() {
       });
       queryClient.invalidateQueries({ queryKey: galleryKeys.list() });
     },
+  });
+}
+
+export function usePublicGalleryBySlug(slug: string) {
+  return useQuery({
+    queryKey: galleryKeys.publicDetail(slug),
+    queryFn: async () => {
+      const { data } = await apiClient.get(`/galleries/public/${slug}`);
+      return data;
+    },
+    enabled: !!slug,
   });
 }

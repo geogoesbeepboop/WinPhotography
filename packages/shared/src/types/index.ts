@@ -5,6 +5,7 @@ export type {
   Gallery,
   GalleryPhoto,
   CreateGalleryDto,
+  CreateHiddenGalleryDto,
   UpdateGalleryDto,
 } from './gallery.types';
 export type { Payment, CreatePaymentCheckoutDto } from './payment.types';

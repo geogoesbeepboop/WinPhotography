@@ -21,6 +21,7 @@ import {
 import { format } from "date-fns";
 import { ImageWithFallback } from "@/components/shared/image-with-fallback";
 import { useGallery } from "@/services/galleries";
+import { resolveMediaUrl } from "@/lib/media";
 
 interface ApiPhoto {
   id: string;
@@ -40,6 +41,59 @@ interface ApiGallery {
   photoCount?: number;
   photos?: ApiPhoto[];
   estimatedDelivery?: string;
+}
+
+const DOWNLOAD_EXTENSION_BY_MIME: Record<string, string> = {
+  "image/jpeg": "jpg",
+  "image/png": "png",
+  "image/webp": "webp",
+  "image/gif": "gif",
+  "image/avif": "avif",
+};
+
+function hasFileExtension(filename: string): boolean {
+  return /\.[a-z0-9]{2,8}$/i.test(filename.trim());
+}
+
+function getExtensionFromUrl(url: string): string | null {
+  try {
+    const pathname = new URL(url).pathname;
+    const match = pathname.match(/\.([a-z0-9]{2,8})$/i);
+    return match?.[1]?.toLowerCase() || null;
+  } catch {
+    return null;
+  }
+}
+
+function resolveDownloadFilename(
+  filename: string,
+  url: string,
+  response: Response,
+): string {
+  const trimmed = filename.trim() || "photo";
+  if (hasFileExtension(trimmed)) return trimmed;
+
+  const contentType = response.headers
+    .get("content-type")
+    ?.split(";")[0]
+    .trim()
+    .toLowerCase();
+  const extFromMime = contentType ? DOWNLOAD_EXTENSION_BY_MIME[contentType] : null;
+  const extFromUrl = getExtensionFromUrl(url);
+  const ext = extFromMime || extFromUrl;
+  return ext ? `${trimmed}.${ext}` : trimmed;
+}
+
+function triggerBrowserDownload(blob: Blob, filename: string): void {
+  const blobUrl = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = blobUrl;
+  anchor.download = filename;
+  anchor.rel = "noopener";
+  document.body.appendChild(anchor);
+  anchor.click();
+  document.body.removeChild(anchor);
+  setTimeout(() => URL.revokeObjectURL(blobUrl), 1500);
 }
 
 
@@ -62,7 +116,7 @@ export default function PortalGallery() {
       const status = mapGalleryStatus(g.status);
       const photos = (g.photos || []).map((p: ApiPhoto) => ({
         id: p.id,
-        url: p.url || p.r2Key || "",
+        url: resolveMediaUrl(p.url || p.r2Key || ""),
         favorite: p.isFavorite || false,
         filename: p.filename,
       }));
@@ -151,18 +205,20 @@ export default function PortalGallery() {
   const handleDownloadPhoto = async (photo: { url: string; filename: string; id: string }) => {
     setDownloadingPhoto(photo.id);
     try {
+      if (!photo.url) {
+        throw new Error("Missing photo URL");
+      }
       const response = await fetch(photo.url);
+      if (!response.ok) {
+        throw new Error("Failed to fetch photo");
+      }
       const blob = await response.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = photo.filename;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
+      const downloadName = resolveDownloadFilename(photo.filename, photo.url, response);
+      triggerBrowserDownload(blob, downloadName);
     } catch {
-      window.open(photo.url, "_blank");
+      if (photo.url) {
+        window.open(photo.url, "_blank", "noopener,noreferrer");
+      }
     }
     setTimeout(() => setDownloadingPhoto(null), 500);
   };
@@ -174,16 +230,16 @@ export default function PortalGallery() {
     for (let i = 0; i < total; i++) {
       const photo = gallery.photos[i];
       try {
+        if (!photo.url) {
+          throw new Error("Missing photo URL");
+        }
         const response = await fetch(photo.url);
+        if (!response.ok) {
+          throw new Error("Failed to fetch photo");
+        }
         const blob = await response.blob();
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = photo.filename;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
+        const downloadName = resolveDownloadFilename(photo.filename, photo.url, response);
+        triggerBrowserDownload(blob, downloadName);
       } catch {
         // skip failed downloads
       }

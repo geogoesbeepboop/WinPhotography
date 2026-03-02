@@ -16,6 +16,7 @@ import {
 import { useBookings } from "@/services/bookings";
 import {
   useCreateGallery,
+  useCreateHiddenPublicGallery,
   useAddGalleryPhotos,
 } from "@/services/galleries";
 import { uploadGalleryPhoto } from "@/services/upload";
@@ -60,14 +61,19 @@ function AdminGalleryNewContent() {
   const { data: bookings = [], isLoading: bookingsLoading } = useBookings();
   const { data: eventTypes = [] } = useEventTypes();
   const createGallery = useCreateGallery();
+  const createHiddenPublicGallery = useCreateHiddenPublicGallery();
   const addGalleryPhotos = useAddGalleryPhotos();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const submitGuardRef = useRef(false);
 
+  const [mode, setMode] = useState<"booking" | "hidden-public">("booking");
   const [form, setForm] = useState({
     bookingId: preselectedBooking,
     title: "",
     notes: "",
+    clientName: "",
+    clientEmail: "",
+    clientPhone: "",
   });
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [previews, setPreviews] = useState<string[]>([]);
@@ -125,14 +131,41 @@ function AdminGalleryNewContent() {
     setPreviews((previous) => previous.filter((_, fileIndex) => fileIndex !== index));
   };
 
-  const isPending = createGallery.isPending || addGalleryPhotos.isPending || isUploading;
+  const isPending =
+    createGallery.isPending ||
+    createHiddenPublicGallery.isPending ||
+    addGalleryPhotos.isPending ||
+    isUploading;
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     if (submitGuardRef.current) return;
 
-    if (!form.bookingId || !form.title) {
-      setError("Please select a booking and enter a title.");
+    if (!form.title.trim()) {
+      setError("Please enter a gallery title.");
+      return;
+    }
+
+    if (mode === "booking" && !form.bookingId) {
+      setError("Please select a booking.");
+      return;
+    }
+
+    if (mode === "hidden-public") {
+      if (!form.clientName.trim() || !form.clientEmail.trim()) {
+        setError("Please provide client name and email.");
+        return;
+      }
+
+      const phoneDigits = form.clientPhone.replace(/\D/g, "");
+      if (form.clientPhone && phoneDigits.length > 0 && phoneDigits.length < 10) {
+        setError("Please provide a valid phone number or leave it blank.");
+        return;
+      }
+    }
+
+    if (mode === "booking" && !form.bookingId && availableBookings.length === 0) {
+      setError("No eligible bookings are available for gallery creation.");
       return;
     }
 
@@ -140,11 +173,20 @@ function AdminGalleryNewContent() {
     setError("");
 
     try {
-      const createdGallery = await createGallery.mutateAsync({
-        bookingId: form.bookingId,
-        title: form.title,
-        description: form.notes || undefined,
-      });
+      const createdGallery =
+        mode === "booking"
+          ? await createGallery.mutateAsync({
+              bookingId: form.bookingId,
+              title: form.title.trim(),
+              description: form.notes || undefined,
+            })
+          : await createHiddenPublicGallery.mutateAsync({
+              title: form.title.trim(),
+              description: form.notes || undefined,
+              clientName: form.clientName.trim(),
+              clientEmail: form.clientEmail.trim().toLowerCase(),
+              clientPhone: form.clientPhone.replace(/\D/g, "") || undefined,
+            });
 
       const galleryId = createdGallery.id as string;
 
@@ -172,10 +214,18 @@ function AdminGalleryNewContent() {
           });
         }
 
-        await addGalleryPhotos.mutateAsync({ id: galleryId, photos: photoRecords });
+        await addGalleryPhotos.mutateAsync({
+          id: galleryId,
+          photos: photoRecords,
+          suppressSuccessToast: true,
+        });
       }
 
-      router.push(`/admin/galleries/${galleryId}`);
+      const publicPath = (createdGallery as any).publicPath as string | undefined;
+      const queryString = publicPath
+        ? `?publicPath=${encodeURIComponent(publicPath)}`
+        : "";
+      router.push(`/admin/galleries/${galleryId}${queryString}`);
     } catch (submitError: any) {
       const message =
         submitError?.response?.data?.message ||
@@ -217,49 +267,141 @@ function AdminGalleryNewContent() {
           Create Gallery
         </h1>
         <p className="text-brand-main/50 mb-8" style={{ fontSize: "0.9rem" }}>
-          Set up a new photo gallery for a client booking and upload photos in one flow.
+          Create a booking gallery or a hidden public-link gallery, then upload photos in one flow.
         </p>
 
         <form onSubmit={handleSubmit} className="max-w-3xl space-y-6">
           <div className="bg-white border border-brand-main/8 p-6 space-y-5">
             <div>
-              <label className="block text-brand-main mb-1.5 tracking-[0.05em]" style={{ fontSize: "0.75rem" }}>Booking *</label>
-              <select
-                value={form.bookingId}
-                onChange={(event) => {
-                  const booking = availableBookings.find((option) => option.id === event.target.value);
-                  const clientName = booking ? (booking.clientName || booking.client?.fullName || "") : "";
-                  const bookingType = booking
-                    ? (getEventTypeLabel(booking.eventType, eventTypeOptions) || booking.packageName || "")
-                    : "";
-                  setForm((previous) => ({
-                    ...previous,
-                    bookingId: event.target.value,
-                    title: booking ? `${bookingType} - ${clientName}` : "",
-                  }));
-                }}
-                className="w-full px-4 py-3 bg-brand-secondary border border-brand-main/10 text-brand-main focus:outline-none focus:border-brand-tertiary transition-colors"
-                style={{ fontSize: "0.9rem" }}
-                required
-              >
-                <option value="">Select a booking...</option>
-                {availableBookings.map((booking) => (
-                  <option key={booking.id} value={booking.id}>
-                    {booking.clientName || booking.client?.fullName || "Unknown"} — {getEventTypeLabel(booking.eventType, eventTypeOptions) || booking.packageName || ""} ({formatBookingDateTime(booking.eventDate || booking.date, booking.eventTime || booking.time, booking.eventTimezone || DEFAULT_BOOKING_TIMEZONE) || booking.date || booking.eventDate || ""})
-                  </option>
-                ))}
-              </select>
+              <label className="block text-brand-main mb-1.5 tracking-[0.05em]" style={{ fontSize: "0.75rem" }}>
+                Gallery Type
+              </label>
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setMode("booking")}
+                  className={`px-4 py-2 tracking-[0.08em] uppercase transition-colors ${
+                    mode === "booking"
+                      ? "bg-brand-main text-brand-secondary"
+                      : "border border-brand-main/15 text-brand-main/60 hover:text-brand-main"
+                  }`}
+                  style={{ fontSize: "0.65rem" }}
+                >
+                  Booking Gallery
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMode("hidden-public")}
+                  className={`px-4 py-2 tracking-[0.08em] uppercase transition-colors ${
+                    mode === "hidden-public"
+                      ? "bg-brand-main text-brand-secondary"
+                      : "border border-brand-main/15 text-brand-main/60 hover:text-brand-main"
+                  }`}
+                  style={{ fontSize: "0.65rem" }}
+                >
+                  Hidden Public Link
+                </button>
+              </div>
+              <p className="text-brand-main/40 mt-2" style={{ fontSize: "0.72rem" }}>
+                {mode === "booking"
+                  ? "Use this for existing bookings."
+                  : "Create an invite-only public link gallery tied to client contact details."}
+              </p>
             </div>
 
-            {selectedBooking && (
-              <div className="p-4 bg-brand-secondary/50 border border-brand-main/6">
-                <p className="text-brand-main" style={{ fontSize: "0.85rem" }}>
-                  {selectedBooking.clientName || selectedBooking.client?.fullName || "Unknown"}
-                </p>
-                <p className="text-brand-main/40" style={{ fontSize: "0.75rem" }}>
-                  {getEventTypeLabel(selectedBooking.eventType, eventTypeOptions) || selectedBooking.packageName || ""} · {formatBookingDateTime(selectedBooking.eventDate || selectedBooking.date, selectedBooking.eventTime || selectedBooking.time, selectedBooking.eventTimezone || DEFAULT_BOOKING_TIMEZONE) || selectedBooking.date || selectedBooking.eventDate || ""} · {selectedBooking.location || selectedBooking.eventLocation || ""}
-                </p>
-              </div>
+            {mode === "booking" ? (
+              <>
+                <div>
+                  <label className="block text-brand-main mb-1.5 tracking-[0.05em]" style={{ fontSize: "0.75rem" }}>Booking *</label>
+                  <select
+                    value={form.bookingId}
+                    onChange={(event) => {
+                      const booking = availableBookings.find((option) => option.id === event.target.value);
+                      const clientName = booking ? (booking.clientName || booking.client?.fullName || "") : "";
+                      const bookingType = booking
+                        ? (getEventTypeLabel(booking.eventType, eventTypeOptions) || booking.packageName || "")
+                        : "";
+                      setForm((previous) => ({
+                        ...previous,
+                        bookingId: event.target.value,
+                        title: booking ? `${bookingType} - ${clientName}` : "",
+                      }));
+                    }}
+                    className="w-full px-4 py-3 bg-brand-secondary border border-brand-main/10 text-brand-main focus:outline-none focus:border-brand-tertiary transition-colors"
+                    style={{ fontSize: "0.9rem" }}
+                    required={mode === "booking"}
+                  >
+                    <option value="">Select a booking...</option>
+                    {availableBookings.map((booking) => (
+                      <option key={booking.id} value={booking.id}>
+                        {booking.clientName || booking.client?.fullName || "Unknown"} — {getEventTypeLabel(booking.eventType, eventTypeOptions) || booking.packageName || ""} ({formatBookingDateTime(booking.eventDate || booking.date, booking.eventTime || booking.time, booking.eventTimezone || DEFAULT_BOOKING_TIMEZONE) || booking.date || booking.eventDate || ""})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {selectedBooking && (
+                  <div className="p-4 bg-brand-secondary/50 border border-brand-main/6">
+                    <p className="text-brand-main" style={{ fontSize: "0.85rem" }}>
+                      {selectedBooking.clientName || selectedBooking.client?.fullName || "Unknown"}
+                    </p>
+                    <p className="text-brand-main/40" style={{ fontSize: "0.75rem" }}>
+                      {getEventTypeLabel(selectedBooking.eventType, eventTypeOptions) || selectedBooking.packageName || ""} · {formatBookingDateTime(selectedBooking.eventDate || selectedBooking.date, selectedBooking.eventTime || selectedBooking.time, selectedBooking.eventTimezone || DEFAULT_BOOKING_TIMEZONE) || selectedBooking.date || selectedBooking.eventDate || ""} · {selectedBooking.location || selectedBooking.eventLocation || ""}
+                    </p>
+                  </div>
+                )}
+              </>
+            ) : (
+              <>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-brand-main mb-1.5 tracking-[0.05em]" style={{ fontSize: "0.75rem" }}>
+                      Client Name *
+                    </label>
+                    <input
+                      type="text"
+                      value={form.clientName}
+                      onChange={(event) =>
+                        setForm((previous) => ({ ...previous, clientName: event.target.value }))
+                      }
+                      className="w-full px-4 py-3 bg-brand-secondary border border-brand-main/10 text-brand-main focus:outline-none focus:border-brand-tertiary transition-colors"
+                      style={{ fontSize: "0.9rem" }}
+                      required={mode === "hidden-public"}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-brand-main mb-1.5 tracking-[0.05em]" style={{ fontSize: "0.75rem" }}>
+                      Client Email *
+                    </label>
+                    <input
+                      type="email"
+                      value={form.clientEmail}
+                      onChange={(event) =>
+                        setForm((previous) => ({ ...previous, clientEmail: event.target.value }))
+                      }
+                      className="w-full px-4 py-3 bg-brand-secondary border border-brand-main/10 text-brand-main focus:outline-none focus:border-brand-tertiary transition-colors"
+                      style={{ fontSize: "0.9rem" }}
+                      required={mode === "hidden-public"}
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-brand-main mb-1.5 tracking-[0.05em]" style={{ fontSize: "0.75rem" }}>
+                    Client Phone (optional)
+                  </label>
+                  <input
+                    type="tel"
+                    value={form.clientPhone}
+                    onChange={(event) =>
+                      setForm((previous) => ({ ...previous, clientPhone: event.target.value }))
+                    }
+                    placeholder="5551234567"
+                    className="w-full px-4 py-3 bg-brand-secondary border border-brand-main/10 text-brand-main focus:outline-none focus:border-brand-tertiary transition-colors"
+                    style={{ fontSize: "0.9rem" }}
+                  />
+                </div>
+              </>
             )}
 
             <div>
@@ -270,7 +412,11 @@ function AdminGalleryNewContent() {
                 type="text"
                 value={form.title}
                 onChange={(event) => setForm((previous) => ({ ...previous, title: event.target.value }))}
-                placeholder="e.g. Wedding Day, Engagement Session"
+                placeholder={
+                  mode === "booking"
+                    ? "e.g. Wedding Day, Engagement Session"
+                    : "e.g. Sneak Peek - Yosemite Session"
+                }
                 className="w-full px-4 py-3 bg-brand-secondary border border-brand-main/10 text-brand-main focus:outline-none focus:border-brand-tertiary transition-colors"
                 style={{ fontSize: "0.9rem" }}
                 required
@@ -390,7 +536,8 @@ function AdminGalleryNewContent() {
                 </>
               ) : (
                 <>
-                  <Save className="w-3.5 h-3.5" /> Create Gallery
+                  <Save className="w-3.5 h-3.5" />
+                  {mode === "hidden-public" ? "Create Hidden Gallery" : "Create Gallery"}
                 </>
               )}
             </button>
@@ -405,7 +552,7 @@ function AdminGalleryNewContent() {
         </form>
       </motion.div>
 
-      {!bookingsLoading && availableBookings.length === 0 && (
+      {!bookingsLoading && availableBookings.length === 0 && mode === "booking" && (
         <div className="mt-10 bg-white border border-brand-main/8 p-8 text-center">
           <ImageIcon className="w-8 h-8 text-brand-main/15 mx-auto mb-3" />
           <p className="text-brand-main/45" style={{ fontSize: "0.9rem" }}>

@@ -1,10 +1,10 @@
 "use client";
 
 import { useState, useRef } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { motion } from "motion/react";
-import { ArrowLeft, Upload, Eye, EyeOff, Image, X, Loader2 } from "lucide-react";
+import { ArrowLeft, Upload, Eye, EyeOff, Image, X, Loader2, Copy, Check, ExternalLink } from "lucide-react";
 import { useGallery, usePublishGallery, useAddGalleryPhotos, useDeleteGalleryPhoto, useUpdateGallery } from "@/services/galleries";
 import { useCreatePortfolioItem } from "@/services/portfolio";
 import { uploadGalleryPhoto } from "@/services/upload";
@@ -38,6 +38,8 @@ interface GalleryDetails {
   title: string;
   description?: string | null;
   status: string;
+  isHiddenPublic?: boolean;
+  publicAccessSlug?: string | null;
   clientName?: string;
   client?: { fullName?: string };
   booking?: { id?: string; eventType?: string; eventDate?: string };
@@ -46,6 +48,7 @@ interface GalleryDetails {
 
 export default function AdminGalleryDetail() {
   const { id } = useParams();
+  const searchParams = useSearchParams();
   const { data: galleryData, isLoading } = useGallery(id as string);
   const publishGallery = usePublishGallery();
   const addPhotos = useAddGalleryPhotos();
@@ -61,6 +64,7 @@ export default function AdminGalleryDetail() {
   const [portfolioSyncMessage, setPortfolioSyncMessage] = useState("");
   const [portfolioSyncError, setPortfolioSyncError] = useState("");
   const [isDuplicating, setIsDuplicating] = useState(false);
+  const [publicLinkCopied, setPublicLinkCopied] = useState(false);
 
   if (isLoading) {
     return (
@@ -91,6 +95,13 @@ export default function AdminGalleryDetail() {
   const published = gallery.status === "published";
   const clientName = gallery.clientName || gallery.client?.fullName || "Unknown";
   const photos = gallery.photos || [];
+  const pathFromQuery = searchParams.get("publicPath");
+  const hiddenPublicPath =
+    pathFromQuery || (gallery.publicAccessSlug ? `/galleries/${gallery.publicAccessSlug}` : null);
+  const hiddenPublicUrl =
+    hiddenPublicPath && typeof window !== "undefined"
+      ? `${window.location.origin}${hiddenPublicPath}`
+      : hiddenPublicPath;
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
@@ -197,6 +208,17 @@ export default function AdminGalleryDetail() {
 
   const portfolioPending = createPortfolioItem.isPending || isDuplicating;
 
+  const copyPublicLink = async () => {
+    if (!hiddenPublicUrl) return;
+    try {
+      await navigator.clipboard.writeText(hiddenPublicUrl);
+      setPublicLinkCopied(true);
+      setTimeout(() => setPublicLinkCopied(false), 1800);
+    } catch {
+      // Ignore clipboard failures.
+    }
+  };
+
   return (
     <div>
       <Link href="/admin/galleries" className="inline-flex items-center gap-2 text-brand-main/40 hover:text-brand-main transition-colors mb-6" style={{ fontSize: "0.8rem" }}>
@@ -266,6 +288,40 @@ export default function AdminGalleryDetail() {
             >
               {portfolioSyncError || portfolioSyncMessage}
             </p>
+          </div>
+        )}
+
+        {gallery.isHiddenPublic && hiddenPublicPath && (
+          <div className="mb-6 bg-white border border-brand-main/8 p-4 space-y-3">
+            <p className="text-brand-main uppercase tracking-[0.08em]" style={{ fontSize: "0.68rem" }}>
+              Hidden Public Link
+            </p>
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="flex-1 min-w-[260px] px-3 py-2 bg-brand-secondary border border-brand-main/10 text-brand-main/70 break-all" style={{ fontSize: "0.76rem" }}>
+                {hiddenPublicPath}
+              </div>
+              <button
+                type="button"
+                onClick={copyPublicLink}
+                className="inline-flex items-center gap-1.5 px-3 py-2 border border-brand-main/15 text-brand-main/70 hover:text-brand-main hover:border-brand-main/30 transition-colors"
+                style={{ fontSize: "0.68rem" }}
+              >
+                {publicLinkCopied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                {publicLinkCopied ? "Copied" : "Copy Link"}
+              </button>
+              {hiddenPublicUrl && (
+                <a
+                  href={hiddenPublicUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-1.5 px-3 py-2 border border-brand-main/15 text-brand-main/70 hover:text-brand-main hover:border-brand-main/30 transition-colors"
+                  style={{ fontSize: "0.68rem" }}
+                >
+                  <ExternalLink className="w-3.5 h-3.5" />
+                  Open
+                </a>
+              )}
+            </div>
           </div>
         )}
 

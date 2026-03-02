@@ -129,7 +129,7 @@ END $$;
 -- galleries
 CREATE TABLE IF NOT EXISTS galleries (
     id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    booking_id      UUID NOT NULL REFERENCES bookings(id) ON DELETE CASCADE,
+    booking_id      UUID REFERENCES bookings(id) ON DELETE SET NULL,
     client_id       UUID NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
     title           VARCHAR(255) NOT NULL,
     description     TEXT,
@@ -139,6 +139,8 @@ CREATE TABLE IF NOT EXISTS galleries (
     total_size_bytes BIGINT NOT NULL DEFAULT 0,
     published_at    TIMESTAMPTZ,
     expires_at      TIMESTAMPTZ,
+    is_hidden_public BOOLEAN NOT NULL DEFAULT false,
+    public_access_slug VARCHAR(64),
     created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -146,6 +148,7 @@ CREATE TABLE IF NOT EXISTS galleries (
 CREATE INDEX IF NOT EXISTS idx_galleries_client_id ON galleries(client_id);
 CREATE INDEX IF NOT EXISTS idx_galleries_booking_id ON galleries(booking_id);
 CREATE INDEX IF NOT EXISTS idx_galleries_status ON galleries(status);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_galleries_public_access_slug ON galleries(public_access_slug) WHERE public_access_slug IS NOT NULL;
 
 -- gallery_photos
 CREATE TABLE IF NOT EXISTS gallery_photos (

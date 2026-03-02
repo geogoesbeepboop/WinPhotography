@@ -2,7 +2,7 @@ import { GalleryStatus } from '../enums';
 
 export interface Gallery {
   id: string;
-  bookingId: string;
+  bookingId: string | null;
   clientId: string;
   title: string;
   description: string | null;
@@ -12,6 +12,8 @@ export interface Gallery {
   totalSizeBytes: number;
   publishedAt: string | null;
   expiresAt: string | null;
+  isHiddenPublic: boolean;
+  publicAccessSlug: string | null;
   createdAt: string;
   updatedAt: string;
   photos?: GalleryPhoto[];
@@ -40,6 +42,14 @@ export interface CreateGalleryDto {
   bookingId: string;
   title: string;
   description?: string;
+}
+
+export interface CreateHiddenGalleryDto {
+  title: string;
+  description?: string;
+  clientName: string;
+  clientEmail: string;
+  clientPhone?: string;
 }
 
 export interface UpdateGalleryDto {

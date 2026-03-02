@@ -88,8 +88,17 @@ export class AuthService {
     }
 
     const existingLocal = await this.usersService.findByEmail(email);
-    if (existingLocal) {
+    if (existingLocal?.role === UserRole.ADMIN) {
       throw new ConflictException('An account with this email already exists. Please sign in.');
+    }
+
+    if (existingLocal) {
+      const { data: existingSupabaseData, error: existingSupabaseError } =
+        await this.supabaseAdmin.auth.admin.getUserById(existingLocal.supabaseId);
+
+      if (!existingSupabaseError && existingSupabaseData?.user) {
+        throw new ConflictException('An account with this email already exists. Please sign in.');
+      }
     }
 
     const { data: authData, error } = await this.supabaseAdmin.auth.admin.createUser({
@@ -115,13 +124,21 @@ export class AuthService {
     }
 
     try {
-      const localUser = await this.usersService.create({
-        supabaseId: authData.user.id,
-        email,
-        fullName,
-        phone,
-        role: UserRole.CLIENT,
-      });
+      const localUser = existingLocal
+        ? await this.usersService.update(existingLocal.id, {
+            supabaseId: authData.user.id,
+            email,
+            fullName,
+            phone,
+            role: UserRole.CLIENT,
+          })
+        : await this.usersService.create({
+            supabaseId: authData.user.id,
+            email,
+            fullName,
+            phone,
+            role: UserRole.CLIENT,
+          });
 
       return {
         id: localUser.id,
